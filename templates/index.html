@@ -3,26 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <title>Photo Database Results</title>
+
     <style>
+        /* Change the entire page background and default text color */
+        body {
+            background-color: #242424; /* Very dark grey background */
+            color: #f0f0f0;            /* Light grey/white text for contrast */
+            font-family: Arial, sans-serif;
+            margin: 0; 
+            padding: 20px;
+        }
+
         table, th, td {
-            border: 1px solid black;
+            border: 1px solid #555;    /* Change border color to contrast with dark bg */
             border-collapse: collapse;
             padding: 8px;
             text-align: left;
         }
+
         th {
-            background-color: #f2f2f2;
+            background-color: #444;    /* Slightly lighter grey for table headers */
+        }
+
+        .thumbnail { 
+            width: 400px; 
+            height: auto; 
+        }
+
+        .pagination a { 
+            margin: 0 5px; 
+            padding: 5px 10px; 
+            border: 1px solid #555; 
+            text-decoration: none;
+            color: #4da6ff; /* Blue color for links to stand out */
+        }
+        
+        .pagination .disabled { 
+            color: #777; /* Dim disabled links */
+            pointer-events: none; 
+            cursor: default; 
+            border: 1px solid #333; 
+        }
+
+        h1 {
+            color: #ffffff; /* Ensure main heading is bright white */
         }
     </style>
+
 </head>
+
 <body>
-    <h1>Photo Gallery Data</h1>
+    <h1>Photo Gallery Data (Page {{ page }} of {{ total_pages }})</h1>
 
     <table>
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Subject</th>
+                <th>Photo</th>
+                <th>Person</th>
+                <th>Format</th>
+                <th>Genre</th>
                 <th>Tags</th>
             </tr>
         </thead>
@@ -33,7 +72,6 @@
                 <td>
                     <img src="{{ url_for('static', filename='people/ig/people_known/' + photo['file']) }}" 
                          alt="{{ photo['file'] }}"
-                         width="500" 
                          class="thumbnail">
                 </td>
                 <td>{{ photo['people'] }}</td>
@@ -44,5 +82,21 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="{{ url_for('index', page=page - 1) }}">Previous</a>
+        {% else %}
+            <span class="disabled">Previous</span>
+        {% endif %}
+
+        {% if page < total_pages %}
+            <a href="{{ url_for('index', page=page + 1) }}">Next</a>
+        {% else %}
+            <span class="disabled">Next</span>
+        {% endif %}
+    </div>
+
 </body>
 </html>
