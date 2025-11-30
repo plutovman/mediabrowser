@@ -1,0 +1,16 @@
+{
+    "python.defaultInterpreterPath": "/home/vss/python/python3/venvs/Linux/ai2026/bin/python3",
+    "terminal.integrated.defaultProfile.linux": "tcsh",
+            "terminal.integrated.profiles.linux": {
+            "bash": {
+                "path": "bash",
+                "icon": "terminal-bash"
+            },
+            "tcsh": {
+                "path": "tcsh",
+                "icon": "terminal-bash"
+            }
+        },
+        "python-envs.defaultEnvManager": "ms-python.python:venv",
+        "python-envs.pythonProjects": []
+}

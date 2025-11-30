@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Photo Database Results</title>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Photo Gallery Data</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Subject</th>
+                <th>Tags</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Jinja loop to iterate over the 'photos' data passed from app.py -->
+            {% for photo in photos %}
+            <tr>
+                <td>
+                    <img src="{{ url_for('static', filename='people/ig/people_known/' + photo['file']) }}" 
+                         alt="{{ photo['file'] }}"
+                         width="500" 
+                         class="thumbnail">
+                </td>
+                <td>{{ photo['people'] }}</td>
+                <td>{{ photo['format'] }}</td>
+                <td>{{ photo['genre'] }}</td>
+                <td>{{ photo['tags'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
