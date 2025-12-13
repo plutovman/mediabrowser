@@ -2,6 +2,7 @@ import sqlite3
 import os
 import math
 from flask import Flask, render_template, request, url_for, abort
+import re
 
 depot_local = os.getenv('DEPOT_ALL')
 #path_base_media = os.path.join(depot_local, 'assetdepot', 'media', 'people', 'ig')
@@ -27,45 +28,52 @@ def get_db_connection():
 @app.route('/index')
 def index():
     conn = get_db_connection()
+
+    # Fetch random image for homepage
+    random_media = conn.execute('SELECT * FROM media ORDER BY RANDOM() LIMIT 1').fetchone()
+    random_image = None
+    if random_media:
+        random_dict = dict(random_media)
+        full_path = random_dict['file_path']
+        if full_path.startswith('$DEPOT_ALL'):
+            full_path = full_path.replace('$DEPOT_ALL', depot_local)
+        random_dict['absolute_path'] = full_path
+        relative_path = os.path.relpath(full_path, path_base_media)
+        random_dict['relative_path'] = relative_path
+        random_image = random_dict
+
     # Execute the query and fetch all results
 
     '''
     Note that the database schema for 'media' table is as follows:
         dict_media = {
-        'file' : '',
-        'path' : '',
-        'medium': '',
-        'format': [],
-        'resolution': [],
-        'length': '',
-        'genre' : [],
-        'category' : [],
-        'shot_size' : [],
-        'shot_type' : [],
-        'lighting' : [],
-        'setting' : [],
-        'people' : [],
-        'source' : '',
-        'source_id': [],
-        'tags' : [],
-        'captions' : [],
+        'file_name' : '',
+        'file_path' : '',
+        'file_type': '',
+        'file_format': '',
+        'file_resolution': '',
+        'file_duration': '',
+        'shot_size' : '',
+        'shot_type' : '',
+        'source': '',
+        'source_id': '',
+        'genre' : '',
+        'subject' : '',
+        'category' : '',
+        'lighting' : '',
+        'setting' : '',
+        'tags' : '',
+        'captions' : '',
     }
-    '''
-
-    '''
-    # we need to do some processing to expand the $DEPOT_ALL variable in the path
-    media_abs = []
-    for photo in media:
-        photo_dict = dict(photo)
-        photo_path = photo_dict['path']
-        if photo_path.startswith('$DEPOT_ALL'):
-            photo_path = photo_path.replace('$DEPOT_ALL', depot_local)
-        photo_dict['absolute_path'] = photo_path
-        media_abs.append(photo_dict)
     '''
 
     # 1. Determine the current page number
     search_query = request.args.get('query', '')
+    filter_type = request.args.get('filter', 'subject')
+    # Sanitize filter_type
+    allowed_filters = ['subject', 'captions', 'setting', 'lighting']
+    if filter_type not in allowed_filters:
+        filter_type = 'subject'
     try:
         page = int(request.args.get('page', 1))
     except ValueError:
@@ -89,15 +97,31 @@ def index():
 
     #######################################
     # --- Dynamic SQL Query ---
-    # We use a LIKE clause for partial matches in the subject field
-    if search_query:
+    # We use a LIKE clause for partial matches in the selected field
+    if filter_type == 'captions' and search_query:
+        # Special handling for captions: check if query is in any sentence (case-insensitive)
+        all_media = conn.execute('SELECT * FROM media ORDER BY id ASC').fetchall()
+        filtered = []
+        for item in all_media:
+            captions = item['captions'] or ''
+            sentences = [s.strip() for s in captions.split('.') if s.strip()]
+            for sentence in sentences:
+                if re.search(r'\b' + re.escape(search_query) + r'\b', sentence, re.IGNORECASE):
+                    filtered.append(item)
+                    break
+        total_media_count = len(filtered)
+        start = (page - 1) * PER_PAGE
+        end = start + PER_PAGE
+        media = filtered[start:end]
+        total_pages = math.ceil(total_media_count / PER_PAGE)
+    elif search_query:
         # The '%' signs are wildcards for the SQL LIKE operator
-        sql_query = 'SELECT * FROM media WHERE source_id LIKE ? ORDER BY id ASC LIMIT ? OFFSET ?'
+        sql_query = f'SELECT * FROM media WHERE {filter_type} LIKE ? ORDER BY id ASC LIMIT ? OFFSET ?'
         #sql_query_cnt = 'SELECT COUNT(*) FROM media WHERE source_id LIKE ?'
         # The parameters must be passed as a tuple
         params = ('%' + search_query + '%', PER_PAGE, offset)
         
-        count_sql = 'SELECT COUNT(*) FROM media WHERE source_id LIKE ?'
+        count_sql = f'SELECT COUNT(*) FROM media WHERE {filter_type} LIKE ?'
         count_params = ('%' + search_query + '%',)
 
     else:
@@ -108,8 +132,13 @@ def index():
         count_sql = 'SELECT COUNT(*) FROM media'
         count_params = ()
 
-    # Execute main query
-    media = conn.execute(sql_query, params).fetchall()
+    if not (filter_type == 'captions' and search_query):
+        # Execute main query
+        media = conn.execute(sql_query, params).fetchall()
+
+        # 3. Calculate total pages for navigation links
+        total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
+        total_pages = math.ceil(total_media_count / PER_PAGE)
 
     # Process media to compute relative paths for static serving
     media_list = []
@@ -128,12 +157,7 @@ def index():
 
     # 3. Calculate total pages for navigation links
     # Get total count of all records
-    #total_media_count = conn.execute(sql0, (ig_name,)).fetchone()[0]
-    total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
     conn.close()
-
-    # Calculate total number of pages needed (ceiling division)
-    total_pages = math.ceil(total_media_count / PER_PAGE)
 
     # Ensure the user isn't trying to access a page that doesn't exist
     #if page > total_pages > 0 or page < 1:
@@ -145,7 +169,9 @@ def index():
         media=media_list,
         page=page,
         total_pages=total_pages,
-        search_query=search_query # Pass the query back to the template
+        search_query=search_query,
+        filter_type=filter_type,
+        random_image=random_image
     )
 
     # Pass the query results to the template

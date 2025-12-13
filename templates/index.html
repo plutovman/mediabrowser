@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Photo Database Results</title>
+    <title>Media Gallery</title>
 
     <style>
         /* Change the entire page background and default text color */
@@ -27,13 +27,26 @@
         }
 
         .thumbnail { 
-            width: 200px; 
+            width: 300px; 
             height: auto; 
+        }
+
+        .random-image {
+            width: 400px;
+            height: auto;
+            display: block;
+            margin: 20px auto;
+        }
+
+        .search-form {
+            text-align: center;
+            margin: 20px 0;
         }
 
         .pagination {
             margin-top: 20px;    /* Adds space above the buttons */
             margin-bottom: 20px; /* Adds space below the buttons */
+            text-align: center;
         } 
 
         .pagination a { 
@@ -53,6 +66,7 @@
 
         h1 {
             color: #ffffff; /* Ensure main heading is bright white */
+            text-align: center;
         }
 
         .modal {
@@ -88,11 +102,26 @@
 </head>
 
 <body>
-    <h1>Photo Gallery Data</h1>
+    <h1>Media Gallery</h1>
+
+    {% if page == 1 and not search_query and random_image %}
+    <div style="text-align: center;">
+        <img src="{{ url_for('static', filename=random_image['relative_path']) }}" 
+             alt="{{ random_image['file_name'] }}"
+             class="random-image thumbnail">
+        <p>{{ random_image['file_name'] }}</p>
+    </div>
+    {% endif %}
 
     <!-- Search Form -->
     <form class="search-form" method="GET" action="{{ url_for('index') }}">
-        <input type="text" name="query" placeholder="Search by subject..." value="{{ search_query }}">
+        <input type="text" name="query" placeholder="Search..." value="{{ search_query }}">
+        <br><br>
+        <label><input type="radio" name="filter" value="subject" {% if filter_type == 'subject' %}checked{% endif %}> Subject</label>
+        <label><input type="radio" name="filter" value="captions" {% if filter_type == 'captions' %}checked{% endif %}> Caption</label>
+        <label><input type="radio" name="filter" value="setting" {% if filter_type == 'setting' %}checked{% endif %}> Setting</label>
+        <label><input type="radio" name="filter" value="lighting" {% if filter_type == 'lighting' %}checked{% endif %}> Lighting</label>
+        <br><br>
         <button type="submit">Search</button>
         <!-- Add a "Clear Search" link if a query is active -->
         {% if search_query %}
@@ -100,18 +129,18 @@
         {% endif %}
     </form>
 
-    <p>{{ page }} of {{ total_pages }} (Total Records Found: {{ media|length }} on this page)</p>
+    <p style="text-align: center;">{{ page }} of {{ total_pages }} (Total Records Found: {{ media|length }} on this page)</p>
 
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('index', page=page - 1, query=search_query) }}">Previous</a>
+            <a href="{{ url_for('index', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('index', page=page + 1, query=search_query) }}">Next</a>
+            <a href="{{ url_for('index', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}
@@ -125,7 +154,7 @@
                 <th>Lighting</th>
                 <th>Setting</th>
                 <!--<th style="width: 5%;">Tags</th> -->
-                <th style="width: 40%;">Captions</th>
+                <th style="width: 40%;">Caption</th>
             </tr>
         </thead>
         <tbody>
@@ -151,13 +180,13 @@
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('index', page=page - 1, query=search_query) }}">Previous</a>
+            <a href="{{ url_for('index', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('index', page=page + 1, query=search_query) }}">Next</a>
+            <a href="{{ url_for('index', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}
