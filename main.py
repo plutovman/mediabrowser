@@ -80,6 +80,11 @@ def index():
         # If the page parameter is not a valid integer, return a 404
         abort(404)
 
+    # Special case for homepage: preload with random image's subject
+    if page == 1 and not search_query and random_image:
+        search_query = random_image['subject']
+        filter_type = 'subject'
+
     # Calculate OFFSET: how many records to skip
     offset = (page - 1) * PER_PAGE
     

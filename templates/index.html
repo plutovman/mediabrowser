@@ -102,9 +102,9 @@
 </head>
 
 <body>
-    <h1>Media Gallery</h1>
+    <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
 
-    {% if page == 1 and not search_query and random_image %}
+    {% if page == 1 and random_image %}
     <div style="text-align: center;">
         <img src="{{ url_for('static', filename=random_image['relative_path']) }}" 
              alt="{{ random_image['file_name'] }}"
