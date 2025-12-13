@@ -19,6 +19,7 @@
             border-collapse: collapse;
             padding: 8px;
             text-align: left;
+            width: auto;
         }
 
         th {
@@ -26,9 +27,14 @@
         }
 
         .thumbnail { 
-            width: 400px; 
+            width: 300px; 
             height: auto; 
         }
+
+        .pagination {
+            margin-top: 20px;    /* Adds space above the buttons */
+            margin-bottom: 20px; /* Adds space below the buttons */
+        } 
 
         .pagination a { 
             margin: 0 5px; 
@@ -53,31 +59,61 @@
 </head>
 
 <body>
-    <h1>Photo Gallery Data (Page {{ page }} of {{ total_pages }})</h1>
+    <h1>Photo Gallery Data</h1>
+
+    <!-- Search Form -->
+    <form class="search-form" method="GET" action="{{ url_for('index') }}">
+        <input type="text" name="query" placeholder="Search by subject..." value="{{ search_query }}">
+        <button type="submit">Search</button>
+        <!-- Add a "Clear Search" link if a query is active -->
+        {% if search_query %}
+            <a href="{{ url_for('index') }}">Clear Search</a>
+        {% endif %}
+    </form>
+
+    <p>{{ page }} of {{ total_pages }} (Total Records Found: {{ media|length }} on this page)</p>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="{{ url_for('index', page=page - 1, query=search_query) }}">Previous</a>
+        {% else %}
+            <span class="disabled">Previous</span>
+        {% endif %}
+
+        {% if page < total_pages %}
+            <a href="{{ url_for('index', page=page + 1, query=search_query) }}">Next</a>
+        {% else %}
+            <span class="disabled">Next</span>
+        {% endif %}
+    </div>
 
     <table>
         <thead>
             <tr>
                 <th>Photo</th>
-                <th>Person</th>
-                <th>Format</th>
-                <th>Genre</th>
-                <th>Tags</th>
+                <th>Subject</th>
+                <th>Lighting</th>
+                <th>Setting</th>
+                <!--<th style="width: 5%;">Tags</th> -->
+                <th style="width: 40%;">Captions</th>
             </tr>
         </thead>
         <tbody>
-            <!-- Jinja loop to iterate over the 'photos' data passed from app.py -->
-            {% for photo in photos %}
+            <!-- Jinja loop to iterate over the 'media' data passed from app.py -->
+            {% for photo in media %}
             <tr>
                 <td>
-                    <img src="{{ url_for('static', filename='people/ig/people_known/' + photo['file']) }}" 
-                         alt="{{ photo['file'] }}"
+                    <img src="{{ url_for('static', filename='people/ig/people_known/' + photo['file_name']) }}" 
+                         alt="{{ photo['file_name'] }}"
                          class="thumbnail">
                 </td>
-                <td>{{ photo['people'] }}</td>
-                <td>{{ photo['format'] }}</td>
-                <td>{{ photo['genre'] }}</td>
-                <td>{{ photo['tags'] }}</td>
+                <!--specify width for each td -->
+                <td>{{ photo['subject'] }}</td>
+                <td>{{ photo['lighting'] }}</td>
+                <td>{{ photo['setting'] }}</td>
+                <!--<td>{{ photo['setting'] }}</td>-->
+                <td>{{ photo['captions'] }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -86,13 +122,13 @@
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('index', page=page - 1) }}">Previous</a>
+            <a href="{{ url_for('index', page=page - 1, query=search_query) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('index', page=page + 1) }}">Next</a>
+            <a href="{{ url_for('index', page=page + 1, query=search_query) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}

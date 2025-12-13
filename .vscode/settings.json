@@ -11,6 +11,6 @@
                 "icon": "terminal-bash"
             }
         },
-        "python-envs.defaultEnvManager": "ms-python.python:venv",
+        "python-envs.defaultEnvManager": "ms-python.python:system",
         "python-envs.pythonProjects": []
 }
