@@ -42,69 +42,42 @@ def index():
         random_dict['relative_path'] = relative_path
         random_image = random_dict
 
-    # Execute the query and fetch all results
+    conn.close()
 
-    '''
-    Note that the database schema for 'media' table is as follows:
-        dict_media = {
-        'file_name' : '',
-        'file_path' : '',
-        'file_type': '',
-        'file_format': '',
-        'file_resolution': '',
-        'file_duration': '',
-        'shot_size' : '',
-        'shot_type' : '',
-        'source': '',
-        'source_id': '',
-        'genre' : '',
-        'subject' : '',
-        'category' : '',
-        'lighting' : '',
-        'setting' : '',
-        'tags' : '',
-        'captions' : '',
-    }
-    '''
+    return render_template('index.html', random_image=random_image)
 
-    # 1. Determine the current page number
+@app.route('/search')
+def search():
+    conn = get_db_connection()
+
+    # Fetch random image for reference (optional)
+    random_media = conn.execute('SELECT * FROM media ORDER BY RANDOM() LIMIT 1').fetchone()
+    random_image = None
+    if random_media:
+        random_dict = dict(random_media)
+        full_path = random_dict['file_path']
+        if full_path.startswith('$DEPOT_ALL'):
+            full_path = full_path.replace('$DEPOT_ALL', depot_local)
+        random_dict['absolute_path'] = full_path
+        relative_path = os.path.relpath(full_path, path_base_media)
+        random_dict['relative_path'] = relative_path
+        random_image = random_dict
+
+    # Search logic (same as index)
     search_query = request.args.get('query', '')
     filter_type = request.args.get('filter', 'subject')
-    # Sanitize filter_type
     allowed_filters = ['subject', 'captions', 'setting', 'lighting']
     if filter_type not in allowed_filters:
         filter_type = 'subject'
     try:
         page = int(request.args.get('page', 1))
     except ValueError:
-        # If the page parameter is not a valid integer, return a 404
         abort(404)
 
-    # Special case for homepage: preload with random image's subject
-    if page == 1 and not search_query and random_image:
-        search_query = random_image['subject']
-        filter_type = 'subject'
-
-    # Calculate OFFSET: how many records to skip
     offset = (page - 1) * PER_PAGE
-    
-    # 2. Query the database using LIMIT and OFFSET
-    # We fetch only 10 rows starting from the calculated offset
-    '''
-    ig_name = 'snohaalegra'
-    sql0 = 'SELECT COUNT(*) FROM media WHERE source_id = ?' 
-    sql = 'SELECT * FROM media WHERE source_id = ? ORDER BY id ASC LIMIT ? OFFSET ?' 
 
-    media = conn.execute(
-        sql, (ig_name, PER_PAGE, offset)
-    ).fetchall()
-    '''
-
-    #######################################
-    # --- Dynamic SQL Query ---
-    # We use a LIKE clause for partial matches in the selected field
+    # Dynamic SQL Query
     if filter_type == 'captions' and search_query:
-        # Special handling for captions: check if query is in any sentence (case-insensitive)
         all_media = conn.execute('SELECT * FROM media ORDER BY id ASC').fetchall()
         filtered = []
         for item in all_media:
@@ -120,28 +93,20 @@ def index():
         media = filtered[start:end]
         total_pages = math.ceil(total_media_count / PER_PAGE)
     elif search_query:
-        # The '%' signs are wildcards for the SQL LIKE operator
         sql_query = f'SELECT * FROM media WHERE {filter_type} LIKE ? ORDER BY id ASC LIMIT ? OFFSET ?'
-        #sql_query_cnt = 'SELECT COUNT(*) FROM media WHERE source_id LIKE ?'
-        # The parameters must be passed as a tuple
         params = ('%' + search_query + '%', PER_PAGE, offset)
-        
         count_sql = f'SELECT COUNT(*) FROM media WHERE {filter_type} LIKE ?'
         count_params = ('%' + search_query + '%',)
-
+        media = conn.execute(sql_query, params).fetchall()
+        total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
+        total_pages = math.ceil(total_media_count / PER_PAGE)
     else:
-        # Default query if no search term is present
+        # Default: show all
         sql_query = 'SELECT * FROM media ORDER BY id ASC LIMIT ? OFFSET ?'
         params = (PER_PAGE, offset)
-        
         count_sql = 'SELECT COUNT(*) FROM media'
         count_params = ()
-
-    if not (filter_type == 'captions' and search_query):
-        # Execute main query
         media = conn.execute(sql_query, params).fetchall()
-
-        # 3. Calculate total pages for navigation links
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
         total_pages = math.ceil(total_media_count / PER_PAGE)
 
@@ -153,24 +118,17 @@ def index():
         if full_path.startswith('$DEPOT_ALL'):
             full_path = full_path.replace('$DEPOT_ALL', depot_local)
         item_dict['absolute_path'] = full_path
-        # Compute relative path from static folder
         relative_path = os.path.relpath(full_path, path_base_media)
         item_dict['relative_path'] = relative_path
         media_list.append(item_dict)
 
-    #######################################
-
-    # 3. Calculate total pages for navigation links
-    # Get total count of all records
     conn.close()
 
-    # Ensure the user isn't trying to access a page that doesn't exist
-    #if page > total_pages > 0 or page < 1:
     if total_pages > 0 and (page > total_pages or page < 1):
-         abort(404)
+        abort(404)
 
     return render_template(
-        'index.html', 
+        'search.html', 
         media=media_list,
         page=page,
         total_pages=total_pages,
@@ -178,9 +136,24 @@ def index():
         filter_type=filter_type,
         random_image=random_image
     )
+    conn = get_db_connection()
 
-    # Pass the query results to the template
-    #return render_template('index.html', media=media)
+    # Fetch random image for homepage
+    random_media = conn.execute('SELECT * FROM media ORDER BY RANDOM() LIMIT 1').fetchone()
+    random_image = None
+    if random_media:
+        random_dict = dict(random_media)
+        full_path = random_dict['file_path']
+        if full_path.startswith('$DEPOT_ALL'):
+            full_path = full_path.replace('$DEPOT_ALL', depot_local)
+        random_dict['absolute_path'] = full_path
+        relative_path = os.path.relpath(full_path, path_base_media)
+        random_dict['relative_path'] = relative_path
+        random_image = random_dict
+
+    conn.close()
+
+    return render_template('index.html', random_image=random_image)
 
 if __name__ == '__main__':
     app.run(debug=True)

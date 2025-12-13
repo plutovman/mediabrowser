@@ -31,13 +31,6 @@
             height: auto; 
         }
 
-        .random-image {
-            width: 400px;
-            height: auto;
-            display: block;
-            margin: 20px auto;
-        }
-
         .search-form {
             text-align: center;
             margin: 20px 0;
@@ -104,26 +97,82 @@
 <body>
     <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
 
-    {% if random_image %}
-    <div style="text-align: center;">
-        <img src="{{ url_for('static', filename=random_image['relative_path']) }}" 
-             alt="{{ random_image['file_name'] }}"
-             class="random-image thumbnail">
-        <p>{{ random_image['file_name'] }}</p>
-    </div>
-    {% endif %}
-
     <!-- Search Form -->
     <form class="search-form" method="GET" action="{{ url_for('search') }}">
-        <input type="text" name="query" placeholder="Search..." value="{{ random_image['subject'] if random_image else '' }}">
+        <input type="text" name="query" placeholder="Search..." value="{{ search_query }}">
         <br><br>
-        <label><input type="radio" name="filter" value="subject" {% if random_image %}checked{% endif %}> Subject</label>
-        <label><input type="radio" name="filter" value="captions" > Captions</label>
-        <label><input type="radio" name="filter" value="setting" > Setting</label>
-        <label><input type="radio" name="filter" value="lighting" > Lighting</label>
+        <label><input type="radio" name="filter" value="subject" {% if filter_type == 'subject' %}checked{% endif %}> Subject</label>
+        <label><input type="radio" name="filter" value="captions" {% if filter_type == 'captions' %}checked{% endif %}> Captions</label>
+        <label><input type="radio" name="filter" value="setting" {% if filter_type == 'setting' %}checked{% endif %}> Setting</label>
+        <label><input type="radio" name="filter" value="lighting" {% if filter_type == 'lighting' %}checked{% endif %}> Lighting</label>
         <br><br>
         <button type="submit">Search</button>
+        <!-- Add a "Clear Search" link if a query is active -->
+        {% if search_query %}
+            <a href="{{ url_for('search') }}">Clear Search</a>
+        {% endif %}
     </form>
+
+    <p style="text-align: center;">{{ page }} of {{ total_pages }} (Total Records Found: {{ media|length }} on this page)</p>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
+        {% else %}
+            <span class="disabled">Previous</span>
+        {% endif %}
+
+        {% if page < total_pages %}
+            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
+        {% else %}
+            <span class="disabled">Next</span>
+        {% endif %}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Photo</th>
+                <th>Subject</th>
+                <th>Lighting</th>
+                <th>Setting</th>
+                <th style="width: 40%;">Captions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Jinja loop to iterate over the 'media' data passed from app.py -->
+            {% for photo in media %}
+            <tr>
+                <td>
+                    <img src="{{ url_for('static', filename=photo['relative_path']) }}" 
+                         alt="{{ photo['file_name'] }}"
+                         class="thumbnail">
+                </td>
+                <!--specify width for each td -->
+                <td>{{ photo['subject'] }}</td>
+                <td>{{ photo['lighting'] }}</td>
+                <td>{{ photo['setting'] }}</td>
+                <td>{{ photo['captions'] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
+        {% else %}
+            <span class="disabled">Previous</span>
+        {% endif %}
+
+        {% if page < total_pages %}
+            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
+        {% else %}
+            <span class="disabled">Next</span>
+        {% endif %}
+    </div>
 
     <!-- Modal for full-size image -->
     <div id="imageModal" class="modal">
