@@ -111,6 +111,19 @@ def index():
     # Execute main query
     media = conn.execute(sql_query, params).fetchall()
 
+    # Process media to compute relative paths for static serving
+    media_list = []
+    for item in media:
+        item_dict = dict(item)
+        full_path = item_dict['file_path']
+        if full_path.startswith('$DEPOT_ALL'):
+            full_path = full_path.replace('$DEPOT_ALL', depot_local)
+        item_dict['absolute_path'] = full_path
+        # Compute relative path from static folder
+        relative_path = os.path.relpath(full_path, path_base_media)
+        item_dict['relative_path'] = relative_path
+        media_list.append(item_dict)
+
     #######################################
 
     # 3. Calculate total pages for navigation links
@@ -129,7 +142,7 @@ def index():
 
     return render_template(
         'index.html', 
-        media=media,
+        media=media_list,
         page=page,
         total_pages=total_pages,
         search_query=search_query # Pass the query back to the template

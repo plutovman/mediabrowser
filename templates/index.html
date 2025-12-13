@@ -27,7 +27,7 @@
         }
 
         .thumbnail { 
-            width: 300px; 
+            width: 200px; 
             height: auto; 
         }
 
@@ -53,6 +53,36 @@
 
         h1 {
             color: #ffffff; /* Ensure main heading is bright white */
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
         }
     </style>
 
@@ -104,12 +134,12 @@
             {% for photo in media %}
             <tr>
                 <td>
-                    <img src="{{ url_for('static', filename='people/ig/people_known/' + photo['file_name']) }}" 
-                         alt="{{ photo['file_name'] }}"
+                    <img src="{{ url_for('static', filename=photo['relative_path']) }}" 
+                         alt="{{ photo['file'] }}"
                          class="thumbnail">
                 </td>
                 <!--specify width for each td -->
-                <td>{{ photo['subject'] }}</td>
+                <td>{{ photo['source_id'] }}</td>
                 <td>{{ photo['lighting'] }}</td>
                 <td>{{ photo['setting'] }}</td>
                 <!--<td>{{ photo['setting'] }}</td>-->
@@ -133,6 +163,36 @@
             <span class="disabled">Next</span>
         {% endif %}
     </div>
+
+    <!-- Modal for full-size image -->
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImg">
+    </div>
+
+    <script>
+        var modal = document.getElementById('imageModal');
+        var modalImg = document.getElementById('modalImg');
+        var closeBtn = document.getElementsByClassName('close')[0];
+
+        document.querySelectorAll('.thumbnail').forEach(img => {
+            img.onclick = function() {
+                modal.style.display = "flex";
+                modalImg.src = this.src;
+            }
+        });
+
+        closeBtn.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        // Close modal when clicking outside the image
+        modal.onclick = function(event) {
+            if (event.target === modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
 
 </body>
 </html>
