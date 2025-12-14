@@ -97,6 +97,10 @@
 <body>
     <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
 
+    <div style="position: absolute; top: 10px; right: 10px;">
+        <a href="{{ url_for('cart') }}">🛒 ({{ session.get('cart', [])|length }})</a>
+    </div>
+
     <!-- Search Form -->
     <form class="search-form" method="GET" action="{{ url_for('search') }}">
         <input type="text" name="query" placeholder="Search..." value="{{ search_query }}">
@@ -130,34 +134,43 @@
         {% endif %}
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Photo</th>
-                <th>Subject</th>
-                <th>Lighting</th>
-                <th>Setting</th>
-                <th style="width: 40%;">Captions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Jinja loop to iterate over the 'media' data passed from app.py -->
-            {% for photo in media %}
-            <tr>
-                <td>
-                    <img src="{{ url_for('static', filename=photo['relative_path']) }}" 
-                         alt="{{ photo['file_name'] }}"
-                         class="thumbnail">
-                </td>
-                <!--specify width for each td -->
-                <td>{{ photo['subject'] }}</td>
-                <td>{{ photo['lighting'] }}</td>
-                <td>{{ photo['setting'] }}</td>
-                <td>{{ photo['captions'] }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <form method="POST" action="{{ url_for('search') }}">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sel</th>
+                    <th>Photo</th>
+                    <th>Subject</th>
+                    <th>Lighting</th>
+                    <th>Setting</th>
+                    <th style="width: 40%;">Captions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Jinja loop to iterate over the 'media' data passed from app.py -->
+                {% for photo in media %}
+                <tr>
+                    <td><input type="checkbox" name="selected" value="{{ photo['file_id'] }}"></td>
+                    <td>
+                        <img src="{{ url_for('static', filename=photo['relative_path']) }}" 
+                             alt="{{ photo['file_name'] }}"
+                             class="thumbnail">
+                    </td>
+                    <!--specify width for each td -->
+                    <td>{{ photo['subject'] }}</td>
+                    <td>{{ photo['lighting'] }}</td>
+                    <td>{{ photo['setting'] }}</td>
+                    <td>{{ photo['captions'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <br>
+        <input type="hidden" name="query" value="{{ search_query }}">
+        <input type="hidden" name="filter" value="{{ filter_type }}">
+        <input type="hidden" name="page" value="{{ page }}">
+        <button type="submit">Add Selected to Cart</button>
+    </form>
 
     <!-- Pagination Controls -->
     <div class="pagination">
@@ -202,6 +215,25 @@
                 modal.style.display = "none";
             }
         }
+
+        // Disable the add to cart button if no checkboxes are selected
+        var checkboxes = document.querySelectorAll('input[name="selected"]');
+        var button = document.querySelector('form[method="POST"] button[type="submit"]');
+
+        function updateButton() {
+            var checked = Array.from(checkboxes).some(cb => cb.checked);
+            button.disabled = !checked;
+        }
+
+        checkboxes.forEach(cb => cb.addEventListener('change', updateButton));
+        updateButton();
+
+        // Debug: print checkbox values when changed
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                console.log('Checkbox', this.value, 'is', this.checked ? 'checked' : 'unchecked');
+            });
+        });
     </script>
 
 </body>
