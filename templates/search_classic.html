@@ -27,7 +27,7 @@
         }
 
         .thumbnail { 
-            width: 200px; 
+            width: 300px; 
             height: auto; 
         }
 
@@ -117,32 +117,24 @@
         {% endif %}
     </form>
 
-    <!-- View mode selector -->
-    <div style="text-align: center; margin: 20px 0;">
-        <label>View Mode:</label>
-        <a href="{{ url_for('search', query=search_query, filter=filter_type, page=page, view='table') }}" style="margin: 0 10px;">Table</a>
-        <a href="{{ url_for('search', query=search_query, filter=filter_type, page=page, view='grid') }}" style="margin: 0 10px; font-weight: bold;">Grid</a>
-    </div>
-
     <p style="text-align: center;">{{ page }} of {{ total_pages }} (Total Records Found: {{ media|length }} on this page)</p>
 
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type, view=view) }}">Previous</a>
+            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type, view=view) }}">Next</a>
+            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}
     </div>
 
     <form method="POST" action="{{ url_for('search') }}">
-        {% if view == 'table' %}
         <table>
             <thead>
                 <tr>
@@ -173,37 +165,23 @@
                 {% endfor %}
             </tbody>
         </table>
-        {% elif view == 'grid' %}
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 900px; margin: 0 auto;">
-            {% for photo in media %}
-            <div style="position: relative; border: 1px solid #555; padding: 10px; background-color: #333; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
-                <input type="checkbox" name="selected" value="{{ photo['file_id'] }}" style="position: absolute; top: 5px; left: 5px; z-index: 10;">
-                <img src="{{ url_for('static', filename=photo['relative_path']) }}" 
-                     alt="{{ photo['file_name'] }}"
-                     style="max-width: 100%; height: auto; display: block;" class="thumbnail">
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+        <br>
         <input type="hidden" name="query" value="{{ search_query }}">
         <input type="hidden" name="filter" value="{{ filter_type }}">
         <input type="hidden" name="page" value="{{ page }}">
-        <input type="hidden" name="view" value="{{ view }}">
-        <div style="text-align: center; margin-top: 20px;">
-            <button type="submit">Add To Cart</button>
-        </div>
+        <button type="submit">Add Selected to Cart</button>
     </form>
 
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type, view=view) }}">Previous</a>
+            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type, view=view) }}">Next</a>
+            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}

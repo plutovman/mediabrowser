@@ -75,6 +75,7 @@ def search():
     # Get search parameters (from form if POST, else from args)
     search_query = request.form.get('query') or request.args.get('query', '')
     filter_type = request.form.get('filter') or request.args.get('filter', 'subject')
+    view = request.form.get('view') or request.args.get('view', 'grid')
     page_str = request.form.get('page') or request.args.get('page', '1')
     try:
         page = int(page_str)
@@ -85,7 +86,9 @@ def search():
     if filter_type not in allowed_filters:
         filter_type = 'subject'
 
-    offset = (page - 1) * PER_PAGE
+    # Dynamic PER_PAGE based on view
+    PER_PAGE_VIEW = {'table': 10, 'grid': 30}.get(view, 10)
+    offset = (page - 1) * PER_PAGE_VIEW
 
     if request.method == 'POST':
         selected = request.form.getlist('selected')
@@ -108,27 +111,27 @@ def search():
                     filtered.append(item)
                     break
         total_media_count = len(filtered)
-        start = (page - 1) * PER_PAGE
-        end = start + PER_PAGE
+        start = (page - 1) * PER_PAGE_VIEW
+        end = start + PER_PAGE_VIEW
         media = filtered[start:end]
-        total_pages = math.ceil(total_media_count / PER_PAGE)
+        total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
     elif search_query:
         sql_query = f'SELECT * FROM media WHERE {filter_type} LIKE ? ORDER BY id ASC LIMIT ? OFFSET ?'
-        params = ('%' + search_query + '%', PER_PAGE, offset)
+        params = ('%' + search_query + '%', PER_PAGE_VIEW, offset)
         count_sql = f'SELECT COUNT(*) FROM media WHERE {filter_type} LIKE ?'
         count_params = ('%' + search_query + '%',)
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
-        total_pages = math.ceil(total_media_count / PER_PAGE)
+        total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
     else:
         # Default: show all
         sql_query = 'SELECT * FROM media ORDER BY id ASC LIMIT ? OFFSET ?'
-        params = (PER_PAGE, offset)
+        params = (PER_PAGE_VIEW, offset)
         count_sql = 'SELECT COUNT(*) FROM media'
         count_params = ()
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
-        total_pages = math.ceil(total_media_count / PER_PAGE)
+        total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
 
     # Process media to compute relative paths for static serving
     media_list = []
@@ -154,6 +157,7 @@ def search():
         total_pages=total_pages,
         search_query=search_query,
         filter_type=filter_type,
+        view=view,
         random_image=None
     )
 
