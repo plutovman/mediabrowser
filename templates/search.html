@@ -182,6 +182,7 @@
                     <td><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}"></td>
                     <td>
                         <div class="media-card">
+                            {% if media_item['ext_is_viewable'] %}
                             <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                                  alt="{{ media_item['file_name'] }}"
                                  class="thumbnail"
@@ -190,6 +191,14 @@
                             <button type="button" class="play-button"
                                     data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
                                     data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
+                            {% endif %}
+                            {% else %}
+                            <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                                 alt="{{ media_item['file_name'] }}"
+                                 class="thumbnail"
+                                 style="cursor: pointer;"
+                                 data-download-file="{{ url_for('static', filename=media_item['relative_path']) }}"
+                                 data-download-name="{{ media_item['file_name'] }}">
                             {% endif %}
                         </div>
                     </td>
@@ -208,6 +217,7 @@
             <div style="position: relative; border: 1px solid #555; padding: 10px; background-color: #333; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
                 <input type="checkbox" name="selected" value="{{ media_item['file_id'] }}" style="position: absolute; top: 5px; left: 5px; z-index: 10;">
                  <div class="media-card">
+                    {% if media_item['ext_is_viewable'] %}
                     <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                         alt="{{ media_item['file_name'] }}"
                         style="max-width: 100%; height: auto; display: block;" class="thumbnail"
@@ -216,6 +226,13 @@
                     <button type="button" class="play-button"
                            data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
                            data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
+                    {% endif %}
+                    {% else %}
+                    <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                        alt="{{ media_item['file_name'] }}"
+                        style="max-width: 100%; height: auto; display: block; cursor: pointer;" class="thumbnail"
+                        data-download-file="{{ url_for('static', filename=media_item['relative_path']) }}"
+                        data-download-name="{{ media_item['file_name'] }}">
                     {% endif %}
                  </div>
             </div>
@@ -299,6 +316,17 @@
                 closeModal();
             }
         };
+
+        // Handle download prompts for non-viewable files
+        document.querySelectorAll('[data-download-file]').forEach(img => {
+            img.addEventListener('click', function() {
+                const fileName = this.dataset.downloadName;
+                const fileUrl = this.dataset.downloadFile;
+                if (confirm(`Would you like to download ${fileName}?`)) {
+                    window.location.href = fileUrl;
+                }
+            });
+        });
 
         const checkboxes = document.querySelectorAll('input[name="selected"]');
         const button = document.querySelector('form[method="POST"] button[type="submit"]');

@@ -39,10 +39,14 @@ def enrich_media_paths(item):
     thumbs_other_relative_path  = os.path.relpath(path_base_thumbs, path_base_media)
     item_dict['relative_path'] = relative_path
 
+    ext_is_matched = False
+    ext_is_viewable = False
     thumb_relative_path = relative_path
 
     # logic for displaying thumbnails when loading mp4 files
     if item_dict.get('file_type', '').lower() == 'mp4':
+        ext_is_matched = True
+        ext_is_viewable = True
         base, _ = os.path.splitext(relative_path)
         # note that thumbnail generation can be achieved separately via ffmpeg
         # ffmpeg -ss 00:00:05 -i apod_2023_09_23_0.mp4 -frames:v 1 apod_2023_09_23_0.png
@@ -51,15 +55,27 @@ def enrich_media_paths(item):
             if os.path.exists(os.path.join(path_base_media, candidate)):
                 thumb_relative_path = candidate
                 break
+    # for 'jpg', 'jpeg', 'png' files, use the image itself as thumbnail
+    elif item_dict.get('file_type', '').lower() in ['jpg', 'jpeg', 'png']:
+        ext_is_matched = True
+        ext_is_viewable = True
+        thumb_relative_path = relative_path
 
     # for other file types, use predefined thumbnails
-    for file_ext in dict_thumbs.keys():            
-        if item_dict.get('file_type', '').lower() == file_ext:
-            thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs[file_ext])
-            break
+    else:
+        for file_ext in dict_thumbs.keys():            
+            if item_dict.get('file_type', '').lower() == file_ext:
+                thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs[file_ext])
+                ext_is_matched = True
+                break
+
+
+    if not ext_is_matched:
+        thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs["other"])
         
 
     item_dict['thumbnail_relative_path'] = thumb_relative_path
+    item_dict['ext_is_viewable'] = ext_is_viewable
     return item_dict
 
 def get_db_connection():

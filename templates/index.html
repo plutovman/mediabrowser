@@ -32,7 +32,7 @@
         }
 
         .random-image {
-            width: 400px;
+            width: 250px;
             height: auto;
             display: block;
             margin: 20px auto;
@@ -84,8 +84,8 @@
 
         .modal-content {
             display: block;
-            max-width: 90%;
-            max-height: 90%;
+            width: 50%;
+            height: auto;
         }
 
         .close {
@@ -131,6 +131,7 @@
     {% if random_image %}
     <div style="text-align: center;">
         <div class="media-card" style="display: inline-block;">
+            {% if random_image['ext_is_viewable'] %}
             <img src="{{ url_for('static', filename=random_image['thumbnail_relative_path']) }}" 
                  alt="{{ random_image['file_name'] }}"
                  class="random-image thumbnail"
@@ -139,6 +140,14 @@
             <button type="button" class="play-button"
                     data-open-video="{{ url_for('static', filename=random_image['relative_path']) }}"
                     data-poster="{{ url_for('static', filename=random_image['thumbnail_relative_path']) }}">▶</button>
+            {% endif %}
+            {% else %}
+            <img src="{{ url_for('static', filename=random_image['thumbnail_relative_path']) }}" 
+                 alt="{{ random_image['file_name'] }}"
+                 class="random-image thumbnail"
+                 style="cursor: pointer;"
+                 data-download-file="{{ url_for('static', filename=random_image['relative_path']) }}"
+                 data-download-name="{{ random_image['file_name'] }}">
             {% endif %}
         </div>
         <p>{{ random_image['file_name'] }}</p>
@@ -211,6 +220,17 @@
                 closeModal();
             }
         };
+
+        // Handle download prompts for non-viewable files
+        document.querySelectorAll('[data-download-file]').forEach(img => {
+            img.addEventListener('click', function() {
+                const fileName = this.dataset.downloadName;
+                const fileUrl = this.dataset.downloadFile;
+                if (confirm(`Would you like to download ${fileName}?`)) {
+                    window.location.href = fileUrl;
+                }
+            });
+        });
     </script>
 
 </body>
