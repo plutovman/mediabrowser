@@ -1,16 +1,17 @@
 {
-    "python.defaultInterpreterPath": "/home/vss/python/python3/venvs/Linux/ai2026/bin/python3",
-    "terminal.integrated.defaultProfile.linux": "tcsh",
-            "terminal.integrated.profiles.linux": {
+    "python.defaultInterpreterPath": "/Volumes/scratch/depotlite/tooldepot/buildsGit/tdv_01_006/python/python3/venvs/Darwin/ai2026/bin/python3",
+    "terminal.integrated.defaultProfile.osx": "tcsh",
+            "terminal.integrated.profiles.osx": {
             "bash": {
                 "path": "bash",
                 "icon": "terminal-bash"
             },
             "tcsh": {
-                "path": "tcsh",
+                "path": "/bin/tcsh",
+                "args": ["-l"],
                 "icon": "terminal-bash"
             }
         },
-        "python-envs.defaultEnvManager": "ms-python.python:system",
+        "python-envs.defaultEnvManager": "ms-python.python:venv",
         "python-envs.pythonProjects": []
 }

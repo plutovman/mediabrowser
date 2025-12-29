@@ -64,6 +64,26 @@
             font-weight: bold;
             cursor: pointer;
         }
+
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .media-card {
+            position: relative;
+            display: inline-block;
+        }
     </style>
 
 </head>
@@ -98,9 +118,17 @@
             {% for photo in media %}
             <tr>
                 <td>
-                    <img src="{{ url_for('static', filename=photo['relative_path']) }}" 
-                         alt="{{ photo['file_name'] }}"
-                         class="thumbnail">
+                    <div class="media-card">
+                        <img src="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}" 
+                             alt="{{ photo['file_name'] }}"
+                             class="thumbnail"
+                             data-open-image="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}">
+                        {% if photo['file_type'] == 'mp4' %}
+                        <button type="button" class="play-button"
+                                data-open-video="{{ url_for('static', filename=photo['relative_path']) }}"
+                                data-poster="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}">▶</button>
+                        {% endif %}
+                    </div>
                 </td>
                 <td>{{ photo['subject'] }}</td>
                 <td>{{ photo['lighting'] }}</td>
@@ -115,31 +143,57 @@
     <!-- Modal for full-size image -->
     <div id="imageModal" class="modal">
         <span class="close">&times;</span>
-        <img class="modal-content" id="modalImg">
+        <img class="modal-content" id="modalImg" style="display:none;">
+        <video class="modal-content" id="modalVideo" controls style="display:none;"></video>
     </div>
 
     <script>
-        var modal = document.getElementById('imageModal');
-        var modalImg = document.getElementById('modalImg');
-        var closeBtn = document.getElementsByClassName('close')[0];
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImg');
+        const modalVideo = document.getElementById('modalVideo');
+        const closeBtn = document.getElementsByClassName('close')[0];
 
-        document.querySelectorAll('.thumbnail').forEach(img => {
-            img.onclick = function() {
+        function closeModal() {
+            modal.style.display = "none";
+            modalImg.style.display = "none";
+            modalImg.src = '';
+            modalVideo.pause();
+            modalVideo.removeAttribute('src');
+            modalVideo.load();
+            modalVideo.style.display = "none";
+        }
+
+        document.querySelectorAll('[data-open-image]').forEach(img => {
+            img.addEventListener('click', function() {
+                modalImg.src = this.dataset.openImage;
+                modalImg.style.display = "block";
+                modalVideo.style.display = "none";
                 modal.style.display = "flex";
-                modalImg.src = this.src;
-            }
+            });
         });
 
-        closeBtn.onclick = function() {
-            modal.style.display = "none";
-        }
+        document.querySelectorAll('[data-open-video]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                modalVideo.src = this.dataset.openVideo;
+                if (this.dataset.poster) {
+                    modalVideo.poster = this.dataset.poster;
+                }
+                modalVideo.preload = 'metadata';
+                modalVideo.style.display = "block";
+                modalImg.style.display = "none";
+                modal.style.display = "flex";
+                // Do not autoplay; user starts playback
+                modalVideo.pause();
+                modalVideo.currentTime = 0;
+            });
+        });
 
-        // Close modal when clicking outside the image
+        closeBtn.onclick = closeModal;
         modal.onclick = function(event) {
             if (event.target === modal) {
-                modal.style.display = "none";
+                closeModal();
             }
-        }
+        };
     </script>
 
 </body>

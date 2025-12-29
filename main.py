@@ -13,6 +13,27 @@ PER_PAGE = 10  # Number of items per page for pagination
 app = Flask(__name__, static_folder=path_base_media)
 app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
 
+
+def enrich_media_paths(item):
+    item_dict = dict(item)
+    full_path = item_dict['file_path']
+    if full_path.startswith('$DEPOT_ALL'):
+        full_path = full_path.replace('$DEPOT_ALL', depot_local)
+    item_dict['absolute_path'] = full_path
+    relative_path = os.path.relpath(full_path, path_base_media)
+    item_dict['relative_path'] = relative_path
+
+    thumb_relative_path = relative_path
+    if item_dict.get('file_type', '').lower() == 'mp4':
+        base, _ = os.path.splitext(relative_path)
+        for ext in ('.jpg', '.png'):
+            candidate = base + ext
+            if os.path.exists(os.path.join(path_base_media, candidate)):
+                thumb_relative_path = candidate
+                break
+    item_dict['thumbnail_relative_path'] = thumb_relative_path
+    return item_dict
+
 def get_db_connection():
     # Connects to the database and sets row_factory to sqlite3.Row 
     # to access columns by name (like a dictionary)
@@ -40,9 +61,10 @@ def get_db_connection():
     }
     '''
     depot_local = os.getenv('DEPOT_ALL')
-    path_base_media = os.path.join(depot_local,'assetdepot', 'media')
-    path_db_media = os.path.join(path_base_media, 'db') 
-    file_media_sqlite = 'db_media.sqlite3'
+    #path_db_media = os.path.join(depot_local, 'assetdepot', 'db', 'sqlite', 'media') 
+    path_db_media = os.path.join(depot_local, 'assetdepot', 'media', 'dummy', 'db') 
+    #file_media_sqlite = 'db_media.sqlite3'
+    file_media_sqlite = 'media_dummy.sqlite'
     path_db_media = os.path.join(path_db_media, file_media_sqlite)
     conn = sqlite3.connect(path_db_media)
     conn.row_factory = sqlite3.Row 
@@ -55,16 +77,7 @@ def index():
 
     # Fetch random image for homepage
     random_media = conn.execute('SELECT * FROM media ORDER BY RANDOM() LIMIT 1').fetchone()
-    random_image = None
-    if random_media:
-        random_dict = dict(random_media)
-        full_path = random_dict['file_path']
-        if full_path.startswith('$DEPOT_ALL'):
-            full_path = full_path.replace('$DEPOT_ALL', depot_local)
-        random_dict['absolute_path'] = full_path
-        relative_path = os.path.relpath(full_path, path_base_media)
-        random_dict['relative_path'] = relative_path
-        random_image = random_dict
+    random_image = enrich_media_paths(random_media) if random_media else None
 
     conn.close()
 
@@ -82,7 +95,7 @@ def search():
     except ValueError:
         abort(404)
 
-    allowed_filters = ['subject', 'captions', 'setting', 'lighting']
+    allowed_filters = ['subject', 'captions', 'setting', 'lighting', 'file_type']
     if filter_type not in allowed_filters:
         filter_type = 'subject'
 
@@ -134,16 +147,7 @@ def search():
         total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
 
     # Process media to compute relative paths for static serving
-    media_list = []
-    for item in media:
-        item_dict = dict(item)
-        full_path = item_dict['file_path']
-        if full_path.startswith('$DEPOT_ALL'):
-            full_path = full_path.replace('$DEPOT_ALL', depot_local)
-        item_dict['absolute_path'] = full_path
-        relative_path = os.path.relpath(full_path, path_base_media)
-        item_dict['relative_path'] = relative_path
-        media_list.append(item_dict)
+    media_list = [enrich_media_paths(item) for item in media]
 
     conn.close()
 
@@ -172,14 +176,7 @@ def cart():
         conn = get_db_connection()
         media = conn.execute(query, cart_ids).fetchall()
         for item in media:
-            item_dict = dict(item)
-            full_path = item_dict['file_path']
-            if full_path.startswith('$DEPOT_ALL'):
-                full_path = full_path.replace('$DEPOT_ALL', depot_local)
-            item_dict['absolute_path'] = full_path
-            relative_path = os.path.relpath(full_path, path_base_media)
-            item_dict['relative_path'] = relative_path
-            media_list.append(item_dict)
+            media_list.append(enrich_media_paths(item))
         conn.close()
     return render_template('cart.html', media=media_list)
 
