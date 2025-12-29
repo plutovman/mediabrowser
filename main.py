@@ -1,18 +1,33 @@
 import sqlite3
 import os
 import math
-from flask import Flask, render_template, request, url_for, abort, session, redirect
+from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file
 import re
+import zipfile
+from datetime import datetime
+import io
 
 depot_local = os.getenv('DEPOT_ALL')
 #path_base_media = os.path.join(depot_local, 'assetdepot', 'media', 'people', 'ig')
 path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
+path_base_thumbs = os.path.join(path_base_media, 'dummy', 'thumbnails')
 
 PER_PAGE = 10  # Number of items per page for pagination
 
 app = Flask(__name__, static_folder=path_base_media)
 app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
 
+dict_thumbs = {
+    "afx": "adobe_afx.png",
+    "prproj": "adobe_prm.png",
+    "psd": "adobe_psd.png",
+    "xlsx": "ms_excel.png",
+    "pptx": "ms_ppt.png",
+    "docx": "ms_word.png",
+    "hip": "sidefx_hou.png",
+    "other": "thumb_generic.png"
+}
+list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj', 'other0', 'other1', 'other2', 'other3', 'other4']
 
 def enrich_media_paths(item):
     item_dict = dict(item)
@@ -21,16 +36,29 @@ def enrich_media_paths(item):
         full_path = full_path.replace('$DEPOT_ALL', depot_local)
     item_dict['absolute_path'] = full_path
     relative_path = os.path.relpath(full_path, path_base_media)
+    thumbs_other_relative_path  = os.path.relpath(path_base_thumbs, path_base_media)
     item_dict['relative_path'] = relative_path
 
     thumb_relative_path = relative_path
+
+    # logic for displaying thumbnails when loading mp4 files
     if item_dict.get('file_type', '').lower() == 'mp4':
         base, _ = os.path.splitext(relative_path)
+        # note that thumbnail generation can be achieved separately via ffmpeg
+        # ffmpeg -ss 00:00:05 -i apod_2023_09_23_0.mp4 -frames:v 1 apod_2023_09_23_0.png
         for ext in ('.jpg', '.png'):
             candidate = base + ext
             if os.path.exists(os.path.join(path_base_media, candidate)):
                 thumb_relative_path = candidate
                 break
+
+    # for other file types, use predefined thumbnails
+    for file_ext in dict_thumbs.keys():            
+        if item_dict.get('file_type', '').lower() == file_ext:
+            thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs[file_ext])
+            break
+        
+
     item_dict['thumbnail_relative_path'] = thumb_relative_path
     return item_dict
 
@@ -184,6 +212,55 @@ def cart():
 def clear_cart():
     session.pop('cart', None)
     return redirect(url_for('cart'))
+
+@app.route('/download_cart', methods=['POST'])
+def download_cart():
+    selected_ids = request.form.getlist('selected')
+    
+    if not selected_ids:
+        return redirect(url_for('cart'))
+    
+    # Get file paths from database
+    placeholders = ','.join('?' for _ in selected_ids)
+    query = f'SELECT * FROM media WHERE file_id IN ({placeholders})'
+    conn = get_db_connection()
+    media = conn.execute(query, selected_ids).fetchall()
+    conn.close()
+    
+    if not media:
+        return redirect(url_for('cart'))
+    
+    # Create zip file in memory
+    memory_file = io.BytesIO()
+    files_added = 0
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for item in media:
+            item_dict = dict(item)
+            full_path = item_dict['file_path']
+            if full_path.startswith('$DEPOT_ALL'):
+                full_path = full_path.replace('$DEPOT_ALL', depot_local)
+            
+            if os.path.exists(full_path):
+                # Use just the filename in the zip
+                arcname = os.path.basename(full_path)
+                zf.write(full_path, arcname)
+                files_added += 1
+    
+    if files_added == 0:
+        return redirect(url_for('cart'))
+    
+    memory_file.seek(0)
+    
+    # Generate filename with current date
+    today = datetime.now()
+    zip_filename = f"media_{today.year:04d}_{today.month:02d}_{today.day:02d}.zip"
+    
+    return send_file(
+        memory_file,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=zip_filename
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

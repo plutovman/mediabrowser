@@ -65,7 +65,7 @@
         .modal {
             display: none;
             position: fixed;
-            z-index: 1;
+            z-index: 1000;
             left: 0;
             top: 0;
             width: 100%;
@@ -168,7 +168,7 @@
             <thead>
                 <tr>
                     <th>Sel</th>
-                    <th>Photo</th>
+                    <th>Media</th>
                     <th>Subject</th>
                     <th>Lighting</th>
                     <th>Setting</th>
@@ -177,45 +177,45 @@
             </thead>
             <tbody>
                 <!-- Jinja loop to iterate over the 'media' data passed from app.py -->
-                {% for photo in media %}
+                {% for media_item in media %}
                 <tr>
-                    <td><input type="checkbox" name="selected" value="{{ photo['file_id'] }}"></td>
+                    <td><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}"></td>
                     <td>
                         <div class="media-card">
-                            <img src="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}" 
-                                 alt="{{ photo['file_name'] }}"
+                            <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                                 alt="{{ media_item['file_name'] }}"
                                  class="thumbnail"
-                                 data-open-image="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}">
-                            {% if photo['file_type'] == 'mp4' %}
+                                 data-open-image="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">
+                            {% if media_item['file_type'] == 'mp4' %}
                             <button type="button" class="play-button"
-                                    data-open-video="{{ url_for('static', filename=photo['relative_path']) }}"
-                                    data-poster="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}">▶</button>
+                                    data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
+                                    data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
                             {% endif %}
                         </div>
                     </td>
                     <!--specify width for each td -->
-                    <td>{{ photo['subject'] }}</td>
-                    <td>{{ photo['lighting'] }}</td>
-                    <td>{{ photo['setting'] }}</td>
-                    <td>{{ photo['captions'] }}</td>
+                    <td>{{ media_item['subject'] }}</td>
+                    <td>{{ media_item['lighting'] }}</td>
+                    <td>{{ media_item['setting'] }}</td>
+                    <td>{{ media_item['captions'] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         {% elif view == 'grid' %}
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 900px; margin: 0 auto;">
-            {% for photo in media %}
+            {% for media_item in media %}
             <div style="position: relative; border: 1px solid #555; padding: 10px; background-color: #333; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
-                <input type="checkbox" name="selected" value="{{ photo['file_id'] }}" style="position: absolute; top: 5px; left: 5px; z-index: 10;">
+                <input type="checkbox" name="selected" value="{{ media_item['file_id'] }}" style="position: absolute; top: 5px; left: 5px; z-index: 10;">
                  <div class="media-card">
-                    <img src="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}" 
-                        alt="{{ photo['file_name'] }}"
+                    <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                        alt="{{ media_item['file_name'] }}"
                         style="max-width: 100%; height: auto; display: block;" class="thumbnail"
-                        data-open-image="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}">
-                    {% if photo['file_type'] == 'mp4' %}
+                        data-open-image="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">
+                    {% if media_item['file_type'] == 'mp4' %}
                     <button type="button" class="play-button"
-                           data-open-video="{{ url_for('static', filename=photo['relative_path']) }}"
-                           data-poster="{{ url_for('static', filename=photo['thumbnail_relative_path']) }}">▶</button>
+                           data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
+                           data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
                     {% endif %}
                  </div>
             </div>
@@ -288,9 +288,8 @@
                 modalVideo.style.display = "block";
                 modalImg.style.display = "none";
                 modal.style.display = "flex";
-                // Do not autoplay; user controls playback
-                //modalVideo.pause();
                 modalVideo.currentTime = 0;
+                modalVideo.play();
             });
         });
 

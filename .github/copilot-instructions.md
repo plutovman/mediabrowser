@@ -4,7 +4,7 @@
 MediaBrowser is a Flask web application for browsing, searching, and managing media assets (images and videos) stored in a SQLite database. Features include multi-field search, pagination, grid/table views, modal previews, and a session-based cart system.
 
 ## Architecture & Data Flow
-- **Single-file Flask app** ([main.py](main.py)) with no ORM - uses direct sqlite3 queries
+- **Single-file Flask app** ([main.py](../main.py)) with no ORM - uses direct sqlite3 queries
 - **Media storage**: All files served from `$DEPOT_ALL/assetdepot/media` (defined in `path_base_media`)
 - **Database**: SQLite at `$DEPOT_ALL/assetdepot/media/dummy/db/media_dummy.sqlite`
 - **Static file serving**: Flask serves the entire media directory as `static_folder=path_base_media`
@@ -40,7 +40,7 @@ The `enrich_media_paths()` function is essential for serving files:
 3. **Video thumbnail logic**: For `.mp4` files, checks for corresponding `.jpg`/`.png` with same basename
 
 ## Template Architecture
-All templates ([templates/](templates/)) share:
+All templates ([templates/](../templates/)) share:
 - Dark theme (`#242424` background, `#f0f0f0` text)
 - Modal system for full-size image/video preview
 - Play button overlay for videos using `data-open-video` attributes
@@ -60,7 +60,7 @@ python main.py                   # Runs in debug mode on localhost:5000
 - **No authentication**: Open access to all media
 
 ## Maintenance Scripts
-- [xglobalsub.py](xglobalsub.py): Bulk path substitution in database (e.g., migrating from `assetdepot/photo` to `assetdepot/media`)
+- [xglobalsub.py](../xglobalsub.py): Bulk path substitution in database (e.g., migrating from `assetdepot/photo` to `assetdepot/media`)
 
 ## UI Behavior Notes
 - **Grid vs Table**: Grid shows 3 columns with checkboxes, table shows detailed metadata
