@@ -131,17 +131,13 @@ def index():
 def search():
     # Get search parameters (from form if POST, else from args)
     search_query = request.form.get('query') or request.args.get('query', '')
-    filter_type = request.form.get('filter') or request.args.get('filter', 'subject')
+    file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
     view = request.form.get('view') or request.args.get('view', 'grid')
     page_str = request.form.get('page') or request.args.get('page', '1')
     try:
         page = int(page_str)
     except ValueError:
         abort(404)
-
-    allowed_filters = ['subject', 'captions', 'setting', 'lighting', 'file_type']
-    if filter_type not in allowed_filters:
-        filter_type = 'subject'
 
     # Dynamic PER_PAGE based on view
     PER_PAGE_VIEW = {'table': 10, 'grid': 30}.get(view, 10)
@@ -156,33 +152,38 @@ def search():
 
     conn = get_db_connection()
 
-    # Dynamic SQL Query
-    if filter_type == 'captions' and search_query:
-        all_media = conn.execute('SELECT * FROM media ORDER BY id ASC').fetchall()
-        filtered = []
-        for item in all_media:
-            captions = item['captions'] or ''
-            sentences = [s.strip() for s in captions.split('.') if s.strip()]
-            for sentence in sentences:
-                if re.search(r'\b' + re.escape(search_query) + r'\b', sentence, re.IGNORECASE):
-                    filtered.append(item)
-                    break
-        total_media_count = len(filtered)
-        start = (page - 1) * PER_PAGE_VIEW
-        end = start + PER_PAGE_VIEW
-        media = filtered[start:end]
+    # Build complex query searching across multiple fields
+    if search_query:
+        # Search across genre, category, subject, tags
+        where_clause = "(genre LIKE ? OR category LIKE ? OR subject LIKE ? OR tags LIKE ?)"
+        params = ['%' + search_query + '%'] * 4
+        
+        # Add file_type filter if selected
+        if file_type_filter:
+            where_clause += " AND file_type = ?"
+            params.append(file_type_filter)
+        
+        sql_query = f'SELECT * FROM media WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
+        params.extend([PER_PAGE_VIEW, offset])
+        
+        count_sql = f'SELECT COUNT(*) FROM media WHERE {where_clause}'
+        count_params = params[:4] if not file_type_filter else params[:5]
+        
+        media = conn.execute(sql_query, params).fetchall()
+        total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
         total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
-    elif search_query:
-        sql_query = f'SELECT * FROM media WHERE {filter_type} LIKE ? ORDER BY id ASC LIMIT ? OFFSET ?'
-        params = ('%' + search_query + '%', PER_PAGE_VIEW, offset)
-        count_sql = f'SELECT COUNT(*) FROM media WHERE {filter_type} LIKE ?'
-        count_params = ('%' + search_query + '%',)
+    elif file_type_filter:
+        # Filter by file_type only
+        sql_query = 'SELECT * FROM media WHERE file_type = ? ORDER BY file_id ASC LIMIT ? OFFSET ?'
+        params = (file_type_filter, PER_PAGE_VIEW, offset)
+        count_sql = 'SELECT COUNT(*) FROM media WHERE file_type = ?'
+        count_params = (file_type_filter,)
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
         total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
     else:
         # Default: show all
-        sql_query = 'SELECT * FROM media ORDER BY id ASC LIMIT ? OFFSET ?'
+        sql_query = 'SELECT * FROM media ORDER BY file_id ASC LIMIT ? OFFSET ?'
         params = (PER_PAGE_VIEW, offset)
         count_sql = 'SELECT COUNT(*) FROM media'
         count_params = ()
@@ -204,7 +205,8 @@ def search():
         page=page,
         total_pages=total_pages,
         search_query=search_query,
-        filter_type=filter_type,
+        file_type_filter=file_type_filter,
+        file_types=list_file_types,
         view=view,
         random_image=None
     )

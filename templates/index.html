@@ -156,14 +156,25 @@
 
     <!-- Search Form -->
     <form class="search-form" method="GET" action="{{ url_for('search') }}">
-        <input type="text" name="query" placeholder="Search..." value="{{ random_image['subject'] if random_image else '' }}">
-        <br><br>
-        <label><input type="radio" name="filter" value="subject" {% if random_image %}checked{% endif %}> Subject</label>
-        <label><input type="radio" name="filter" value="captions" > Captions</label>
-        <label><input type="radio" name="filter" value="setting" > Setting</label>
-        <label><input type="radio" name="filter" value="lighting" > Lighting</label>
-        <label><input type="radio" name="filter" value="file_type" > File Type</label>
-        <br><br>
+        <input type="text" name="query" placeholder="Search genre, category, subject, tags..." value="{{ random_image['subject'] if random_image else '' }}">
+        <select name="file_type">
+            <option value="">All File Types</option>
+            <option value="mp4">mp4</option>
+            <option value="jpg">jpg</option>
+            <option value="psd">psd</option>
+            <option value="prproj">prproj</option>
+            <option value="docx">docx</option>
+            <option value="xlsx">xlsx</option>
+            <option value="pptx">pptx</option>
+            <option value="hip">hip</option>
+            <option value="nk">nk</option>
+            <option value="obj">obj</option>
+            <option value="other0">other0</option>
+            <option value="other1">other1</option>
+            <option value="other2">other2</option>
+            <option value="other3">other3</option>
+            <option value="other4">other4</option>
+        </select>
         <button type="submit">Search</button>
     </form>
 
