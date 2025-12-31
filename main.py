@@ -28,6 +28,11 @@ dict_thumbs = {
     "other": "thumb_generic.png"
 }
 list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj', 'other0', 'other1', 'other2', 'other3', 'other4']
+#list_genres = ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller']
+list_genres = ['noir', 'modern', 'vintage', 'abstract', 'realism', 'fantasy', 'sci-fi']
+
+file_logo_sqr = 'ng_sm_500px.png'
+path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
 
 def enrich_media_paths(item):
     item_dict = dict(item)
@@ -132,6 +137,7 @@ def search():
     # Get search parameters (from form if POST, else from args)
     search_query = request.form.get('query') or request.args.get('query', '')
     file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
+    genre_filter = request.form.get('genre') or request.args.get('genre', '')
     view = request.form.get('view') or request.args.get('view', 'grid')
     page_str = request.form.get('page') or request.args.get('page', '1')
     try:
@@ -163,21 +169,39 @@ def search():
             where_clause += " AND file_type = ?"
             params.append(file_type_filter)
         
+        # Add genre filter if selected
+        if genre_filter:
+            where_clause += " AND genre = ?"
+            params.append(genre_filter)
+        
         sql_query = f'SELECT * FROM media WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
         params.extend([PER_PAGE_VIEW, offset])
         
         count_sql = f'SELECT COUNT(*) FROM media WHERE {where_clause}'
-        count_params = params[:4] if not file_type_filter else params[:5]
+        count_params = params[:]
+        count_params = count_params[:-(2)]  # Remove LIMIT and OFFSET params
         
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
         total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
-    elif file_type_filter:
-        # Filter by file_type only
-        sql_query = 'SELECT * FROM media WHERE file_type = ? ORDER BY file_id ASC LIMIT ? OFFSET ?'
-        params = (file_type_filter, PER_PAGE_VIEW, offset)
-        count_sql = 'SELECT COUNT(*) FROM media WHERE file_type = ?'
-        count_params = (file_type_filter,)
+    elif file_type_filter or genre_filter:
+        # Filter by file_type and/or genre only
+        where_conditions = []
+        params = []
+        
+        if file_type_filter:
+            where_conditions.append("file_type = ?")
+            params.append(file_type_filter)
+        
+        if genre_filter:
+            where_conditions.append("genre = ?")
+            params.append(genre_filter)
+        
+        where_clause = " AND ".join(where_conditions)
+        sql_query = f'SELECT * FROM media WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
+        params.extend([PER_PAGE_VIEW, offset])
+        count_sql = f'SELECT COUNT(*) FROM media WHERE {where_clause}'
+        count_params = params[:-2]  # Exclude LIMIT and OFFSET
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
         total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
@@ -206,7 +230,9 @@ def search():
         total_pages=total_pages,
         search_query=search_query,
         file_type_filter=file_type_filter,
+        genre_filter=genre_filter,
         file_types=list_file_types,
+        genres=list_genres,
         view=view,
         random_image=None
     )
@@ -279,6 +305,50 @@ def download_cart():
         as_attachment=True,
         download_name=zip_filename
     )
+
+@app.route('/update_cart_items', methods=['POST'])
+def update_cart_items():
+    data = request.get_json()
+    changes = data.get('changes', [])
+    provided_password = data.get('password', '')
+    
+    # Check password
+    correct_password = os.getenv('MEDIA_SQLITE_KEY')
+    if not correct_password:
+        return {'success': False, 'error': 'Database password not configured on server'}
+    
+    if provided_password != correct_password:
+        return {'success': False, 'error': 'Incorrect password'}
+    
+    if not changes:
+        return {'success': False, 'error': 'No changes provided'}
+    
+    # Validate fields
+    allowed_fields = ['subject', 'genre', 'setting', 'captions', 'tags']
+    
+    conn = get_db_connection()
+    updated_count = 0
+    
+    try:
+        for change in changes:
+            file_id = change.get('file_id')
+            field = change.get('field')
+            value = change.get('value', '')
+            
+            if field not in allowed_fields:
+                continue
+                
+            sql = f'UPDATE media SET {field} = ? WHERE file_id = ?'
+            conn.execute(sql, (value, file_id))
+            updated_count += 1
+        
+        conn.commit()
+        conn.close()
+        
+        return {'success': True, 'updated': updated_count}
+    except Exception as e:
+        conn.close()
+        return {'success': False, 'error': str(e)}
 
 if __name__ == '__main__':
     app.run(debug=True)
