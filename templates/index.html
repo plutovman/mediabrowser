@@ -1,137 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Media Gallery</title>
+{% extends "base.html" %}
 
-    <style>
-        /* Change the entire page background and default text color */
-        body {
-            background-color: #242424; /* Very dark grey background */
-            color: #f0f0f0;            /* Light grey/white text for contrast */
-            font-family: Arial, sans-serif;
-            margin: 0; 
-            padding: 20px;
-        }
+{% block title %}Media Gallery{% endblock %}
 
-        table, th, td {
-            border: 1px solid #555;    /* Change border color to contrast with dark bg */
-            border-collapse: collapse;
-            padding: 8px;
-            text-align: left;
-            width: auto;
-        }
+{% block extra_styles %}
+.random-image {
+    width: 250px;
+    height: auto;
+    display: block;
+    margin: 20px auto;
+}
 
-        th {
-            background-color: #444;    /* Slightly lighter grey for table headers */
-        }
+.modal-content {
+    width: 50%;
+    height: auto;
+}
+{% endblock %}
 
-        .thumbnail { 
-            width: 300px; 
-            height: auto; 
-        }
-
-        .random-image {
-            width: 250px;
-            height: auto;
-            display: block;
-            margin: 20px auto;
-        }
-
-        .search-form {
-            text-align: center;
-            margin: 20px 0;
-        }
-
-        .pagination {
-            margin-top: 20px;    /* Adds space above the buttons */
-            margin-bottom: 20px; /* Adds space below the buttons */
-            text-align: center;
-        } 
-
-        .pagination a { 
-            margin: 0 5px; 
-            padding: 5px 10px; 
-            border: 1px solid #555; 
-            text-decoration: none;
-            color: #4da6ff; /* Blue color for links to stand out */
-        }
-        
-        .pagination .disabled { 
-            color: #777; /* Dim disabled links */
-            pointer-events: none; 
-            cursor: default; 
-            border: 1px solid #333; 
-        }
-
-        h1 {
-            color: #ffffff; /* Ensure main heading is bright white */
-            text-align: center;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            display: block;
-            width: 50%;
-            height: auto;
-        }
-
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 35px;
-            color: #f1f1f1;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .play-button {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            border: 2px solid #fff;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            font-size: 24px;
-            cursor: pointer;
-        }
-
-        .media-card {
-            position: relative;
-            display: inline-block;
-        }
-    </style>
-
-</head>
-
-<body>
-
-    <div style="position: absolute; top: 10px; right: 10px; text-align: center;">
-        <img src="{{ url_for('static', filename=logo_path) }}" alt="Logo" style="width: 125px; height: auto; display: block; margin: 0 auto;">
-        <div style="margin-top: 20px;">
-            <a href="{{ url_for('cart') }}">🛒 ({{ session.get('cart', [])|length }})</a>
-        </div>
-    </div>
-
-    <br><br><br><br>
-    <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
+{% block content %}
 
     {% if random_image %}
     <div style="text-align: center;">
@@ -213,72 +98,4 @@
             {% endfor %}
         </div>
     </div>
-
-    <!-- Modal for full-size image -->
-    <div id="imageModal" class="modal">
-        <span class="close">&times;</span>
-        <img class="modal-content" id="modalImg" style="display:none;">
-        <video class="modal-content" id="modalVideo" controls style="display:none;"></video>
-    </div>
-
-    <script>
-        const modal = document.getElementById('imageModal');
-        const modalImg = document.getElementById('modalImg');
-        const modalVideo = document.getElementById('modalVideo');
-        const closeBtn = document.getElementsByClassName('close')[0];
-
-        function closeModal() {
-            modal.style.display = "none";
-            modalImg.style.display = "none";
-            modalImg.src = '';
-            modalVideo.pause();
-            modalVideo.removeAttribute('src');
-            modalVideo.load();
-            modalVideo.style.display = "none";
-        }
-
-        document.querySelectorAll('[data-open-image]').forEach(img => {
-            img.addEventListener('click', function() {
-                modalImg.src = this.dataset.openImage;
-                modalImg.style.display = "block";
-                modalVideo.style.display = "none";
-                modal.style.display = "flex";
-            });
-        });
-
-        document.querySelectorAll('[data-open-video]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                modalVideo.src = this.dataset.openVideo;
-                if (this.dataset.poster) {
-                    modalVideo.poster = this.dataset.poster;
-                }
-                modalVideo.preload = 'metadata';
-                modalVideo.style.display = "block";
-                modalImg.style.display = "none";
-                modal.style.display = "flex";
-                modalVideo.currentTime = 0;
-                modalVideo.play();
-            });
-        });
-
-        closeBtn.onclick = closeModal;
-        modal.onclick = function(event) {
-            if (event.target === modal) {
-                closeModal();
-            }
-        };
-
-        // Handle download prompts for non-viewable files
-        document.querySelectorAll('[data-download-file]').forEach(img => {
-            img.addEventListener('click', function() {
-                const fileName = this.dataset.downloadName;
-                const fileUrl = this.dataset.downloadFile;
-                if (confirm(`Would you like to download ${fileName}?`)) {
-                    window.location.href = fileUrl;
-                }
-            });
-        });
-    </script>
-
-</body>
-</html>
+{% endblock %}

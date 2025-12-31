@@ -1,92 +1,63 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Media Gallery - Cart</title>
+{% extends "base.html" %}
 
-    <style>
-        /* Change the entire page background and default text color */
-        body {
-            background-color: #242424; /* Very dark grey background */
-            color: #f0f0f0;            /* Light grey/white text for contrast */
-            font-family: Arial, sans-serif;
-            margin: 0; 
-            padding: 80px 20px 20px 20px;
-        }
+{% block title %}Media Gallery - Cart{% endblock %}
 
-        table {
-            border: 1px solid #555;
-            border-collapse: collapse;
-            margin: 20px auto;
-            min-width: 1300px;
-        }
-        
-        th, td {
-            border: 1px solid #555;
-            padding: 8px;
-            text-align: left;
-        }
+{% block extra_styles %}
+body {
+    padding: 80px 20px 20px 20px;
+}
 
-        th {
-            background-color: #444;
-        }
+table {
+    border: 1px solid #555;
+    margin: 20px auto;
+    min-width: 1300px;
+}
 
-        .thumbnail { 
-            width: 200px; 
-            height: auto; 
-        }
+.editable-cell {
+    position: relative;
+}
 
-        h1 {
-            color: #ffffff;
-            text-align: center;
-        }
+.editable-cell input,
+.editable-cell textarea {
+    width: 100%;
+    background-color: #333;
+    color: #f0f0f0;
+    border: 1px solid #666;
+    padding: 4px;
+    box-sizing: border-box;
+}
 
-        .editable-cell {
-            position: relative;
-        }
+.editable-cell textarea {
+    resize: vertical;
+    min-height: 60px;
+}
 
-        .editable-cell input,
-        .editable-cell textarea {
-            width: 100%;
-            background-color: #333;
-            color: #f0f0f0;
-            border: 1px solid #666;
-            padding: 4px;
-            box-sizing: border-box;
-        }
+.modified {
+    background-color: #3a3a00 !important;
+}
 
-        .editable-cell textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
+.edit-buttons {
+    display: none;
+}
 
-        .modified {
-            background-color: #3a3a00 !important;
-        }
+#editModeMsg {
+    display: none;
+    text-align: center;
+    color: #ffcc00;
+    font-weight: bold;
+    margin: 10px 0;
+}
+{% endblock %}
 
-        .edit-buttons {
-            display: none;
-        }
+{% block cart_icon %}
+    <!-- No cart icon on cart page itself -->
+{% endblock %}
 
-        #editModeMsg {
-            display: none;
-            text-align: center;
-            color: #ffcc00;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-    </style>
+{% block header_spacing %}<br>{% endblock %}
 
-</head>
+{% block header_link %}<a href="{{ back_url }}">MEDIA GALLERY</a>{% endblock %}
 
-<body>
-
-    <div style="position: absolute; top: 10px; right: 10px; text-align: center;">
-        <img src="{{ url_for('static', filename=logo_path) }}" alt="Logo" style="width: 125px; height: auto; display: block; margin: 0 auto;">
-    </div>
-
-    <br>
-    <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
+{% block content %}
 
     {% if not media %}
     <p style="text-align: center;">Cart is empty</p>
@@ -162,7 +133,9 @@
         </div>
     </form>
     {% endif %}
+{% endblock %}
 
+{% block extra_scripts %}
     <script>
         const checkboxes = document.querySelectorAll('input[name="selected"]');
         const button1 = document.getElementById('downloadBtn');
@@ -399,6 +372,4 @@
             });
         }
     </script>
-
-</body>
-</html>
+{% endblock %}

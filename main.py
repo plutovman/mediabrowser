@@ -289,6 +289,11 @@ def search():
 
 @app.route('/cart')
 def cart():
+    # Store referrer URL for back navigation
+    referrer = request.referrer
+    if referrer and '/search' in referrer:
+        session['last_search_url'] = referrer
+    
     cart_ids = session.get('cart', [])
     media_list = []
     if cart_ids:
@@ -304,7 +309,10 @@ def cart():
     # Logo relative path for template
     logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
     
-    return render_template('cart.html', media=media_list, logo_path=logo_relative)
+    # Get back URL - default to search page if no previous search
+    back_url = session.get('last_search_url', url_for('search'))
+    
+    return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url)
 
 @app.route('/clear_cart')
 def clear_cart():
