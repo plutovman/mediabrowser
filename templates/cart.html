@@ -321,6 +321,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Remove beforeunload listener BEFORE reloading
+                    isEditMode = false;
+                    window.removeEventListener('beforeunload', beforeUnloadHandler);
+                    
                     alert(`Successfully updated ${data.updated} item(s)`);
                     window.location.reload();
                 } else {
