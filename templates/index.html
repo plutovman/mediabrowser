@@ -196,6 +196,24 @@
         <button type="submit">Search</button>
     </form>
 
+    <!-- Word Cloud -->
+    <div style="text-align: center; margin: 40px auto; max-width: 900px;">
+        <h3 style="color: #ffffff; margin-bottom: 20px;">Popular Subjects</h3>
+        <div style="line-height: 2.5; margin-bottom: 30px;">
+            {% for subject, count in top_subjects.items() %}
+                {% set font_size = 12 + (count * 0.15)|int %}
+                <a href="{{ url_for('search', query=subject) }} style="font-size: {{ font_size }}px; margin: 5px 10px; color: #7fbfff; text-decoration: none; display: inline-block;">{{ subject }}</a>
+            {% endfor %}
+        </div>
+        <h3 style="color: #ffffff; margin-bottom: 20px;">Popular Genres</h3>
+        <div style="line-height: 2.5;">
+            {% for genre, count in top_genres.items() %}
+                {% set font_size = 12 + (count * 0.15)|int %}
+                <a href="{{ url_for('search', genre=genre) }} style="font-size: {{ font_size }}px; margin: 5px 10px; color: #7fbfff; text-decoration: none; display: inline-block;">{{ genre }}</a>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Modal for full-size image -->
     <div id="imageModal" class="modal">
         <span class="close">&times;</span>

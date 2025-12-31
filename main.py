@@ -119,6 +119,44 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row 
     return conn
 
+def category_get_dict(category: str, top_n: int) -> dict:
+    """
+    Returns a dictionary of {category_value: count} for the top N occurrences.
+    
+    Args:
+        category: Column name to query (e.g., 'genre', 'subject', 'tags')
+        top_n: Number of top results to return
+        
+    Returns:
+        Dictionary mapping category values to their counts
+        Example: {'space': 10, 'air': 7}
+    """
+    conn = get_db_connection()
+    
+    # Validate category to prevent SQL injection
+    allowed_categories = ['file_type', 'genre', 'subject', 'category', 'lighting', 'setting', 'tags']
+    if category not in allowed_categories:
+        conn.close()
+        return {}
+    
+    # Query to count occurrences of each value in the specified category
+    query = f'''
+        SELECT {category}, COUNT(*) as count 
+        FROM media 
+        WHERE {category} IS NOT NULL AND {category} != ''
+        GROUP BY {category}
+        ORDER BY count DESC
+        LIMIT ?
+    '''
+    
+    results = conn.execute(query, (top_n,)).fetchall()
+    conn.close()
+    
+    # Convert to dictionary
+    category_dict = {row[category]: row['count'] for row in results}
+    
+    return category_dict
+
 @app.route('/')
 @app.route('/index')
 def index():
@@ -132,8 +170,13 @@ def index():
     
     # Logo relative path for template
     logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    
+    # Get top 20 subjects and genres for word cloud
+    top_subjects = category_get_dict('subject', 20)
+    top_genres = category_get_dict('genre', 20)
 
-    return render_template('index.html', random_image=random_image, logo_path=logo_relative)
+    return render_template('index.html', random_image=random_image, logo_path=logo_relative,
+                          top_subjects=top_subjects, top_genres=top_genres)
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
@@ -357,6 +400,44 @@ def update_cart_items():
         conn.close()
         
         return {'success': True, 'updated': updated_count}
+    except Exception as e:
+        conn.close()
+        return {'success': False, 'error': str(e)}
+
+@app.route('/prune_cart_items', methods=['POST'])
+def prune_cart_items():
+    data = request.get_json()
+    file_ids = data.get('file_ids', [])
+    provided_password = data.get('password', '')
+    
+    # Check password
+    correct_password = os.getenv('MEDIA_SQLITE_KEY')
+    if not correct_password:
+        return {'success': False, 'error': 'Database password not configured on server'}
+    
+    if provided_password != correct_password:
+        return {'success': False, 'error': 'Incorrect password'}
+    
+    if not file_ids:
+        return {'success': False, 'error': 'No items selected'}
+    
+    conn = get_db_connection()
+    deleted_count = 0
+    
+    try:
+        for file_id in file_ids:
+            sql = 'DELETE FROM media WHERE file_id = ?'
+            conn.execute(sql, (file_id,))
+            deleted_count += 1
+            
+            # Remove from session cart if present
+            if 'cart' in session and file_id in session['cart']:
+                session['cart'].remove(file_id)
+        
+        conn.commit()
+        conn.close()
+        
+        return {'success': True, 'deleted': deleted_count}
     except Exception as e:
         conn.close()
         return {'success': False, 'error': str(e)}

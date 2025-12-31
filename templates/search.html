@@ -180,7 +180,7 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 40px;">Sel</th>
+                    <th style="width: 20px;">Sel</th>
                     <th style="width: 300px;">Media</th>
                     <th style="width: 120px;">Subject</th>
                     <th style="width: 120px;">Genre</th>
@@ -193,7 +193,7 @@
                 <!-- Jinja loop to iterate over the 'media' data passed from app.py -->
                 {% for media_item in media %}
                 <tr>
-                    <td><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}"></td>
+                    <td style="text-align: center;"><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}"></td>
                     <td style="text-align: center;">
                         <div class="media-card">
                             {% if media_item['ext_is_viewable'] %}

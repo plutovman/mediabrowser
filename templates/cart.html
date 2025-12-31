@@ -32,7 +32,7 @@
         }
 
         .thumbnail { 
-            width: 300px; 
+            width: 200px; 
             height: auto; 
         }
 
@@ -99,6 +99,7 @@
                 <a href="{{ url_for('clear_cart') }}"><button type="button">Clear Cart</button></a>
                 <button type="submit" id="downloadBtn" style="margin-left: 10px;">Download Selected</button>
                 <button type="button" id="editBtn" style="margin-left: 10px;">Edit DB</button>
+                <button type="button" id="pruneBtn" style="margin-left: 10px; background-color: #d32f2f; color: white;">Prune DB</button>
             </div>
             <div class="edit-buttons">
                 <button type="button" id="saveBtn" style="background-color: #4CAF50;">Save Changes</button>
@@ -109,7 +110,7 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 40px;">Sel</th>
+                    <th style="width: 20px;"><button type="button" id="toggleAll" style="padding: 5px 5px; cursor: pointer;">Sel</button></th>
                     <th style="width: 300px;">Media</th>
                     <th style="width: 120px;">Subject</th>
                     <th style="width: 120px;">Genre</th>
@@ -121,8 +122,8 @@
             <tbody>
                 {% for media_item in media %}
                 <tr>
-                    <td><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}" checked></td>
-                    <td>
+                    <td style="text-align: center;"><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}" checked></td>
+                    <td style="text-align: center;">
                         <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                              alt="{{ media_item['file_name'] }}"
                              class="thumbnail">
@@ -152,6 +153,7 @@
                 <a href="{{ url_for('clear_cart') }}"><button type="button">Clear Cart</button></a>
                 <button type="submit" id="downloadBtn2" style="margin-left: 10px;">Download Selected</button>
                 <button type="button" id="editBtn2" style="margin-left: 10px;">Edit DB</button>
+                <button type="button" id="pruneBtn2" style="margin-left: 10px; background-color: #d32f2f; color: white;">Prune DB</button>
             </div>
             <div class="edit-buttons">
                 <button type="button" id="saveBtn2" style="background-color: #4CAF50;">Save Changes</button>
@@ -177,6 +179,16 @@
             updateButtons();
         }
 
+        // Toggle all checkboxes
+        const toggleAllBtn = document.getElementById('toggleAll');
+        if (toggleAllBtn) {
+            toggleAllBtn.addEventListener('click', function() {
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                checkboxes.forEach(cb => cb.checked = !allChecked);
+                updateButtons();
+            });
+        }
+
         // Edit mode functionality
         let isEditMode = false;
         let originalData = {};
@@ -188,6 +200,8 @@
         const saveBtn2 = document.getElementById('saveBtn2');
         const cancelBtn = document.getElementById('cancelBtn');
         const cancelBtn2 = document.getElementById('cancelBtn2');
+        const pruneBtn = document.getElementById('pruneBtn');
+        const pruneBtn2 = document.getElementById('pruneBtn2');
         const editModeMsg = document.getElementById('editModeMsg');
         const normalButtons = document.querySelectorAll('.normal-buttons');
         const editButtons = document.querySelectorAll('.edit-buttons');
@@ -198,6 +212,8 @@
         if (saveBtn2) saveBtn2.addEventListener('click', saveChanges);
         if (cancelBtn) cancelBtn.addEventListener('click', cancelEdit);
         if (cancelBtn2) cancelBtn2.addEventListener('click', cancelEdit);
+        if (pruneBtn) pruneBtn.addEventListener('click', pruneSelected);
+        if (pruneBtn2) pruneBtn2.addEventListener('click', pruneSelected);
 
         function enterEditMode() {
             isEditMode = true;
@@ -335,6 +351,51 @@
             })
             .catch(error => {
                 alert('Error saving changes: ' + error);
+            });
+        }
+
+        function pruneSelected() {
+            // Get all checked items
+            const selectedCheckboxes = document.querySelectorAll('input[name="selected"]:checked');
+            
+            if (selectedCheckboxes.length === 0) {
+                alert('No items selected');
+                return;
+            }
+
+            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+            const count = selectedIds.length;
+
+            if (!confirm(`WARNING: This will permanently delete ${count} item(s) from the database.\n\nThis action CANNOT be undone!\n\nAre you sure you want to continue?`)) {
+                return;
+            }
+
+            // Prompt for password
+            const password = prompt('Enter database password to confirm deletion:');
+            if (!password) {
+                alert('Password required to delete items');
+                return;
+            }
+
+            // Send to server
+            fetch("{{ url_for('prune_cart_items') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ file_ids: selectedIds, password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Successfully deleted ${data.deleted} item(s) from database`);
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error deleting items: ' + error);
             });
         }
     </script>
