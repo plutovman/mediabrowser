@@ -11,7 +11,7 @@
             color: #f0f0f0;            /* Light grey/white text for contrast */
             font-family: Arial, sans-serif;
             margin: 0; 
-            padding: 20px;
+            padding: 80px 20px 20px 20px;
         }
 
         table {
@@ -80,11 +80,13 @@
 </head>
 
 <body>
-    <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
 
-    <div style="position: absolute; top: 10px; right: 10px;">
-        <a href="{{ url_for('cart') }}">🛒 ({{ session.get('cart', [])|length }})</a>
+    <div style="position: absolute; top: 10px; right: 10px; text-align: center;">
+        <img src="{{ url_for('static', filename=logo_path) }}" alt="Logo" style="width: 125px; height: auto; display: block; margin: 0 auto;">
     </div>
+
+    <br>
+    <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
 
     {% if not media %}
     <p style="text-align: center;">Cart is empty</p>

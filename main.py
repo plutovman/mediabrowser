@@ -31,7 +31,7 @@ list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 
 #list_genres = ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller']
 list_genres = ['noir', 'modern', 'vintage', 'abstract', 'realism', 'fantasy', 'sci-fi']
 
-file_logo_sqr = 'ng_sm_500px.png'
+file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
 
 def enrich_media_paths(item):
@@ -129,8 +129,11 @@ def index():
     random_image = enrich_media_paths(random_media) if random_media else None
 
     conn.close()
+    
+    # Logo relative path for template
+    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
 
-    return render_template('index.html', random_image=random_image)
+    return render_template('index.html', random_image=random_image, logo_path=logo_relative)
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
@@ -222,6 +225,9 @@ def search():
 
     if total_pages > 0 and (page > total_pages or page < 1):
         abort(404)
+    
+    # Logo relative path for template
+    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
 
     return render_template(
         'search.html', 
@@ -234,7 +240,8 @@ def search():
         file_types=list_file_types,
         genres=list_genres,
         view=view,
-        random_image=None
+        random_image=None,
+        logo_path=logo_relative
     )
 
 @app.route('/cart')
@@ -250,7 +257,11 @@ def cart():
         for item in media:
             media_list.append(enrich_media_paths(item))
         conn.close()
-    return render_template('cart.html', media=media_list)
+    
+    # Logo relative path for template
+    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    
+    return render_template('cart.html', media=media_list, logo_path=logo_relative)
 
 @app.route('/clear_cart')
 def clear_cart():
