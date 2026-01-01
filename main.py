@@ -12,7 +12,10 @@ depot_local = os.getenv('DEPOT_ALL')
 path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
 path_base_thumbs = os.path.join(path_base_media, 'dummy', 'thumbnails')
 
-PER_PAGE = 10  # Number of items per page for pagination
+#PER_PAGE = 10  # Number of items per page for pagination
+CNT_ITEMS_VIEW_TABLE = 10  # Number of rows per page for table view
+CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
+CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud`
 
 app = Flask(__name__, static_folder=path_base_media)
 app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
@@ -27,7 +30,10 @@ dict_thumbs = {
     "hip": "sidefx_hou.png",
     "other": "thumb_generic.png"
 }
-list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj', 'other0', 'other1', 'other2', 'other3', 'other4']
+
+list_db_tables = ['media']
+#list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj', 'other0', 'other1', 'other2', 'other3', 'other4']
+list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 #list_genres = ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller']
 list_genres = ['noir', 'modern', 'vintage', 'abstract', 'realism', 'fantasy', 'sci-fi']
 
@@ -119,13 +125,14 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row 
     return conn
 
-def category_get_dict(category: str, top_n: int) -> dict:
+def category_get_dict(category: str, top_n: int, db_table: str = 'media') -> dict:
     """
     Returns a dictionary of {category_value: count} for the top N occurrences.
     
     Args:
         category: Column name to query (e.g., 'genre', 'subject', 'tags')
         top_n: Number of top results to return
+        db_table: Database table name (default: 'media')
         
     Returns:
         Dictionary mapping category values to their counts
@@ -139,10 +146,15 @@ def category_get_dict(category: str, top_n: int) -> dict:
         conn.close()
         return {}
     
+    # Validate table name to prevent SQL injection
+    if db_table not in list_db_tables:
+        conn.close()
+        return {}
+    
     # Query to count occurrences of each value in the specified category
     query = f'''
         SELECT {category}, COUNT(*) as count 
-        FROM media 
+        FROM {db_table} 
         WHERE {category} IS NOT NULL AND {category} != ''
         GROUP BY {category}
         ORDER BY count DESC
@@ -160,10 +172,15 @@ def category_get_dict(category: str, top_n: int) -> dict:
 @app.route('/')
 @app.route('/index')
 def index():
+    # Get db_table parameter (default to 'media')
+    db_table = request.args.get('db_table', 'media')
+    if db_table not in list_db_tables:
+        db_table = 'media'
+    
     conn = get_db_connection()
 
     # Fetch random image for homepage
-    random_media = conn.execute('SELECT * FROM media ORDER BY RANDOM() LIMIT 1').fetchone()
+    random_media = conn.execute(f'SELECT * FROM {db_table} ORDER BY RANDOM() LIMIT 1').fetchone()
     random_image = enrich_media_paths(random_media) if random_media else None
 
     conn.close()
@@ -172,11 +189,13 @@ def index():
     logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
     
     # Get top 20 subjects and genres for word cloud
-    top_subjects = category_get_dict('subject', 20)
-    top_genres = category_get_dict('genre', 20)
+    top_subjects = category_get_dict('subject', CNT_TOP_TOPICS, db_table)
+    top_genres = category_get_dict('genre', CNT_TOP_TOPICS, db_table)
 
     return render_template('index.html', random_image=random_image, logo_path=logo_relative,
-                          top_subjects=top_subjects, top_genres=top_genres)
+                          top_subjects=top_subjects, top_genres=top_genres, 
+                          db_tables=list_db_tables, db_table=db_table,
+                          file_types=list_file_types, genres=list_genres, top_topics=CNT_TOP_TOPICS)
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
@@ -184,16 +203,22 @@ def search():
     search_query = request.form.get('query') or request.args.get('query', '')
     file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
     genre_filter = request.form.get('genre') or request.args.get('genre', '')
+    db_table = request.form.get('db_table') or request.args.get('db_table', 'media')
     view = request.form.get('view') or request.args.get('view', 'grid')
     page_str = request.form.get('page') or request.args.get('page', '1')
+    
+    # Validate db_table
+    if db_table not in list_db_tables:
+        db_table = 'media'
+    
     try:
         page = int(page_str)
     except ValueError:
         abort(404)
 
     # Dynamic PER_PAGE based on view
-    PER_PAGE_VIEW = {'table': 10, 'grid': 30}.get(view, 10)
-    offset = (page - 1) * PER_PAGE_VIEW
+    CNT_ITEMS_PER_PAGE = {'table': CNT_ITEMS_VIEW_TABLE, 'grid': CNT_ITEMS_VIEW_GRID}.get(view, 10)
+    offset = (page - 1) * CNT_ITEMS_PER_PAGE
 
     if request.method == 'POST':
         selected = request.form.getlist('selected')
@@ -220,16 +245,16 @@ def search():
             where_clause += " AND genre = ?"
             params.append(genre_filter)
         
-        sql_query = f'SELECT * FROM media WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
-        params.extend([PER_PAGE_VIEW, offset])
+        sql_query = f'SELECT * FROM {db_table} WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
+        params.extend([CNT_ITEMS_PER_PAGE, offset])
         
-        count_sql = f'SELECT COUNT(*) FROM media WHERE {where_clause}'
+        count_sql = f'SELECT COUNT(*) FROM {db_table} WHERE {where_clause}'
         count_params = params[:]
         count_params = count_params[:-(2)]  # Remove LIMIT and OFFSET params
         
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
-        total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
+        total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
     elif file_type_filter or genre_filter:
         # Filter by file_type and/or genre only
         where_conditions = []
@@ -244,22 +269,22 @@ def search():
             params.append(genre_filter)
         
         where_clause = " AND ".join(where_conditions)
-        sql_query = f'SELECT * FROM media WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
-        params.extend([PER_PAGE_VIEW, offset])
-        count_sql = f'SELECT COUNT(*) FROM media WHERE {where_clause}'
+        sql_query = f'SELECT * FROM {db_table} WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
+        params.extend([CNT_ITEMS_PER_PAGE, offset])
+        count_sql = f'SELECT COUNT(*) FROM {db_table} WHERE {where_clause}'
         count_params = params[:-2]  # Exclude LIMIT and OFFSET
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
-        total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
+        total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
     else:
         # Default: show all
-        sql_query = 'SELECT * FROM media ORDER BY file_id ASC LIMIT ? OFFSET ?'
-        params = (PER_PAGE_VIEW, offset)
-        count_sql = 'SELECT COUNT(*) FROM media'
+        sql_query = f'SELECT * FROM {db_table} ORDER BY file_id ASC LIMIT ? OFFSET ?'
+        params = (CNT_ITEMS_PER_PAGE, offset)
+        count_sql = f'SELECT COUNT(*) FROM {db_table}'
         count_params = ()
         media = conn.execute(sql_query, params).fetchall()
         total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
-        total_pages = math.ceil(total_media_count / PER_PAGE_VIEW)
+        total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
 
     # Process media to compute relative paths for static serving
     media_list = [enrich_media_paths(item) for item in media]
@@ -280,8 +305,10 @@ def search():
         search_query=search_query,
         file_type_filter=file_type_filter,
         genre_filter=genre_filter,
+        db_table=db_table,
         file_types=list_file_types,
         genres=list_genres,
+        db_tables=list_db_tables,
         view=view,
         random_image=None,
         logo_path=logo_relative
