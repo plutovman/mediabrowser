@@ -4,7 +4,7 @@
 MediaBrowser is a Flask web application for browsing, searching, and managing media assets (images and videos) stored in a SQLite database. Features include multi-field search, pagination, grid/table views, modal previews, and a session-based cart system.
 
 ## Architecture & Data Flow
-- **Single-file Flask app** ([main.py](../main.py)) with no ORM - uses direct sqlite3 queries
+- **Single-file Flask app** ([mediabrowser.py](../mediabrowser.py)) with no ORM - uses direct sqlite3 queries
 - **Media storage**: All files served from `$DEPOT_ALL/assetdepot/media` (defined in `path_base_media`)
 - **Database**: SQLite at `$DEPOT_ALL/assetdepot/media/dummy/db/media_dummy.sqlite`
 - **Static file serving**: Flask serves the entire media directory as `static_folder=path_base_media`
@@ -49,7 +49,7 @@ All templates ([templates/](../templates/)) share:
 ## Environment Setup & Running
 ```bash
 export DEPOT_ALL=/path/to/depot  # REQUIRED - defines media root
-python main.py                   # Runs in debug mode on localhost:5000
+python mediabrowser.py           # Runs in debug mode on localhost:5000
 ```
 
 ## Development Conventions

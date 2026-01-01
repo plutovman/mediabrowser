@@ -138,6 +138,16 @@
     <!-- Page-specific content -->
     {% block content %}{% endblock %}
 
+    <!-- Footer with copyright -->
+    <footer style="text-align: center; margin-top: 40px; padding: 20px 0; color: #888; font-size: 12px; border-top: 1px solid #444;">
+        <p>&copy; 2026 Vladimir Sierra</p>
+        {% if git_info %}
+        <p style="margin-top: 10px; font-size: 0.85em; color: #666;">
+            App Version: {{ git_info.hash }} | Date: {{ git_info.date }} | Commit Info: {{ git_info.message }}
+        </p>
+        {% endif %}
+    </footer>
+
     <!-- Modal for full-size image/video (common to all pages) -->
     <div id="imageModal" class="modal">
         <span class="close">&times;</span>

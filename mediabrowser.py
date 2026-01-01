@@ -6,6 +6,11 @@ import re
 import zipfile
 from datetime import datetime
 import io
+try:
+    import git
+    GIT_AVAILABLE = True
+except ImportError:
+    GIT_AVAILABLE = False
 
 depot_local = os.getenv('DEPOT_ALL')
 #path_base_media = os.path.join(depot_local, 'assetdepot', 'media', 'people', 'ig')
@@ -169,6 +174,37 @@ def category_get_dict(category: str, top_n: int, db_table: str = 'media') -> dic
     
     return category_dict
 
+def git_get_info():
+    """
+    Extracts the latest commit information from the Git repository.
+    
+    Returns:
+        dict: Dictionary containing commit hash, date, and message
+        Example: {'hash': 'abc123', 'date': '2026-01-01 10:30:00', 'message': 'Initial commit'}
+        Returns None if Git is not available or repo not found
+    """
+    if not GIT_AVAILABLE:
+        return None
+    
+    try:
+        # Get the repository root (current directory or parent directories)
+        repo = git.Repo(search_parent_directories=True)
+        
+        # Get the latest commit
+        latest_commit = repo.head.commit
+        
+        # Extract commit information
+        commit_info = {
+            'hash': latest_commit.hexsha[:7],  # Short hash (first 7 characters)
+            'date': datetime.fromtimestamp(latest_commit.committed_date).strftime('%Y-%m-%d %H:%M:%S'),
+            'message': latest_commit.message.strip().split('\n')[0]  # First line of commit message
+        }
+        
+        return commit_info
+    except (git.InvalidGitRepositoryError, git.GitCommandError):
+        # Not a git repository or git command failed
+        return None
+
 @app.route('/')
 @app.route('/index')
 def index():
@@ -191,11 +227,15 @@ def index():
     # Get top 20 subjects and genres for word cloud
     top_subjects = category_get_dict('subject', CNT_TOP_TOPICS, db_table)
     top_genres = category_get_dict('genre', CNT_TOP_TOPICS, db_table)
+    
+    # Get git commit info
+    git_info = git_get_info()
 
     return render_template('index.html', random_image=random_image, logo_path=logo_relative,
                           top_subjects=top_subjects, top_genres=top_genres, 
                           db_tables=list_db_tables, db_table=db_table,
-                          file_types=list_file_types, genres=list_genres, top_topics=CNT_TOP_TOPICS)
+                          file_types=list_file_types, genres=list_genres, top_topics=CNT_TOP_TOPICS,
+                          git_info=git_info)
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
@@ -296,6 +336,9 @@ def search():
     
     # Logo relative path for template
     logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    
+    # Get git commit info
+    git_info = git_get_info()
 
     return render_template(
         'search.html', 
@@ -311,7 +354,8 @@ def search():
         db_tables=list_db_tables,
         view=view,
         random_image=None,
-        logo_path=logo_relative
+        logo_path=logo_relative,
+        git_info=git_info
     )
 
 @app.route('/cart')
@@ -339,7 +383,10 @@ def cart():
     # Get back URL - default to search page if no previous search
     back_url = session.get('last_search_url', url_for('search'))
     
-    return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url)
+    # Get git commit info
+    git_info = git_get_info()
+    
+    return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url, git_info=git_info)
 
 @app.route('/clear_cart')
 def clear_cart():
