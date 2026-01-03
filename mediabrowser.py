@@ -1,11 +1,17 @@
 import sqlite3
 import os
 import math
-from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file
+from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify
 import re
 import zipfile
 from datetime import datetime
 import io
+import shutil
+import time
+import random
+import cv2
+from PIL import Image
+
 try:
     import git
     GIT_AVAILABLE = True
@@ -16,6 +22,7 @@ depot_local = os.getenv('DEPOT_ALL')
 #path_base_media = os.path.join(depot_local, 'assetdepot', 'media', 'people', 'ig')
 path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
 path_base_thumbs = os.path.join(path_base_media, 'dummy', 'thumbnails')
+path_base_archive = os.path.join(path_base_media, 'archive')
 
 #PER_PAGE = 10  # Number of items per page for pagination
 CNT_ITEMS_VIEW_TABLE = 10  # Number of rows per page for table view
@@ -94,7 +101,7 @@ def enrich_media_paths(item):
     item_dict['ext_is_viewable'] = ext_is_viewable
     return item_dict
 
-def get_db_connection():
+def db_get_connection():
     # Connects to the database and sets row_factory to sqlite3.Row 
     # to access columns by name (like a dictionary)
     # note that db table has the following columns:
@@ -130,6 +137,26 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row 
     return conn
 
+def db_item_add_from_dict(item_dict: dict, db_table: str = 'media'):
+    """
+    Adds a new media item to the database from a dictionary.
+    
+    Args:
+        item_dict: Dictionary containing media item fields
+        db_table: Database table name (default: 'media')
+    """
+    # Validate table name
+    if db_table not in list_db_tables:
+        db_table = 'media'
+    
+    conn = db_get_connection()
+    columns = ', '.join(item_dict.keys())
+    placeholders = ', '.join('?' for _ in item_dict)
+    sql = f'INSERT INTO {db_table} ({columns}) VALUES ({placeholders})'
+    conn.execute(sql, tuple(item_dict.values()))
+    conn.commit()
+    conn.close()
+
 def category_get_dict(category: str, top_n: int, db_table: str = 'media') -> dict:
     """
     Returns a dictionary of {category_value: count} for the top N occurrences.
@@ -143,7 +170,7 @@ def category_get_dict(category: str, top_n: int, db_table: str = 'media') -> dic
         Dictionary mapping category values to their counts
         Example: {'space': 10, 'air': 7}
     """
-    conn = get_db_connection()
+    conn = db_get_connection()
     
     # Validate category to prevent SQL injection
     allowed_categories = ['file_type', 'genre', 'subject', 'category', 'lighting', 'setting', 'tags']
@@ -207,13 +234,13 @@ def git_get_info():
 
 @app.route('/')
 @app.route('/index')
-def index():
+def page_index():
     # Get db_table parameter (default to 'media')
     db_table = request.args.get('db_table', 'media')
     if db_table not in list_db_tables:
         db_table = 'media'
     
-    conn = get_db_connection()
+    conn = db_get_connection()
 
     # Fetch random image for homepage
     random_media = conn.execute(f'SELECT * FROM {db_table} ORDER BY RANDOM() LIMIT 1').fetchone()
@@ -238,7 +265,7 @@ def index():
                           git_info=git_info)
 
 @app.route('/search', methods=['GET', 'POST'])
-def search():
+def page_search():
     # Get search parameters (from form if POST, else from args)
     search_query = request.form.get('query') or request.args.get('query', '')
     file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
@@ -267,7 +294,7 @@ def search():
         session['cart'].extend(selected)
         session['cart'] = list(set(session['cart']))  # unique
 
-    conn = get_db_connection()
+    conn = db_get_connection()
 
     # Build complex query searching across multiple fields
     if search_query:
@@ -359,7 +386,7 @@ def search():
     )
 
 @app.route('/cart')
-def cart():
+def page_cart():
     # Store referrer URL for back navigation
     referrer = request.referrer
     if referrer and '/search' in referrer:
@@ -371,7 +398,7 @@ def cart():
         placeholders = ','.join('?' for _ in cart_ids)
         #query = f'SELECT * FROM media WHERE file_name IN ({placeholders})'
         query = f'SELECT * FROM media WHERE file_id IN ({placeholders})'
-        conn = get_db_connection()
+        conn = db_get_connection()
         media = conn.execute(query, cart_ids).fetchall()
         for item in media:
             media_list.append(enrich_media_paths(item))
@@ -381,7 +408,7 @@ def cart():
     logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
     
     # Get back URL - default to search page if no previous search
-    back_url = session.get('last_search_url', url_for('search'))
+    back_url = session.get('last_search_url', url_for('page_search'))
     
     # Get git commit info
     git_info = git_get_info()
@@ -389,26 +416,26 @@ def cart():
     return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url, git_info=git_info)
 
 @app.route('/clear_cart')
-def clear_cart():
+def cart_clear():
     session.pop('cart', None)
-    return redirect(url_for('cart'))
+    return redirect(url_for('page_cart'))
 
 @app.route('/download_cart', methods=['POST'])
-def download_cart():
+def cart_download():
     selected_ids = request.form.getlist('selected')
     
     if not selected_ids:
-        return redirect(url_for('cart'))
+        return redirect(url_for('page_cart'))
     
     # Get file paths from database
     placeholders = ','.join('?' for _ in selected_ids)
     query = f'SELECT * FROM media WHERE file_id IN ({placeholders})'
-    conn = get_db_connection()
+    conn = db_get_connection()
     media = conn.execute(query, selected_ids).fetchall()
     conn.close()
     
     if not media:
-        return redirect(url_for('cart'))
+        return redirect(url_for('page_cart'))
     
     # Create zip file in memory
     memory_file = io.BytesIO()
@@ -427,7 +454,7 @@ def download_cart():
                 files_added += 1
     
     if files_added == 0:
-        return redirect(url_for('cart'))
+        return redirect(url_for('page_cart'))
     
     memory_file.seek(0)
     
@@ -443,7 +470,7 @@ def download_cart():
     )
 
 @app.route('/update_cart_items', methods=['POST'])
-def update_cart_items():
+def cart_items_update():
     data = request.get_json()
     changes = data.get('changes', [])
     provided_password = data.get('password', '')
@@ -462,7 +489,7 @@ def update_cart_items():
     # Validate fields
     allowed_fields = ['subject', 'genre', 'setting', 'captions', 'tags']
     
-    conn = get_db_connection()
+    conn = db_get_connection()
     updated_count = 0
     
     try:
@@ -487,7 +514,7 @@ def update_cart_items():
         return {'success': False, 'error': str(e)}
 
 @app.route('/prune_cart_items', methods=['POST'])
-def prune_cart_items():
+def cart_items_prune():
     data = request.get_json()
     file_ids = data.get('file_ids', [])
     provided_password = data.get('password', '')
@@ -503,7 +530,7 @@ def prune_cart_items():
     if not file_ids:
         return {'success': False, 'error': 'No items selected'}
     
-    conn = get_db_connection()
+    conn = db_get_connection()
     deleted_count = 0
     
     try:
@@ -523,6 +550,398 @@ def prune_cart_items():
     except Exception as e:
         conn.close()
         return {'success': False, 'error': str(e)}
+
+# ============================================================================
+# MEDIA ARCHIVE ROUTES - Flask-based media processing workflow
+# ============================================================================
+
+@app.route('/archive')
+def page_archive():
+    """Media archive interface for adding files to database"""
+    # Get db_table parameter (default to 'media')
+    db_table = request.args.get('db_table', 'media')
+    if db_table not in list_db_tables:
+        db_table = 'media'
+    
+    # Store in session for use in submit
+    session['target_db_table'] = db_table
+    
+    # Get processing queue from session
+    queue = session.get('processing_queue', [])
+    current_index = session.get('current_index', 0)
+    
+    # Initialize processed files cache if not exists
+    if 'processed_files' not in session:
+        session['processed_files'] = {}
+    
+    current_item = queue[current_index] if queue and current_index < len(queue) else None
+    
+    # Logo relative path
+    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    
+    # Get git commit info
+    git_info = git_get_info()
+    
+    return render_template('archive.html',
+                          queue=queue,
+                          current_item=current_item,
+                          current_index=current_index,
+                          total_items=len(queue),
+                          file_types=list_file_types,
+                          genres=list_genres,
+                          logo_path=logo_relative,
+                          path_base_media=path_base_media,
+                          db_table=db_table,
+                          db_tables=list_db_tables,
+                          processed_files=session.get('processed_files', {}),
+                          git_info=git_info)
+
+@app.route('/api/archive/upload_files', methods=['POST'])
+def api_archive_upload_files():
+    """Upload files to archive folder and add to processing queue"""
+    try:
+        uploaded_files = request.files.getlist('files')
+        
+        if not uploaded_files:
+            return jsonify({'success': False, 'error': 'No files uploaded'})
+        
+        # Ensure archive directory exists
+        os.makedirs(path_base_archive, exist_ok=True)
+        
+        # Initialize or get existing queue
+        queue = session.get('processing_queue', [])
+        copied_files = []
+        
+        # Save uploaded files to archive
+        for file in uploaded_files:
+            if file.filename == '':
+                continue
+            
+            file_name = file.filename
+            dest_path = os.path.join(path_base_archive, file_name)
+            
+            # Handle duplicate filenames
+            if os.path.exists(dest_path):
+                base, ext = os.path.splitext(file_name)
+                counter = 1
+                while os.path.exists(dest_path):
+                    dest_path = os.path.join(path_base_archive, f"{base}_{counter}{ext}")
+                    counter += 1
+            
+            # Save uploaded file
+            file.save(dest_path)
+            
+            # Add to queue
+            if dest_path not in queue:
+                queue.append(dest_path)
+                copied_files.append(dest_path)
+        
+        session['processing_queue'] = queue
+        session['current_index'] = 0
+        
+        return jsonify({
+            'success': True, 
+            'count': len(queue),
+            'copied': len(copied_files)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/get_processed', methods=['POST'])
+def api_archive_get_processed():
+    """Get cached processed file data if exists"""
+    try:
+        file_path = request.json.get('file_path')
+        processed_files = session.get('processed_files', {})
+        
+        if file_path in processed_files:
+            return jsonify({'success': True, 'data': processed_files[file_path], 'cached': True})
+        else:
+            return jsonify({'success': True, 'cached': False})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/save_processed', methods=['POST'])
+def api_archive_save_processed():
+    """Save processed file data to session"""
+    try:
+        file_path = request.json.get('file_path')
+        data = request.json.get('data')
+        
+        if 'processed_files' not in session:
+            session['processed_files'] = {}
+        
+        session['processed_files'][file_path] = data
+        session.modified = True
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/extract_metadata', methods=['POST'])
+def api_archive_extract_metadata():
+    """Extract metadata from media file"""
+    try:
+        file_path = request.json.get('file_path')
+        
+        if not os.path.exists(file_path):
+            return jsonify({'success': False, 'error': 'File not found'})
+        
+        # Extract metadata
+        metadata = extract_media_metadata(file_path)
+        
+        # Get file info
+        file_name = os.path.basename(file_path)
+        file_ext = os.path.splitext(file_name)[1].lstrip('.')
+        
+        metadata['file_name'] = file_name
+        metadata['file_type'] = file_ext.lower()
+        metadata['source_path'] = file_path
+        
+        return jsonify({'success': True, 'metadata': metadata})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/copy_file', methods=['POST'])
+def api_archive_copy_file():
+    """Copy file to repository with progress tracking"""
+    try:
+        data = request.json
+        source_path = data.get('source_path')
+        file_type = data.get('file_type')
+        
+        # Determine destination folder
+        if file_type in ['mp4', 'mov', 'avi', 'mkv']:
+            dest_folder = os.path.join(path_base_media, 'videos')
+        elif file_type in ['jpg', 'jpeg', 'png', 'psd']:
+            dest_folder = os.path.join(path_base_media, 'images')
+        else:
+            dest_folder = os.path.join(path_base_media, 'other')
+        
+        os.makedirs(dest_folder, exist_ok=True)
+        
+        # Generate destination path
+        file_name = os.path.basename(source_path)
+        dest_path = os.path.join(dest_folder, file_name)
+        
+        # Check if file already exists
+        if os.path.exists(dest_path):
+            base, ext = os.path.splitext(file_name)
+            counter = 1
+            while os.path.exists(dest_path):
+                dest_path = os.path.join(dest_folder, f"{base}_{counter}{ext}")
+                counter += 1
+        
+        # Copy file
+        copy_id = f"copy_{int(time.time()*1000)}"
+        session[f'copy_progress_{copy_id}'] = {'percent': 0, 'status': 'copying'}
+        
+        # Perform copy in chunks for progress tracking
+        total_size = os.path.getsize(source_path)
+        copied = 0
+        
+        with open(source_path, 'rb') as src, open(dest_path, 'wb') as dst:
+            while True:
+                chunk = src.read(1024 * 1024)  # 1MB chunks
+                if not chunk:
+                    break
+                dst.write(chunk)
+                copied += len(chunk)
+                percent = int((copied / total_size) * 100)
+                session[f'copy_progress_{copy_id}'] = {'percent': percent, 'status': 'copying'}
+        
+        session[f'copy_progress_{copy_id}'] = {'percent': 100, 'status': 'complete'}
+        
+        # Convert to $DEPOT_ALL format
+        rel_path = dest_path.replace(depot_local, '$DEPOT_ALL')
+        
+        # Cache the destination path for this source file
+        source_path = data.get('source_path')
+        if 'file_copy_cache' not in session:
+            session['file_copy_cache'] = {}
+        session['file_copy_cache'][source_path] = dest_path
+        session.modified = True
+        
+        return jsonify({'success': True, 'dest_path': rel_path, 'copy_id': copy_id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/copy_progress/<copy_id>')
+def api_archive_copy_progress(copy_id):
+    """Get file copy progress"""
+    progress = session.get(f'copy_progress_{copy_id}', {'percent': 0, 'status': 'unknown'})
+    return jsonify(progress)
+
+@app.route('/api/archive/generate_thumbnails', methods=['POST'])
+def api_archive_generate_thumbnails():
+    """Generate a single thumbnail at the current playhead position"""
+    try:
+        file_path = request.json.get('file_path')
+        current_time = request.json.get('current_time', 0)  # Current playhead position in seconds
+        
+        if not os.path.exists(file_path):
+            return jsonify({'success': False, 'error': 'File not found'})
+        
+        # Generate thumbnail at current position
+        cap = cv2.VideoCapture(file_path)
+        if not cap.isOpened():
+            return jsonify({'success': False, 'error': 'Could not open video file'})
+        
+        # Seek to current time
+        cap.set(cv2.CAP_PROP_POS_MSEC, current_time * 1000)
+        ret, frame = cap.read()
+        cap.release()
+        
+        if not ret:
+            return jsonify({'success': False, 'error': 'Could not capture frame'})
+        
+        # Save thumbnail in videos directory
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
+        dest_folder = os.path.join(path_base_media, 'videos')
+        os.makedirs(dest_folder, exist_ok=True)
+        thumb_path = os.path.join(dest_folder, f"{base_name}.jpg")
+        
+        # Write thumbnail
+        cv2.imwrite(thumb_path, frame)
+        
+        return jsonify({'success': True, 'thumbnail': thumb_path, 'time': current_time})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/submit', methods=['POST'])
+def api_archive_submit():
+    """Submit metadata to database"""
+    try:
+        data = request.json
+        
+        # Validate required fields
+        required_fields = ['file_id', 'file_name', 'file_path', 'file_type']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'success': False, 'error': f'Missing required field: {field}'})
+        
+        # Get target table from session
+        db_table = session.get('target_db_table', 'media')
+        
+        # Insert into database
+        db_item_add_from_dict(data, db_table)
+        
+        # Move to next item in queue
+        current_index = session.get('current_index', 0)
+        session['current_index'] = current_index + 1
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/clear_queue', methods=['POST'])
+def api_archive_clear_queue():
+    """Clear processing queue"""
+    session.pop('processing_queue', None)
+    session.pop('processed_files', None)
+    session.pop('file_copy_cache', None)
+    session['current_index'] = 0
+    return jsonify({'success': True})
+
+@app.route('/api/archive/update_queue', methods=['POST'])
+def api_archive_update_queue():
+    """Update the processing queue (for skip/remove operations)"""
+    try:
+        queue = request.json.get('queue', [])
+        session['processing_queue'] = queue
+        session.modified = True
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/archive/serve_file')
+def api_archive_serve_file():
+    """Serve a file for preview (from any location)"""
+    try:
+        file_path = request.args.get('path', '')
+        
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Security check - ensure file is readable
+        if not os.path.isfile(file_path):
+            return jsonify({'error': 'Not a file'}), 400
+        
+        return send_file(file_path)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Helper functions for media archive
+def extract_media_metadata(file_path):
+    """Extract metadata from media file using cv2/PIL"""
+    metadata = {}
+    file_ext = os.path.splitext(file_path)[1].lstrip('.').lower()
+    
+    try:
+        if file_ext in ['mp4', 'mov', 'avi', 'mkv']:
+            # Extract video metadata
+            cap = cv2.VideoCapture(file_path)
+            if cap.isOpened():
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                
+                metadata['file_resolution'] = f"{width}x{height}"
+                
+                # Calculate duration in seconds
+                if fps > 0:
+                    duration_seconds = frame_count / fps
+                    # Format as MM:SS or HH:MM:SS
+                    hours = int(duration_seconds // 3600)
+                    minutes = int((duration_seconds % 3600) // 60)
+                    seconds = int(duration_seconds % 60)
+                    if hours > 0:
+                        metadata['file_duration'] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    else:
+                        metadata['file_duration'] = f"{minutes:02d}:{seconds:02d}"
+                
+                cap.release()
+    except Exception as e:  
+        print(f"Error extracting video metadata: {e}")
+
+    return metadata
+
+def generate_video_thumbnails(video_path, intervals=4):
+    """Generate thumbnails at 25% intervals (4 thumbnails)"""
+    thumbnails = []
+    
+    try:
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return thumbnails
+        
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        # Generate thumbnail directory path
+        base_name = os.path.splitext(os.path.basename(video_path))[0]
+        thumb_dir = os.path.join(path_base_thumbs, 'video_previews')
+        os.makedirs(thumb_dir, exist_ok=True)
+        
+        # Generate thumbnails at 25%, 50%, 75%, 100% positions
+        for i in range(1, intervals + 1):
+            frame_pos = int((frame_count * i) / intervals) - 1
+            frame_pos = max(0, min(frame_pos, frame_count - 1))
+            
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_pos)
+            ret, frame = cap.read()
+            
+            if ret:
+                thumb_path = os.path.join(thumb_dir, f"{base_name}_{i*25}pct.jpg")
+                cv2.imwrite(thumb_path, frame)
+                thumbnails.append(thumb_path)
+        
+        cap.release()
+    
+    except Exception as e:
+        print(f"Error generating thumbnails: {e}")
+    
+    return thumbnails
 
 if __name__ == '__main__':
     app.run(debug=True)

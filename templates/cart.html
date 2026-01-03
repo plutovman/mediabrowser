@@ -64,10 +64,10 @@ table {
     {% endif %}
 
     {% if media %}
-    <form method="POST" action="{{ url_for('download_cart') }}">
+    <form method="POST" action="{{ url_for('cart_download') }}">
         <div style="text-align: center; margin: 20px;">
             <div class="normal-buttons">
-                <a href="{{ url_for('clear_cart') }}"><button type="button">Clear Cart</button></a>
+                <a href="{{ url_for('cart_clear') }}"><button type="button">Clear Cart</button></a>
                 <button type="submit" id="downloadBtn" style="margin-left: 10px;">Download Selected</button>
                 <button type="button" id="editBtn" style="margin-left: 10px;">Edit DB</button>
                 <button type="button" id="pruneBtn" style="margin-left: 10px; background-color: #d32f2f; color: white;">Prune DB</button>
@@ -121,7 +121,7 @@ table {
         </table>
         <div style="text-align: center; margin: 20px;">
             <div class="normal-buttons">
-                <a href="{{ url_for('clear_cart') }}"><button type="button">Clear Cart</button></a>
+                <a href="{{ url_for('cart_clear') }}"><button type="button">Clear Cart</button></a>
                 <button type="submit" id="downloadBtn2" style="margin-left: 10px;">Download Selected</button>
                 <button type="button" id="editBtn2" style="margin-left: 10px;">Edit DB</button>
                 <button type="button" id="pruneBtn2" style="margin-left: 10px; background-color: #d32f2f; color: white;">Prune DB</button>
@@ -302,7 +302,7 @@ table {
             }
 
             // Send to server
-            fetch("{{ url_for('update_cart_items') }}", {
+            fetch("{{ url_for('cart_items_update') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -351,7 +351,7 @@ table {
             }
 
             // Send to server
-            fetch("{{ url_for('prune_cart_items') }}", {
+            fetch("{{ url_for('cart_items_prune') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

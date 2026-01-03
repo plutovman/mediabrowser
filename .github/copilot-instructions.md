@@ -12,7 +12,7 @@ MediaBrowser is a Flask web application for browsing, searching, and managing me
 
 ## Database Schema (media table)
 ```python
-# Full column list from get_db_connection():
+# Full column list from db_get_connection():
 file_id, file_name, file_path, file_type, file_format, 
 file_resolution, file_duration, shot_size, shot_type, 
 source, source_id, genre, subject, category, lighting, 
@@ -54,7 +54,7 @@ python mediabrowser.py           # Runs in debug mode on localhost:5000
 
 ## Development Conventions
 - **Path construction**: Always use `os.path.join()`, never string concatenation
-- **Database access**: Use `get_db_connection()` with `conn.row_factory = sqlite3.Row` for dict-like access
+- **Database access**: Use `db_get_connection()` with `conn.row_factory = sqlite3.Row` for dict-like access
 - **No dependency injection**: Global `depot_local` and `path_base_media` at module level
 - **Session key**: Hardcoded `'your_secret_key_here'` (not production-ready)
 - **No authentication**: Open access to all media

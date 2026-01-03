@@ -1,2 +1,7 @@
 Flask
+customtkinter
+tkinterdnd2
+opencv-python
+python-vlc
 GitPython
+Pillow

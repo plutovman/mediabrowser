@@ -115,14 +115,14 @@
 </head>
 
 <body>
-    <h1><a href="{{ url_for('index') }}">MEDIA GALLERY</a></h1>
+    <h1><a href="{{ url_for('page_index') }}">MEDIA GALLERY</a></h1>
 
     <div style="position: absolute; top: 10px; right: 10px;">
-        <a href="{{ url_for('cart') }}">🛒 ({{ session.get('cart', [])|length }})</a>
+        <a href="{{ url_for('page_cart') }}">🛒 ({{ session.get('cart', [])|length }})</a>
     </div>
 
     <!-- Search Form -->
-    <form class="search-form" method="GET" action="{{ url_for('search') }}">
+    <form class="search-form" method="GET" action="{{ url_for('page_search') }}">
         <input type="text" name="query" placeholder="Search..." value="{{ search_query }}">
         <br><br>
         <label><input type="radio" name="filter" value="subject" {% if filter_type == 'subject' %}checked{% endif %}> Subject</label>
@@ -134,7 +134,7 @@
         <button type="submit">Search</button>
         <!-- Add a "Clear Search" link if a query is active -->
         {% if search_query %}
-            <a href="{{ url_for('search') }}">Clear Search</a>
+            <a href="{{ url_for('page_search') }}">Clear Search</a>
         {% endif %}
     </form>
 
@@ -143,19 +143,19 @@
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
+            <a href="{{ url_for('page_search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
+            <a href="{{ url_for('page_search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}
     </div>
 
-    <form method="POST" action="{{ url_for('search') }}">
+    <form method="POST" action="{{ url_for('page_search') }}">
         <table>
             <thead>
                 <tr>
@@ -204,13 +204,13 @@
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
+            <a href="{{ url_for('page_search', page=page - 1, query=search_query, filter=filter_type) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
+            <a href="{{ url_for('page_search', page=page + 1, query=search_query, filter=filter_type) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}

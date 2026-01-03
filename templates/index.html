@@ -45,7 +45,7 @@
     {% endif %}
 
     <!-- Search Form -->
-    <form class="search-form" method="GET" action="{{ url_for('search') }}">
+    <form class="search-form" method="GET" action="{{ url_for('page_search') }}">
         <input type="text" name="query" placeholder="Search genre, category, subject, tags..." value="{{ random_image['subject'] if random_image else '' }}">
         <select name="db_table">
             {% for table in db_tables %}
@@ -67,6 +67,13 @@
         <button type="submit">Search</button>
     </form>
 
+    <!-- Append DB Button -->
+    <div style="text-align: center; margin: 15px 0;">
+        <a href="{{ url_for('page_archive', db_table=db_table) }}">
+            <button type="button" style="background-color: #2196F3; color: white; padding: 5px 12px; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Append DB ({{ db_table }})</button>
+        </a>
+    </div>
+
     <!-- Word Cloud -->
     <div style="text-align: center; margin: 40px auto; max-width: 900px;">
         <h3 style="color: #ffffff; margin-bottom: 20px;">Top {{ top_topics }} Subjects</h3>
@@ -74,7 +81,7 @@
             {% for subject, count in top_subjects.items() %}
                 {% set font_size = 12 + (count * 0.15)|int %}
                 {% set link_style = "font-size: " ~ font_size ~ "px; margin: 5px 10px; color: #7fbfff; text-decoration: none; display: inline-block;" %}
-                <a href="{{ url_for('search', query=subject, db_table=db_table) }}" style="{{ link_style }}">{{ subject }}</a>
+                <a href="{{ url_for('page_search', query=subject, db_table=db_table) }}" style="{{ link_style }}">{{ subject }}</a>
             {% endfor %}
         </div>
         <h3 style="color: #ffffff; margin-bottom: 20px;">Top {{ top_topics }} Genres</h3>
@@ -82,7 +89,7 @@
             {% for genre, count in top_genres.items() %}
                 {% set font_size = 12 + (count * 0.15)|int %}
                 {% set link_style = "font-size: " ~ font_size ~ "px; margin: 5px 10px; color: #7fbfff; text-decoration: none; display: inline-block;" %}
-                <a href="{{ url_for('search', genre=genre, db_table=db_table) }}" style="{{ link_style }}">{{ genre }}</a>
+                <a href="{{ url_for('page_search', genre=genre, db_table=db_table) }}" style="{{ link_style }}">{{ genre }}</a>
             {% endfor %}
         </div>
     </div>
