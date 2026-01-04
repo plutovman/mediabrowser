@@ -32,7 +32,7 @@
         
         .main-layout {
             display: grid;
-            grid-template-columns: 300px 1fr 400px;
+            grid-template-columns: 400px 1fr 400px;
             gap: 20px;
             margin-bottom: 20px;
         }
@@ -166,11 +166,11 @@
         
         /* Buttons */
         button {
-            padding: 10px 20px;
+            padding: 6px 14px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 1em;
+            font-size: 0.9em;
             transition: all 0.2s;
         }
         
@@ -299,6 +299,11 @@
                 <div class="action-buttons" style="margin-top: 15px;">
                     <button class="btn-secondary" onclick="clearQueue()">Clear All</button>
                 </div>
+                
+                <div class="action-buttons" style="margin-top: 15px;">
+                    <button type="button" class="btn-secondary" onclick="skipItem()">Remove Current</button>
+                    <button type="button" class="btn-primary" onclick="document.getElementById('metadataForm').requestSubmit()">Save to Database</button>
+                </div>
             </div>
             
             <!-- Center Panel: Metadata Form -->
@@ -314,7 +319,7 @@
                     <p id="progressText" style="text-align: center; color: #888;">Processing...</p>
                 </div>
                 
-                <form id="metadataForm" style="max-height: 600px; overflow-y: auto;">
+                <form id="metadataForm">
                     <!-- Read-only fields -->
                     <div class="form-group">
                         <label>File ID)</label>
@@ -365,33 +370,28 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>Category</label>
-                        <input type="text" id="category" name="category" placeholder="e.g., nature, urban, abstract">
+                        <label>Category *</label>
+                        <input type="text" id="category" name="category" required placeholder="e.g., nature, urban, abstract">
                     </div>
                     
                     <div class="form-group">
-                        <label>Setting</label>
-                        <input type="text" id="setting" name="setting" placeholder="e.g., outdoor, studio, urban">
+                        <label>Setting *</label>
+                        <input type="text" id="setting" name="setting" required placeholder="e.g., outdoor, studio, urban">
                     </div>
                     
                     <div class="form-group">
-                        <label>Lighting</label>
-                        <input type="text" id="lighting" name="lighting" placeholder="e.g., natural, studio, low-key">
+                        <label>Lighting *</label>
+                        <input type="text" id="lighting" name="lighting" required placeholder="e.g., natural, studio, low-key">
                     </div>
                     
                     <div class="form-group">
-                        <label>Tags (comma-separated)</label>
-                        <textarea id="tags" name="tags" placeholder="sunset, ocean, peaceful"></textarea>
+                        <label>Tags (comma-separated) *</label>
+                        <textarea id="tags" name="tags" required placeholder="sunset, ocean, peaceful"></textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label>Captions</label>
-                        <textarea id="captions" name="captions" placeholder="Detailed description of the media"></textarea>
-                    </div>
-                    
-                    <div class="action-buttons">
-                        <button type="button" class="btn-secondary" onclick="skipItem()">Skip</button>
-                        <button type="submit" class="btn-primary">Save to Database</button>
+                        <label>Captions *</label>
+                        <textarea id="captions" name="captions" required placeholder="Detailed description of the media"></textarea>
                     </div>
                 </form>
             </div>
@@ -733,6 +733,33 @@
         // Form submission
         document.getElementById('metadataForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // Validate required fields
+            const requiredFields = [
+                {id: 'genre', label: 'Genre'},
+                {id: 'subject', label: 'Subject'},
+                {id: 'category', label: 'Category'},
+                {id: 'setting', label: 'Setting'},
+                {id: 'lighting', label: 'Lighting'},
+                {id: 'tags', label: 'Tags'},
+                {id: 'captions', label: 'Captions'}
+            ];
+            
+            const missingFields = [];
+            for (const field of requiredFields) {
+                const element = document.getElementById(field.id);
+                if (!element.value || element.value.trim() === '') {
+                    missingFields.push(field.label);
+                    element.style.borderColor = '#ff4444';
+                } else {
+                    element.style.borderColor = '#444';
+                }
+            }
+            
+            if (missingFields.length > 0) {
+                showStatus(`Please fill in required fields: ${missingFields.join(', ')}`, 'error');
+                return;
+            }
             
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);

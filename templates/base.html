@@ -116,6 +116,37 @@
             display: inline-block;
         }
 
+        /* Button styles (consistent across all pages) */
+        button, input[type="submit"] {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+            background-color: #4a9eff;
+            color: white;
+        }
+
+        button:hover, input[type="submit"]:hover {
+            background-color: #3a8eef;
+        }
+
+        /* Form input styles (consistent across all pages) */
+        input[type="text"], select {
+            padding: 6px 12px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+            font-size: 0.9em;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+
         /* Page-specific styles */
         {% block extra_styles %}{% endblock %}
     </style>

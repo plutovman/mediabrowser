@@ -755,6 +755,32 @@ def api_archive_copy_file():
         # Convert to $DEPOT_ALL format
         rel_path = dest_path.replace(depot_local, '$DEPOT_ALL')
         
+        # Auto-generate thumbnail for video files
+        if file_type in ['mp4', 'mov', 'avi', 'mkv']:
+            try:
+                # Generate thumbnail at 1 second mark (or 25% through video)
+                cap = cv2.VideoCapture(dest_path)
+                if cap.isOpened():
+                    # Try 1 second in, or 25% if video is shorter than 4 seconds
+                    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    fps = cap.get(cv2.CAP_PROP_FPS)
+                    if fps > 0:
+                        duration = frame_count / fps
+                        seek_time = 1.0 if duration > 4 else duration * 0.25
+                        cap.set(cv2.CAP_PROP_POS_MSEC, seek_time * 1000)
+                    
+                    ret, frame = cap.read()
+                    cap.release()
+                    
+                    if ret:
+                        # Save thumbnail in same directory as video
+                        base_name = os.path.splitext(os.path.basename(dest_path))[0]
+                        thumb_path = os.path.join(dest_folder, f"{base_name}.jpg")
+                        cv2.imwrite(thumb_path, frame)
+            except Exception as e:
+                # Don't fail the copy operation if thumbnail generation fails
+                print(f"Warning: Could not auto-generate thumbnail: {e}")
+        
         # Cache the destination path for this source file
         source_path = data.get('source_path')
         if 'file_copy_cache' not in session:
