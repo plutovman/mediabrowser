@@ -47,6 +47,29 @@ table {
     font-weight: bold;
     margin: 10px 0;
 }
+
+.context-menu {
+    display: none;
+    position: fixed;
+    background-color: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    min-width: 180px;
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: #f0f0f0;
+    transition: background-color 0.2s;
+}
+
+.context-menu-item:hover {
+    background-color: #4da6ff;
+}
 {% endblock %}
 
 {% block cart_icon %}
@@ -58,6 +81,10 @@ table {
 {% block header_link %}<a href="{{ back_url }}">MEDIA GALLERY</a>{% endblock %}
 
 {% block content %}
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" id="applyToSelected">Apply to Selected Items</div>
+    </div>
 
     {% if not media %}
     <p style="text-align: center;">Cart is empty</p>
@@ -369,6 +396,76 @@ table {
             })
             .catch(error => {
                 alert('Error deleting items: ' + error);
+            });
+        }
+
+        // Context Menu functionality
+        const contextMenu = document.getElementById('contextMenu');
+        const applyToSelectedMenuItem = document.getElementById('applyToSelected');
+        let contextMenuTarget = null;
+
+        // Show context menu on right-click of editable fields (only in edit mode)
+        document.addEventListener('contextmenu', function(e) {
+            if (!isEditMode) return;
+            
+            const target = e.target;
+            if (target.classList.contains('edit-input') || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                const cell = target.closest('.editable-cell');
+                if (cell) {
+                    e.preventDefault();
+                    contextMenuTarget = target;
+                    
+                    // Position the context menu
+                    contextMenu.style.display = 'block';
+                    contextMenu.style.left = e.pageX + 'px';
+                    contextMenu.style.top = e.pageY + 'px';
+                }
+            }
+        });
+
+        // Hide context menu on click anywhere
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.context-menu')) {
+                contextMenu.style.display = 'none';
+            }
+        });
+
+        // Apply to Selected functionality
+        if (applyToSelectedMenuItem) {
+            applyToSelectedMenuItem.addEventListener('click', function() {
+                if (!contextMenuTarget) return;
+                
+                const cell = contextMenuTarget.closest('.editable-cell');
+                if (!cell) return;
+                
+                const field = cell.dataset.field;
+                const value = contextMenuTarget.value;
+                
+                // Get all checked items
+                const selectedCheckboxes = document.querySelectorAll('input[name="selected"]:checked');
+                const selectedFileIds = new Set(Array.from(selectedCheckboxes).map(cb => cb.value));
+                
+                // Apply to selected cells in the same column
+                const allCellsInColumn = document.querySelectorAll(`.editable-cell[data-field="${field}"]`);
+                allCellsInColumn.forEach(targetCell => {
+                    const fileId = targetCell.dataset.fileId;
+                    // Only apply to selected items
+                    if (selectedFileIds.has(fileId)) {
+                        const input = targetCell.querySelector('.edit-input');
+                        if (input && input !== contextMenuTarget) {
+                            input.value = value;
+                            
+                            // Trigger the change detection
+                            if (originalData[fileId] && value !== originalData[fileId][field]) {
+                                targetCell.classList.add('modified');
+                            } else {
+                                targetCell.classList.remove('modified');
+                            }
+                        }
+                    }
+                });
+                
+                contextMenu.style.display = 'none';
             });
         }
     </script>

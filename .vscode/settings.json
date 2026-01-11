@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "/Volumes/scratch/depotlite/tooldepot/buildsGit/tdv_01_006/python/python3/venvs/Darwin/ai2026/bin/python3",
+    "python.defaultInterpreterPath": "${env:PYTHON_VENVS}/venv_vpr/bin/python3",
     "terminal.integrated.defaultProfile.osx": "tcsh",
             "terminal.integrated.profiles.osx": {
             "bash": {

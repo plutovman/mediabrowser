@@ -48,11 +48,11 @@ table {
     <!-- View mode selector -->
     <div style="text-align: center; margin: 20px 0;">
         <label>View Mode:</label>
-        <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, db_table=db_table, page=page, view='table') }}" style="margin: 0 10px;">Table</a>
-        <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, db_table=db_table, page=page, view='grid') }}" style="margin: 0 10px; font-weight: bold;">Grid</a>
+        <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, db_table=db_table, page=1, view='table') }}" style="margin: 0 10px;">Table</a>
+        <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, db_table=db_table, page=1, view='grid') }}" style="margin: 0 10px; font-weight: bold;">Grid</a>
     </div>
 
-    <p style="text-align: center;">{{ page }} of {{ total_pages }} (Total Records Found: {{ media|length }} on this page)</p>
+    <p style="text-align: center;">{{ page }} of {{ total_pages }} (Total Records Found: {{ total_media_count }})</p>
 
     <!-- Pagination Controls -->
     <div class="pagination">
@@ -74,7 +74,7 @@ table {
         <table>
             <thead>
                 <tr>
-                    <th style="width: 20px;">Sel</th>
+                    <th style="width: 20px;"><button type="button" id="toggleAll" style="padding: 5px 5px; cursor: pointer;">Sel</button></th>
                     <th style="width: 300px;">Media</th>
                     <th style="width: 120px;">Subject</th>
                     <th style="width: 120px;">Genre</th>
@@ -201,5 +201,15 @@ table {
 
         checkboxes.forEach(cb => cb.addEventListener('change', updateButton));
         updateButton();
+
+        // Toggle all checkboxes
+        const toggleAllBtn = document.getElementById('toggleAll');
+        if (toggleAllBtn) {
+            toggleAllBtn.addEventListener('click', function() {
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                checkboxes.forEach(cb => cb.checked = !allChecked);
+                updateButton();
+            });
+        }
     </script>
 {% endblock %}

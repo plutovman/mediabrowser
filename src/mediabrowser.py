@@ -25,7 +25,7 @@ path_base_thumbs = os.path.join(path_base_media, 'dummy', 'thumbnails')
 path_base_archive = os.path.join(path_base_media, 'archive')
 
 #PER_PAGE = 10  # Number of items per page for pagination
-CNT_ITEMS_VIEW_TABLE = 10  # Number of rows per page for table view
+CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
 CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
 CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud`
 
@@ -372,6 +372,7 @@ def page_search():
         media=media_list,
         page=page,
         total_pages=total_pages,
+        total_media_count=total_media_count,
         search_query=search_query,
         file_type_filter=file_type_filter,
         genre_filter=genre_filter,
