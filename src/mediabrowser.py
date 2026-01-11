@@ -1,16 +1,15 @@
-import sqlite3
-import os
-import math
+import sqlite3, os, math, webbrowser
 from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify
-import re
 import zipfile
 from datetime import datetime
-import io
+import io, zipfile, time
 import shutil
-import time
 import random
 import cv2
 from PIL import Image
+import socket
+from threading import Timer
+
 
 try:
     import git
@@ -53,6 +52,9 @@ file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
 
 def enrich_media_paths(item):
+    
+    """Enrich media item with absolute/relative paths and thumbnail paths for Flask serving"""
+    
     item_dict = dict(item)
     full_path = item_dict['file_path']
     if full_path.startswith('$DEPOT_ALL'):
@@ -102,6 +104,9 @@ def enrich_media_paths(item):
     return item_dict
 
 def db_get_connection():
+    
+    """Connect to SQLite database and return connection with row factory enabled"""
+    
     # Connects to the database and sets row_factory to sqlite3.Row 
     # to access columns by name (like a dictionary)
     # note that db table has the following columns:
@@ -232,9 +237,15 @@ def git_get_info():
         # Not a git repository or git command failed
         return None
 
+# ============================================================================
+# Flask routines for media browser
+# ============================================================================
 @app.route('/')
 @app.route('/index')
 def page_index():
+    
+    """Render homepage with random media item, word clouds, and search stats"""
+    
     # Get db_table parameter (default to 'media')
     db_table = request.args.get('db_table', 'media')
     if db_table not in list_db_tables:
@@ -266,6 +277,9 @@ def page_index():
 
 @app.route('/search', methods=['GET', 'POST'])
 def page_search():
+    
+    """Search and filter media with pagination. POST adds items to cart, GET displays results"""
+    
     # Get search parameters (from form if POST, else from args)
     search_query = request.form.get('query') or request.args.get('query', '')
     file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
@@ -388,6 +402,9 @@ def page_search():
 
 @app.route('/cart')
 def page_cart():
+    
+    """Display cart page with selected media items from session"""
+    
     # Store referrer URL for back navigation
     referrer = request.referrer
     if referrer and '/search' in referrer:
@@ -418,11 +435,17 @@ def page_cart():
 
 @app.route('/clear_cart')
 def cart_clear():
+    
+    """Clear all items from cart session and redirect to cart page"""
+    
     session.pop('cart', None)
     return redirect(url_for('page_cart'))
 
 @app.route('/download_cart', methods=['POST'])
 def cart_download():
+    
+    """Create and download a ZIP file of selected cart items"""
+    
     selected_ids = request.form.getlist('selected')
     
     if not selected_ids:
@@ -472,6 +495,9 @@ def cart_download():
 
 @app.route('/update_cart_items', methods=['POST'])
 def cart_items_update():
+    
+    """Update metadata fields for cart items (requires password authentication)"""
+    
     data = request.get_json()
     changes = data.get('changes', [])
     provided_password = data.get('password', '')
@@ -516,6 +542,9 @@ def cart_items_update():
 
 @app.route('/prune_cart_items', methods=['POST'])
 def cart_items_prune():
+    
+    """Delete items from database by file_id (requires password authentication)"""
+    
     data = request.get_json()
     file_ids = data.get('file_ids', [])
     provided_password = data.get('password', '')
@@ -558,7 +587,9 @@ def cart_items_prune():
 
 @app.route('/archive')
 def page_archive():
+    
     """Media archive interface for adding files to database"""
+    
     # Get db_table parameter (default to 'media')
     db_table = request.args.get('db_table', 'media')
     if db_table not in list_db_tables:
@@ -599,7 +630,9 @@ def page_archive():
 
 @app.route('/api/archive/upload_files', methods=['POST'])
 def api_archive_upload_files():
+    
     """Upload files to archive folder and add to processing queue"""
+    
     try:
         uploaded_files = request.files.getlist('files')
         
@@ -650,7 +683,9 @@ def api_archive_upload_files():
 
 @app.route('/api/archive/get_processed', methods=['POST'])
 def api_archive_get_processed():
+    
     """Get cached processed file data if exists"""
+    
     try:
         file_path = request.json.get('file_path')
         processed_files = session.get('processed_files', {})
@@ -664,7 +699,9 @@ def api_archive_get_processed():
 
 @app.route('/api/archive/save_processed', methods=['POST'])
 def api_archive_save_processed():
+    
     """Save processed file data to session"""
+    
     try:
         file_path = request.json.get('file_path')
         data = request.json.get('data')
@@ -681,7 +718,9 @@ def api_archive_save_processed():
 
 @app.route('/api/archive/extract_metadata', methods=['POST'])
 def api_archive_extract_metadata():
+    
     """Extract metadata from media file"""
+    
     try:
         file_path = request.json.get('file_path')
         
@@ -705,7 +744,9 @@ def api_archive_extract_metadata():
 
 @app.route('/api/archive/copy_file', methods=['POST'])
 def api_archive_copy_file():
+    
     """Copy file to repository with progress tracking"""
+    
     try:
         data = request.json
         source_path = data.get('source_path')
@@ -795,13 +836,17 @@ def api_archive_copy_file():
 
 @app.route('/api/archive/copy_progress/<copy_id>')
 def api_archive_copy_progress(copy_id):
+    
     """Get file copy progress"""
+    
     progress = session.get(f'copy_progress_{copy_id}', {'percent': 0, 'status': 'unknown'})
     return jsonify(progress)
 
 @app.route('/api/archive/generate_thumbnails', methods=['POST'])
 def api_archive_generate_thumbnails():
+    
     """Generate a single thumbnail at the current playhead position"""
+    
     try:
         file_path = request.json.get('file_path')
         current_time = request.json.get('current_time', 0)  # Current playhead position in seconds
@@ -837,7 +882,9 @@ def api_archive_generate_thumbnails():
 
 @app.route('/api/archive/submit', methods=['POST'])
 def api_archive_submit():
+    
     """Submit metadata to database"""
+    
     try:
         data = request.json
         
@@ -863,7 +910,9 @@ def api_archive_submit():
 
 @app.route('/api/archive/clear_queue', methods=['POST'])
 def api_archive_clear_queue():
-    """Clear processing queue"""
+    
+    """Clear processing queue and reset session cache"""
+    
     session.pop('processing_queue', None)
     session.pop('processed_files', None)
     session.pop('file_copy_cache', None)
@@ -872,7 +921,9 @@ def api_archive_clear_queue():
 
 @app.route('/api/archive/update_queue', methods=['POST'])
 def api_archive_update_queue():
-    """Update the processing queue (for skip/remove operations)"""
+    
+    """Update processing queue for skip/remove operations"""
+    
     try:
         queue = request.json.get('queue', [])
         session['processing_queue'] = queue
@@ -883,7 +934,9 @@ def api_archive_update_queue():
 
 @app.route('/api/archive/serve_file')
 def api_archive_serve_file():
-    """Serve a file for preview (from any location)"""
+    
+    """Serve file for preview from any filesystem location"""
+    
     try:
         file_path = request.args.get('path', '')
         
@@ -900,7 +953,9 @@ def api_archive_serve_file():
 
 # Helper functions for media archive
 def extract_media_metadata(file_path):
-    """Extract metadata from media file using cv2/PIL"""
+    
+    """Extract resolution and duration metadata from video files using OpenCV"""
+    
     metadata = {}
     file_ext = os.path.splitext(file_path)[1].lstrip('.').lower()
     
@@ -935,7 +990,9 @@ def extract_media_metadata(file_path):
     return metadata
 
 def generate_video_thumbnails(video_path, intervals=4):
-    """Generate thumbnails at 25% intervals (4 thumbnails)"""
+    
+    """Generate video thumbnails at equal intervals (default: 25%, 50%, 75%, 100%)"""
+    
     thumbnails = []
     
     try:
@@ -970,5 +1027,77 @@ def generate_video_thumbnails(video_path, intervals=4):
     
     return thumbnails
 
+def open_browser(url):
+    
+    """Open a URL in the default web browser, with WSL support"""
+    
+    try:
+        # Check if running in WSL (Windows Subsystem for Linux)
+        is_wsl = 'microsoft' in os.uname().release.lower() or 'wsl' in os.uname().release.lower()
+        
+        if is_wsl:
+            # Use Windows command to open browser from WSL
+            import subprocess
+            subprocess.run(['cmd.exe', '/c', 'start', url], check=False)
+        else:
+            # Use standard webbrowser module for native environments
+            webbrowser.open(url)
+    except Exception as e:
+        print(f"Error opening browser: {e}")
+
+def is_port_available(host, port):
+    
+    """Check if a port is available on the given host"""
+    
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind((host, port))
+            return True
+    except OSError:
+        return False
+
+def find_available_port(host='127.0.0.1', start_port=5000, max_attempts=10):
+    
+    """Find next available port by checking sequential ports from start_port"""
+    
+    for port in range(start_port, start_port + max_attempts):
+        if is_port_available(host, port):
+            return port
+    return None
+
+def main(debug=True, host='127.0.0.1', port=5000, open_browser_on_start=True):
+    """
+    Main entry point for the MediaBrowser application.
+    
+    Args:
+        debug (bool): Enable Flask debug mode. Default is True.
+        host (str): Host to bind to. Default is '127.0.0.1' (accessible from WSL/Windows).
+        port (int): Port to bind to. Default is 5000.
+        open_browser_on_start (bool): Automatically open browser. Default is True.
+    """
+    # Find an available port if the requested one is in use
+    if not is_port_available(host, port):
+        print(f"Port {port} is already in use, searching for available port...")
+        available_port = find_available_port(host, port, max_attempts=10)
+        if available_port:
+            port = available_port
+            print(f"Using port {port} instead")
+        else:
+            print(f"Could not find an available port in range {port}-{port+9}")
+            return
+    
+    # Build the URL for browser (0.0.0.0 is not browsable, use 127.0.0.1)
+    browser_host = '127.0.0.1' if host == '0.0.0.0' else host
+    url = f"http://{browser_host}:{port}"
+    print(f"Starting MediaBrowser at {url}")
+    
+    # Open browser after a delay to allow Flask to start
+    # In debug mode, Flask uses a reloader that starts twice, so we need a longer delay
+    if open_browser_on_start:
+        delay = 3.0 if debug else 1.5
+        Timer(delay, lambda: open_browser(url)).start()
+    
+    app.run(debug=debug, host=host, port=port, use_reloader=False)
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    main()
