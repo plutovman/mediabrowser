@@ -622,6 +622,7 @@ def page_archive():
                           file_types=list_file_types,
                           genres=list_genres,
                           logo_path=logo_relative,
+                          depot_local=depot_local,
                           path_base_media=path_base_media,
                           db_table=db_table,
                           db_tables=list_db_tables,
@@ -664,6 +665,9 @@ def api_archive_upload_files():
             
             # Save uploaded file
             file.save(dest_path)
+            
+            # Normalize path for cross-platform compatibility
+            dest_path = dest_path.replace('\\', '/')
             
             # Add to queue
             if dest_path not in queue:
@@ -754,11 +758,11 @@ def api_archive_copy_file():
         
         # Determine destination folder
         if file_type in ['mp4', 'mov', 'avi', 'mkv']:
-            dest_folder = os.path.join(path_base_media, 'videos')
+            dest_folder = os.path.join(path_base_archive, 'videos')
         elif file_type in ['jpg', 'jpeg', 'png', 'psd']:
-            dest_folder = os.path.join(path_base_media, 'images')
+            dest_folder = os.path.join(path_base_archive, 'images')
         else:
-            dest_folder = os.path.join(path_base_media, 'other')
+            dest_folder = os.path.join(path_base_archive, 'other')
         
         os.makedirs(dest_folder, exist_ok=True)
         
@@ -795,7 +799,7 @@ def api_archive_copy_file():
         session[f'copy_progress_{copy_id}'] = {'percent': 100, 'status': 'complete'}
         
         # Convert to $DEPOT_ALL format
-        rel_path = dest_path.replace(depot_local, '$DEPOT_ALL')
+        rel_path = dest_path.replace(depot_local, '$DEPOT_ALL').replace('\\', '/')
         
         # Auto-generate thumbnail for video files
         if file_type in ['mp4', 'mov', 'avi', 'mkv']:
@@ -830,7 +834,9 @@ def api_archive_copy_file():
         session['file_copy_cache'][source_path] = dest_path
         session.modified = True
         
-        return jsonify({'success': True, 'dest_path': rel_path, 'copy_id': copy_id})
+        # Return both the database path and the absolute path for queue updates
+        dest_path_abs = dest_path.replace('\\', '/')
+        return jsonify({'success': True, 'dest_path_rel': rel_path, 'dest_path_abs': dest_path_abs, 'copy_id': copy_id})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -869,7 +875,7 @@ def api_archive_generate_thumbnails():
         
         # Save thumbnail in videos directory
         base_name = os.path.splitext(os.path.basename(file_path))[0]
-        dest_folder = os.path.join(path_base_media, 'videos')
+        dest_folder = os.path.join(path_base_archive, 'videos')
         os.makedirs(dest_folder, exist_ok=True)
         thumb_path = os.path.join(dest_folder, f"{base_name}.jpg")
         

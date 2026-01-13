@@ -516,7 +516,7 @@
                 document.getElementById('tags').value = cached.tags || '';
                 
                 // Show preview (use the copied file path)
-                const copiedPath = cached.file_path.replace('$DEPOT_ALL', '{{ path_base_media }}');
+                const copiedPath = cached.file_path.replace('$DEPOT_ALL', '{{ depot_local }}');
                 if (['mp4', 'mov', 'avi', 'mkv'].includes(cached.file_type)) {
                     showVideoPreview(copiedPath);
                 } else if (['jpg', 'jpeg', 'png'].includes(cached.file_type)) {
@@ -582,17 +582,20 @@
                 const fileId = 'MED' + Date.now() + Math.floor(Math.random() * 1000);
                 document.getElementById('file_id').value = fileId;
                 document.getElementById('file_name').value = metadata.file_name;
-                document.getElementById('file_path').value = copyResult.dest_path;
+                document.getElementById('file_path').value = copyResult.dest_path_rel;
                 document.getElementById('file_type').value = metadata.file_type;
                 document.getElementById('file_resolution').value = metadata.file_resolution || '';
                 document.getElementById('file_format').value = metadata.file_format || '';
                 document.getElementById('file_duration').value = metadata.file_duration || '';
                 
+                // Use the actual destination path as the cache key (matches where file was moved)
+                const actualFilePath = copyResult.dest_path_abs;
+                
                 // Cache the processed data
-                processedFiles[filePath] = {
+                processedFiles[actualFilePath] = {
                     file_id: fileId,
                     file_name: metadata.file_name,
-                    file_path: copyResult.dest_path,
+                    file_path: copyResult.dest_path_rel,
                     file_type: metadata.file_type,
                     file_resolution: metadata.file_resolution || '',
                     file_format: metadata.file_format || '',
@@ -610,14 +613,14 @@
                 await fetch('/api/archive/save_processed', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({file_path: filePath, data: processedFiles[filePath]})
+                    body: JSON.stringify({file_path: actualFilePath, data: processedFiles[actualFilePath]})
                 });
                 
-                // Show preview
+                // Show preview using the actual file location
                 if (['mp4', 'mov', 'avi', 'mkv'].includes(metadata.file_type)) {
-                    showVideoPreview(filePath);
+                    showVideoPreview(actualFilePath);
                 } else if (['jpg', 'jpeg', 'png'].includes(metadata.file_type)) {
-                    showImagePreview(filePath);
+                    showImagePreview(actualFilePath);
                 }
                 
                 hideProgress();
