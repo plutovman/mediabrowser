@@ -667,8 +667,21 @@
             const video = document.getElementById('videoPreview');
             const source = document.getElementById('videoSource');
             
-            // File is now in archive folder (path_base_media/archive), so serve via Flask static
-            const relativePath = filePath.replace(/^.*\/assetdepot\/media\//, '');
+            // Normalize path to forward slashes
+            const normalizedPath = filePath.replace(/\\/g, '/');
+            
+            // Get base media path (already has forward slashes from Python)
+            const pathBaseMedia = '{{ path_base_media }}'.replace(/\\/g, '/');
+            
+            // Extract relative path by removing the base media prefix
+            // This handles Windows drive letters (M:/depot/...) correctly
+            let relativePath = normalizedPath;
+            if (relativePath.startsWith(pathBaseMedia)) {
+                relativePath = relativePath.substring(pathBaseMedia.length);
+            }
+            // Remove any leading slashes
+            relativePath = relativePath.replace(/^\/+/, '');
+            
             source.src = `{{ url_for('static', filename='') }}${relativePath}`;
             video.load();
             
@@ -682,8 +695,21 @@
             
             const img = document.getElementById('imagePreview');
             
-            // File is now in archive folder (path_base_media/archive), so serve via Flask static
-            const relativePath = filePath.replace(/^.*\/assetdepot\/media\//, '');
+            // Normalize path to forward slashes
+            const normalizedPath = filePath.replace(/\\/g, '/');
+            
+            // Get base media path (already has forward slashes from Python)
+            const pathBaseMedia = '{{ path_base_media }}'.replace(/\\/g, '/');
+            
+            // Extract relative path by removing the base media prefix
+            // This handles Windows drive letters (M:/depot/...) correctly
+            let relativePath = normalizedPath;
+            if (relativePath.startsWith(pathBaseMedia)) {
+                relativePath = relativePath.substring(pathBaseMedia.length);
+            }
+            // Remove any leading slashes
+            relativePath = relativePath.replace(/^\/+/, '');
+            
             img.src = `{{ url_for('static', filename='') }}${relativePath}`;
             
             showStatus('Image preview loaded', 'info');
