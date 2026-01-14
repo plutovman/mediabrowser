@@ -41,6 +41,38 @@
             text-decoration: none;
         }
 
+        .flash-messages {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0;
+        }
+
+        .flash-message {
+            padding: 12px 20px;
+            margin: 10px 0;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .flash-message.error {
+            background-color: #d32f2f;
+            color: #ffffff;
+            border: 1px solid #b71c1c;
+        }
+
+        .flash-message.success {
+            background-color: #388e3c;
+            color: #ffffff;
+            border: 1px solid #2e7d32;
+        }
+
+        .flash-message.info {
+            background-color: #1976d2;
+            color: #ffffff;
+            border: 1px solid #1565c0;
+        }
+
         .search-form {
             text-align: center;
             margin: 20px 0;
@@ -165,6 +197,18 @@
 
     {% block header_spacing %}<br><br><br><br>{% endblock %}
     <h1>{% block header_link %}<a href="{{ url_for('page_index') }}">MEDIA GALLERY</a>{% endblock %}</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
     <!-- Page-specific content -->
     {% block content %}{% endblock %}

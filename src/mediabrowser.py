@@ -1,5 +1,5 @@
 import sqlite3, os, math, webbrowser
-from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify
+from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify, flash, get_flashed_messages
 import zipfile
 from datetime import datetime
 import io, zipfile, time
@@ -537,6 +537,7 @@ def cart_download():
     selected_ids = request.form.getlist('selected')
     
     if not selected_ids:
+        flash('No files selected for download', 'error')
         return redirect(url_for('page_cart'))
     
     # Get file paths from database
@@ -547,6 +548,7 @@ def cart_download():
     conn.close()
     
     if not media:
+        flash('Selected files not found in database', 'error')
         return redirect(url_for('page_cart'))
     
     # Create zip file in memory
@@ -566,6 +568,7 @@ def cart_download():
                 files_added += 1
     
     if files_added == 0:
+        flash(f'No valid file paths found on disk ({len(media)} files missing)', 'error')
         return redirect(url_for('page_cart'))
     
     memory_file.seek(0)
