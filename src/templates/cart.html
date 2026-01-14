@@ -123,9 +123,32 @@ table {
                 <tr>
                     <td style="text-align: center;"><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}" checked></td>
                     <td style="text-align: center;">
-                        <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
-                             alt="{{ media_item['file_name'] }}"
-                             class="thumbnail">
+                        <div class="media-card">
+                            {% if media_item['ext_is_viewable'] %}
+                            {% if media_item['file_type'] == 'mp4' %}
+                            <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                                 alt="{{ media_item['file_name'] }}"
+                                 class="thumbnail"
+                                 data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
+                                 data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">
+                            <button type="button" class="play-button"
+                                    data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
+                                    data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
+                            {% else %}
+                            <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                                 alt="{{ media_item['file_name'] }}"
+                                 class="thumbnail"
+                                 data-open-image="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">
+                            {% endif %}
+                            {% else %}
+                            <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                                 alt="{{ media_item['file_name'] }}"
+                                 class="thumbnail"
+                                 style="cursor: pointer;"
+                                 data-download-file="{{ url_for('static', filename=media_item['relative_path']) }}"
+                                 data-download-name="{{ media_item['file_name'] }}">
+                            {% endif %}
+                        </div>
                         <p style="text-align: center; margin: 5px 0 0 0; font-size: 12px; word-break: break-all;">{{ media_item['file_name'] }}</p>
                     </td>
                     <td class="editable-cell" data-field="subject" data-file-id="{{ media_item['file_id'] }}">
