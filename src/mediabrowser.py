@@ -625,8 +625,8 @@ def cart_items_update():
                 continue
                 
             sql = f'UPDATE {db_table} SET {field} = ? WHERE file_id = ?'
-            conn.execute(sql, (value, file_id))
-            updated_count += 1
+            cursor = conn.execute(sql, (value, file_id))
+            updated_count += cursor.rowcount
         
         conn.commit()
         conn.close()
