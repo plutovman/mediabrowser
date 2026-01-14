@@ -47,7 +47,7 @@
     <!-- Search Form -->
     <form class="search-form" method="GET" action="{{ url_for('page_search') }}">
         <input type="text" name="query" placeholder="Search genre, category, subject, tags..." value="{{ random_image['subject'] if random_image else '' }}">
-        <select name="db_table">
+        <select name="db_table" onchange="window.location.href='{{ url_for('page_index') }}?db_table=' + this.value;">
             {% for table in db_tables %}
             <option value="{{ table }}" {% if db_table == table %}selected{% endif %}>{{ table }}</option>
             {% endfor %}

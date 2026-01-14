@@ -118,7 +118,7 @@
     <h1><a href="{{ url_for('page_index') }}">MEDIA GALLERY</a></h1>
 
     <div style="position: absolute; top: 10px; right: 10px;">
-        <a href="{{ url_for('page_cart') }}">🛒 ({{ session.get('cart', [])|length }})</a>
+        <a href="{{ url_for('page_cart', db_table=db_table|default('media_proj')) }}">🛒 ({{ cart_count|default(0) }})</a>
     </div>
 
     <!-- Search Form -->

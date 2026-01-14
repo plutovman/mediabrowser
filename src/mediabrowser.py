@@ -23,6 +23,11 @@ path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
 path_base_thumbs = os.path.join(path_base_media, 'dummy', 'thumbnails')
 path_base_archive = os.path.join(path_base_media, 'archive')
 
+path_db_media = os.path.join(depot_local, 'assetdepot', 'media', 'dummy', 'db') 
+#file_media_sqlite = 'db_media.sqlite3'
+file_media_sqlite = 'media_dummy.sqlite'
+path_db_media = os.path.join(path_db_media, file_media_sqlite)
+
 #PER_PAGE = 10  # Number of items per page for pagination
 CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
 CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
@@ -42,11 +47,42 @@ dict_thumbs = {
     "other": "thumb_generic.png"
 }
 
-list_db_tables = ['media']
+list_db_tables = ['media_proj', 'media_arch']
 #list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj', 'other0', 'other1', 'other2', 'other3', 'other4']
 list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 #list_genres = ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller']
 list_genres = ['noir', 'modern', 'vintage', 'abstract', 'realism', 'fantasy', 'sci-fi']
+
+# Helper functions for db_table-aware cart management
+def cart_init():
+    """Initialize cart as a dictionary if it doesn't exist or is not a dict"""
+    if 'cart' not in session or not isinstance(session.get('cart'), dict):
+        session['cart'] = {}
+
+def cart_get_items(db_table):
+    """Get cart items for a specific db_table"""
+    cart_init()
+    return session['cart'].get(db_table, [])
+
+def cart_add_items(db_table, item_ids):
+    """Add items to cart for a specific db_table"""
+    cart_init()
+    if db_table not in session['cart']:
+        session['cart'][db_table] = []
+    session['cart'][db_table].extend(item_ids)
+    session['cart'][db_table] = list(set(session['cart'][db_table]))  # unique
+    session.modified = True
+
+def cart_get_count(db_table):
+    """Get count of items in cart for a specific db_table"""
+    return len(cart_get_items(db_table))
+
+def cart_clear_table(db_table):
+    """Clear cart items for a specific db_table"""
+    cart_init()
+    if db_table in session['cart']:
+        session['cart'].pop(db_table)
+        session.modified = True
 
 file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
@@ -132,49 +168,78 @@ def db_get_connection():
         'captions' : '',
     }
     '''
-    depot_local = os.getenv('DEPOT_ALL')
-    #path_db_media = os.path.join(depot_local, 'assetdepot', 'db', 'sqlite', 'media') 
-    path_db_media = os.path.join(depot_local, 'assetdepot', 'media', 'dummy', 'db') 
-    #file_media_sqlite = 'db_media.sqlite3'
-    file_media_sqlite = 'media_dummy.sqlite'
-    path_db_media = os.path.join(path_db_media, file_media_sqlite)
     conn = sqlite3.connect(path_db_media)
     conn.row_factory = sqlite3.Row 
     return conn
 
-def db_item_add_from_dict(item_dict: dict, db_table: str = 'media'):
+def db_item_add_from_dict(item_dict: dict, db_table: str = None):
     """
     Adds a new media item to the database from a dictionary.
     
     Args:
         item_dict: Dictionary containing media item fields
-        db_table: Database table name (default: 'media')
+        db_table: Database table name (default: first table in list)
     """
+    # Use default table if not specified
+    if db_table is None:
+        db_table = list_db_tables[0]
+    
     # Validate table name
     if db_table not in list_db_tables:
-        db_table = 'media'
+        db_table = list_db_tables[0]
+    
+    # Define all expected fields with default values
+    all_fields = {
+        'file_id': 'unknown',
+        'file_name': 'unknown',
+        'file_path': 'unknown',
+        'file_type': 'unknown',
+        'file_format': 'unknown',
+        'file_resolution': 'unknown',
+        'file_duration': 'unknown',
+        'shot_size': 'unknown',
+        'shot_type': 'unknown',
+        'source': 'unknown',
+        'source_id': 'unknown',
+        'genre': 'unknown',
+        'subject': 'unknown',
+        'category': 'unknown',
+        'lighting': 'unknown',
+        'setting': 'unknown',
+        'tags': 'unknown',
+        'captions': 'unknown',
+    }
+    
+    # Merge item_dict into all_fields, overwriting defaults with actual values
+    for key, value in item_dict.items():
+        if key in all_fields:
+            all_fields[key] = value
     
     conn = db_get_connection()
-    columns = ', '.join(item_dict.keys())
-    placeholders = ', '.join('?' for _ in item_dict)
+    columns = ', '.join(all_fields.keys())
+    placeholders = ', '.join('?' for _ in all_fields)
     sql = f'INSERT INTO {db_table} ({columns}) VALUES ({placeholders})'
-    conn.execute(sql, tuple(item_dict.values()))
+    conn.execute(sql, tuple(all_fields.values()))
     conn.commit()
     conn.close()
 
-def category_get_dict(category: str, top_n: int, db_table: str = 'media') -> dict:
+def category_get_dict(category: str, top_n: int, db_table: str = None) -> dict:
     """
     Returns a dictionary of {category_value: count} for the top N occurrences.
     
     Args:
         category: Column name to query (e.g., 'genre', 'subject', 'tags')
         top_n: Number of top results to return
-        db_table: Database table name (default: 'media')
+        db_table: Database table name (default: first table in list)
         
     Returns:
         Dictionary mapping category values to their counts
         Example: {'space': 10, 'air': 7}
     """
+    # Use default table if not specified
+    if db_table is None:
+        db_table = list_db_tables[0]
+    
     conn = db_get_connection()
     
     # Validate category to prevent SQL injection
@@ -240,16 +305,28 @@ def git_get_info():
 # ============================================================================
 # Flask routines for media browser
 # ============================================================================
+
+@app.context_processor
+def inject_cart_count():
+    """Make cart count available to all templates based on current db_table"""
+    # Check both form (POST) and args (GET) for db_table, similar to routes
+    db_table = request.form.get('db_table') or request.args.get('db_table', list_db_tables[0])
+    if db_table not in list_db_tables:
+        db_table = list_db_tables[0]
+    
+    count = cart_get_count(db_table)
+    return {'cart_count': count, 'current_db_table': db_table, 'db_table': db_table}
+
 @app.route('/')
 @app.route('/index')
 def page_index():
     
     """Render homepage with random media item, word clouds, and search stats"""
     
-    # Get db_table parameter (default to 'media')
-    db_table = request.args.get('db_table', 'media')
+    # Get db_table parameter (default to first table in list)
+    db_table = request.args.get('db_table', list_db_tables[0])
     if db_table not in list_db_tables:
-        db_table = 'media'
+        db_table = list_db_tables[0]
     
     conn = db_get_connection()
 
@@ -284,13 +361,13 @@ def page_search():
     search_query = request.form.get('query') or request.args.get('query', '')
     file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
     genre_filter = request.form.get('genre') or request.args.get('genre', '')
-    db_table = request.form.get('db_table') or request.args.get('db_table', 'media')
+    db_table = request.form.get('db_table') or request.args.get('db_table', list_db_tables[0])
     view = request.form.get('view') or request.args.get('view', 'grid')
     page_str = request.form.get('page') or request.args.get('page', '1')
     
     # Validate db_table
     if db_table not in list_db_tables:
-        db_table = 'media'
+        db_table = list_db_tables[0]
     
     try:
         page = int(page_str)
@@ -303,10 +380,7 @@ def page_search():
 
     if request.method == 'POST':
         selected = request.form.getlist('selected')
-        if 'cart' not in session:
-            session['cart'] = []
-        session['cart'].extend(selected)
-        session['cart'] = list(set(session['cart']))  # unique
+        cart_add_items(db_table, selected)
 
     conn = db_get_connection()
 
@@ -405,17 +479,21 @@ def page_cart():
     
     """Display cart page with selected media items from session"""
     
+    db_table = request.form.get('db_table') or request.args.get('db_table', list_db_tables[0])
+    # Validate db_table
+    if db_table not in list_db_tables:
+        db_table = list_db_tables[0]
+    
     # Store referrer URL for back navigation
     referrer = request.referrer
     if referrer and '/search' in referrer:
         session['last_search_url'] = referrer
     
-    cart_ids = session.get('cart', [])
+    cart_ids = cart_get_items(db_table)
     media_list = []
     if cart_ids:
         placeholders = ','.join('?' for _ in cart_ids)
-        #query = f'SELECT * FROM media WHERE file_name IN ({placeholders})'
-        query = f'SELECT * FROM media WHERE file_id IN ({placeholders})'
+        query = f'SELECT * FROM {db_table} WHERE file_id IN ({placeholders})'
         conn = db_get_connection()
         media = conn.execute(query, cart_ids).fetchall()
         for item in media:
@@ -431,20 +509,30 @@ def page_cart():
     # Get git commit info
     git_info = git_get_info()
     
-    return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url, git_info=git_info)
+    return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url, git_info=git_info, db_table=db_table, db_tables=list_db_tables)
 
 @app.route('/clear_cart')
 def cart_clear():
     
-    """Clear all items from cart session and redirect to cart page"""
+    """Clear items from cart for specific db_table and redirect to cart page"""
     
-    session.pop('cart', None)
-    return redirect(url_for('page_cart'))
+    db_table = request.args.get('db_table', list_db_tables[0])
+    # Validate db_table
+    if db_table not in list_db_tables:
+        db_table = list_db_tables[0]
+    
+    cart_clear_table(db_table)
+    return redirect(url_for('page_cart', db_table=db_table))
 
 @app.route('/download_cart', methods=['POST'])
 def cart_download():
     
     """Create and download a ZIP file of selected cart items"""
+    
+    db_table = request.form.get('db_table') or request.args.get('db_table', list_db_tables[0])
+    # Validate db_table
+    if db_table not in list_db_tables:
+        db_table = list_db_tables[0]
     
     selected_ids = request.form.getlist('selected')
     
@@ -453,7 +541,7 @@ def cart_download():
     
     # Get file paths from database
     placeholders = ','.join('?' for _ in selected_ids)
-    query = f'SELECT * FROM media WHERE file_id IN ({placeholders})'
+    query = f'SELECT * FROM {db_table} WHERE file_id IN ({placeholders})'
     conn = db_get_connection()
     media = conn.execute(query, selected_ids).fetchall()
     conn.close()
@@ -499,6 +587,11 @@ def cart_items_update():
     """Update metadata fields for cart items (requires password authentication)"""
     
     data = request.get_json()
+    db_table = data.get('db_table', list_db_tables[0])
+    # Validate db_table
+    if db_table not in list_db_tables:
+        db_table = list_db_tables[0]
+    
     changes = data.get('changes', [])
     provided_password = data.get('password', '')
     
@@ -528,7 +621,7 @@ def cart_items_update():
             if field not in allowed_fields:
                 continue
                 
-            sql = f'UPDATE media SET {field} = ? WHERE file_id = ?'
+            sql = f'UPDATE {db_table} SET {field} = ? WHERE file_id = ?'
             conn.execute(sql, (value, file_id))
             updated_count += 1
         
@@ -546,6 +639,11 @@ def cart_items_prune():
     """Delete items from database by file_id (requires password authentication)"""
     
     data = request.get_json()
+    db_table = data.get('db_table', list_db_tables[0])
+    # Validate db_table
+    if db_table not in list_db_tables:
+        db_table = list_db_tables[0]
+    
     file_ids = data.get('file_ids', [])
     provided_password = data.get('password', '')
     
@@ -565,13 +663,15 @@ def cart_items_prune():
     
     try:
         for file_id in file_ids:
-            sql = 'DELETE FROM media WHERE file_id = ?'
+            sql = f'DELETE FROM {db_table} WHERE file_id = ?'
             conn.execute(sql, (file_id,))
             deleted_count += 1
             
             # Remove from session cart if present
-            if 'cart' in session and file_id in session['cart']:
-                session['cart'].remove(file_id)
+            cart_init()
+            if db_table in session.get('cart', {}) and file_id in session['cart'][db_table]:
+                session['cart'][db_table].remove(file_id)
+                session.modified = True
         
         conn.commit()
         conn.close()
@@ -590,10 +690,8 @@ def page_archive():
     
     """Media archive interface for adding files to database"""
     
-    # Get db_table parameter (default to 'media')
-    db_table = request.args.get('db_table', 'media')
-    if db_table not in list_db_tables:
-        db_table = 'media'
+    # Archive always uses 'media_arch' table
+    db_table = 'media_arch'
     
     # Store in session for use in submit
     session['target_db_table'] = db_table
@@ -738,9 +836,15 @@ def api_archive_extract_metadata():
         file_name = os.path.basename(file_path)
         file_ext = os.path.splitext(file_name)[1].lstrip('.')
         
+        # Set all metadata fields
         metadata['file_name'] = file_name
         metadata['file_type'] = file_ext.lower()
         metadata['source_path'] = file_path
+        
+        # Set placeholder values for fields to be filled later
+        metadata['file_format'] = metadata.get('file_format', 'info_tbd')
+        metadata['source'] = metadata.get('source', 'info_tbd')
+        metadata['source_id'] = metadata.get('source_id', 'info_tbd')
         
         return jsonify({'success': True, 'metadata': metadata})
     except Exception as e:
@@ -900,8 +1004,8 @@ def api_archive_submit():
             if not data.get(field):
                 return jsonify({'success': False, 'error': f'Missing required field: {field}'})
         
-        # Get target table from session
-        db_table = session.get('target_db_table', 'media')
+        # Get target table from session (archive operations always use media_arch)
+        db_table = session.get('target_db_table', 'media_arch')
         
         # Insert into database
         db_item_add_from_dict(data, db_table)

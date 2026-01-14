@@ -92,9 +92,10 @@ table {
 
     {% if media %}
     <form method="POST" action="{{ url_for('cart_download') }}">
+        <input type="hidden" name="db_table" value="{{ db_table }}">
         <div style="text-align: center; margin: 20px;">
             <div class="normal-buttons">
-                <a href="{{ url_for('cart_clear') }}"><button type="button">Clear Cart</button></a>
+                <a href="{{ url_for('cart_clear', db_table=db_table) }}"><button type="button">Clear Cart</button></a>
                 <button type="submit" id="downloadBtn" style="margin-left: 10px;">Download Selected</button>
                 <button type="button" id="editBtn" style="margin-left: 10px;">Edit DB</button>
                 <button type="button" id="pruneBtn" style="margin-left: 10px; background-color: #d32f2f; color: white;">Prune DB</button>
@@ -148,7 +149,7 @@ table {
         </table>
         <div style="text-align: center; margin: 20px;">
             <div class="normal-buttons">
-                <a href="{{ url_for('cart_clear') }}"><button type="button">Clear Cart</button></a>
+                <a href="{{ url_for('cart_clear', db_table=db_table) }}"><button type="button">Clear Cart</button></a>
                 <button type="submit" id="downloadBtn2" style="margin-left: 10px;">Download Selected</button>
                 <button type="button" id="editBtn2" style="margin-left: 10px;">Edit DB</button>
                 <button type="button" id="pruneBtn2" style="margin-left: 10px; background-color: #d32f2f; color: white;">Prune DB</button>
@@ -334,7 +335,7 @@ table {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ changes: changes, password: password })
+                body: JSON.stringify({ changes: changes, password: password, db_table: '{{ db_table }}' })
             })
             .then(response => response.json())
             .then(data => {
@@ -383,7 +384,7 @@ table {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ file_ids: selectedIds, password: password })
+                body: JSON.stringify({ file_ids: selectedIds, password: password, db_table: '{{ db_table }}' })
             })
             .then(response => response.json())
             .then(data => {

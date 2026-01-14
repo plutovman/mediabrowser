@@ -322,7 +322,7 @@
                 <form id="metadataForm">
                     <!-- Read-only fields -->
                     <div class="form-group">
-                        <label>File ID)</label>
+                        <label>File ID</label>
                         <input type="text" id="file_id" name="file_id" readonly>
                     </div>
                     
@@ -359,6 +359,16 @@
                     <hr style="border-color: #444; margin: 20px 0;">
                     
                     <!-- Editable fields -->
+                    <div class="form-group">
+                        <label>Source *</label>
+                        <input type="text" id="source" name="source" required placeholder="e.g., ig, apod, metart">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Source ID *</label>
+                        <input type="text" id="source_id" name="source_id" required placeholder="e.g., ig_user">
+                    </div>
+                    
                     <div class="form-group">
                         <label>Genre *</label>
                         <input type="text" id="genre" name="genre" required placeholder="e.g., noir, modern, vintage, abstract">

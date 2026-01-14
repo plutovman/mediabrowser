@@ -18,7 +18,7 @@ table {
     <!-- Search Form -->
     <form class="search-form" method="GET" action="{{ url_for('page_search') }}">
         <input type="text" name="query" placeholder="Search genre, category, subject, tags..." value="{{ search_query }}">
-        <select name="db_table">
+        <select name="db_table" onchange="this.form.submit();">
             {% for table in db_tables %}
             <option value="{{ table }}" {% if db_table == table %}selected{% endif %}>{{ table }}</option>
             {% endfor %}
