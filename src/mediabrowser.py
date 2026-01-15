@@ -1158,7 +1158,7 @@ def open_browser(url):
     except Exception as e:
         print(f"Error opening browser: {e}")
 
-def is_port_available(host, port):
+def port_number_available(host, port):
     
     """Check if a port is available on the given host"""
     
@@ -1169,12 +1169,12 @@ def is_port_available(host, port):
     except OSError:
         return False
 
-def find_available_port(host='127.0.0.1', start_port=5000, max_attempts=10):
+def port_find_available(host='127.0.0.1', start_port=5000, max_attempts=10):
     
     """Find next available port by checking sequential ports from start_port"""
     
     for port in range(start_port, start_port + max_attempts):
-        if is_port_available(host, port):
+        if port_number_available(host, port):
             return port
     return None
 
@@ -1189,9 +1189,9 @@ def main(debug=True, host='127.0.0.1', port=5000, open_browser_on_start=True):
         open_browser_on_start (bool): Automatically open browser. Default is True.
     """
     # Find an available port if the requested one is in use
-    if not is_port_available(host, port):
+    if not port_number_available(host, port):
         print(f"Port {port} is already in use, searching for available port...")
-        available_port = find_available_port(host, port, max_attempts=10)
+        available_port = port_find_available(host, port, max_attempts=10)
         if available_port:
             port = available_port
             print(f"Using port {port} instead")
@@ -1213,4 +1213,14 @@ def main(debug=True, host='127.0.0.1', port=5000, open_browser_on_start=True):
     app.run(debug=debug, host=host, port=port, use_reloader=False)
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='MediaBrowser - Flask-based media management')
+    parser.add_argument('--port', type=int, default=5000, help='Port to run on (default: 5000)')
+    parser.add_argument('--host', default='127.0.0.1', help='Host to bind to (default: 127.0.0.1)')
+    parser.add_argument('--debug', action='store_true', default=True, help='Enable debug mode')
+    parser.add_argument('--no-browser', action='store_true', help='Do not open browser automatically')
+    
+    args = parser.parse_args()
+    
+    main(debug=args.debug, host=args.host, port=args.port, open_browser_on_start=not args.no_browser)
