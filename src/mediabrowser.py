@@ -47,7 +47,9 @@ dict_thumbs = {
     "other": "thumb_generic.png"
 }
 
-list_db_tables = ['media_proj', 'media_arch']
+db_table_proj = 'media_proj'
+db_table_arch = 'media_arch'
+list_db_tables = [db_table_proj, db_table_arch]
 #list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj', 'other0', 'other1', 'other2', 'other3', 'other4']
 list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 #list_genres = ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller']
@@ -694,7 +696,7 @@ def page_archive():
     """Media archive interface for adding files to database"""
     
     # Archive always uses 'media_arch' table
-    db_table = 'media_arch'
+    db_table = db_table_arch
     
     # Store in session for use in submit
     session['target_db_table'] = db_table
@@ -1008,7 +1010,7 @@ def api_archive_submit():
                 return jsonify({'success': False, 'error': f'Missing required field: {field}'})
         
         # Get target table from session (archive operations always use media_arch)
-        db_table = session.get('target_db_table', 'media_arch')
+        db_table = session.get('target_db_table', db_table_arch)
         
         # Insert into database
         db_item_add_from_dict(data, db_table)
@@ -1140,7 +1142,7 @@ def generate_video_thumbnails(video_path, intervals=4):
     
     return thumbnails
 
-def open_browser(url):
+def browser_open(url):
     
     """Open a URL in the default web browser, with WSL support"""
     
@@ -1178,7 +1180,7 @@ def port_find_available(host='127.0.0.1', start_port=5000, max_attempts=10):
             return port
     return None
 
-def main(debug=True, host='127.0.0.1', port=5000, open_browser_on_start=True):
+def main(debug=True, host='127.0.0.1', port=5000, browser_open_on_start=True):
     """
     Main entry point for the MediaBrowser application.
     
@@ -1186,7 +1188,7 @@ def main(debug=True, host='127.0.0.1', port=5000, open_browser_on_start=True):
         debug (bool): Enable Flask debug mode. Default is True.
         host (str): Host to bind to. Default is '127.0.0.1' (accessible from WSL/Windows).
         port (int): Port to bind to. Default is 5000.
-        open_browser_on_start (bool): Automatically open browser. Default is True.
+        browser_open_on_start (bool): Automatically open browser. Default is True.
     """
     # Find an available port if the requested one is in use
     if not port_number_available(host, port):
@@ -1206,9 +1208,9 @@ def main(debug=True, host='127.0.0.1', port=5000, open_browser_on_start=True):
     
     # Open browser after a delay to allow Flask to start
     # In debug mode, Flask uses a reloader that starts twice, so we need a longer delay
-    if open_browser_on_start:
+    if browser_open_on_start:
         delay = 3.0 if debug else 1.5
-        Timer(delay, lambda: open_browser(url)).start()
+        Timer(delay, lambda: browser_open(url)).start()
     
     app.run(debug=debug, host=host, port=port, use_reloader=False)
 
@@ -1223,4 +1225,4 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    main(debug=args.debug, host=args.host, port=args.port, open_browser_on_start=not args.no_browser)
+    main(debug=args.debug, host=args.host, port=args.port, browser_open_on_start=not args.no_browser)

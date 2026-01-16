@@ -6,11 +6,37 @@ import webbrowser
 import time
 import socket
 import customtkinter as ctk
+from PIL import Image, ImageTk
 
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
+logo_file = 'foxlito.png'
+logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', logo_file)
+
+###############################################################################
+###############################################################################
+def open_browser(url):
+    
+    """Open a URL in the default web browser, with WSL support"""
+    
+    try:
+        # Check if running in WSL (Windows Subsystem for Linux)
+        is_wsl = 'microsoft' in os.uname().release.lower() or 'wsl' in os.uname().release.lower()
+        
+        if is_wsl:
+            # Use Windows command to open browser from WSL
+            import subprocess
+            subprocess.run(['cmd.exe', '/c', 'start', url], check=True)
+        else:
+            # Use standard webbrowser module for native environments
+            webbrowser.open(url)
+    except Exception as e:
+        print(f"Error opening browser: {e}")
+
+###############################################################################
+###############################################################################
 def port_number_available(host, port):
     """Check if a port is available on the given host"""
     try:
@@ -20,6 +46,8 @@ def port_number_available(host, port):
     except OSError:
         return False
 
+###############################################################################
+###############################################################################
 def port_find_available(host='127.0.0.1', start_port=5000, max_attempts=10):
     """Find next available port by checking sequential ports from start_port"""
     for port in range(start_port, start_port + max_attempts):
@@ -32,16 +60,29 @@ class LaunchpadApp(ctk.CTk):
         super().__init__()
 
         # Timer settings
-        self.app_close = 10  # seconds until auto-close
+        self.app_close = 30  # seconds until auto-close
         self.time_remaining = self.app_close
         
         self.title(f"[{self.time_format(self.time_remaining)}] Launchpad")
-        self.app_width = 220
-        self.app_height = 230
+        self.app_width = 350
+        self.app_height = 400
         self.button_width = 200
         self.button_height = 20
         self.button_pady = 10
-        self.geometry(f"{self.app_width}x{self.app_height}")
+        self.button_padx = 20
+        
+        # Update window to get accurate screen dimensions
+        #self.update_idletasks()
+        
+        # Position window at upper right corner of screen
+        screen_width = self.winfo_screenwidth()
+        #screen_height = self.winfo_screenheight()
+        x_position = screen_width - self.app_width - 10  # 10px margin from edge
+        y_position = 10  # 10px margin from top
+        self.geometry(f"{self.app_width}x{self.app_height}+{x_position}+{y_position}")
+        self.resizable(False, False)  # Prevent window resizing
+        self.minsize(self.app_width, self.app_height)  # Set minimum size
+        self.maxsize(self.app_width, self.app_height)  # Set maximum size
         
         # Flask server settings
         self.flask_process = None
@@ -56,6 +97,29 @@ class LaunchpadApp(ctk.CTk):
         self.bind('<Motion>', lambda e: self.time_countdown_reset())
         self.bind('<Button>', lambda e: self.time_countdown_reset())
         self.bind('<Key>', lambda e: self.time_countdown_reset())
+        
+        # Bind window close event to ensure cleanup
+        self.protocol("WM_DELETE_WINDOW", self.quit_app)
+
+        # Logo at top
+        if os.path.exists(logo_path):
+            try:
+                logo_image = Image.open(logo_path)
+                # Resize logo maintaining aspect ratio
+                original_width, original_height = logo_image.size
+                max_height = 40
+                aspect_ratio = original_width / original_height
+                new_width = int(max_height * aspect_ratio)
+                logo_image = logo_image.resize((new_width, max_height), Image.Resampling.LANCZOS)
+                self.logo_photo = ImageTk.PhotoImage(logo_image)
+                self.logo_label = ctk.CTkLabel(
+                    self,
+                    image=self.logo_photo,
+                    text=""
+                )
+                self.logo_label.pack(pady=(5, 5), anchor="e", padx=(0, 5))
+            except Exception as e:
+                print(f"Error loading logo: {e}")
 
         # Title
         self.label = ctk.CTkLabel(
@@ -63,7 +127,7 @@ class LaunchpadApp(ctk.CTk):
             text="LAUNCHPAD", 
             font=ctk.CTkFont(size=24, weight="bold")
         )
-        self.label.pack(pady=self.button_pady)
+        self.label.pack(pady=(5, self.button_pady))
 
         # Info label
         '''
@@ -75,9 +139,25 @@ class LaunchpadApp(ctk.CTk):
         self.label_info.pack(pady=5)
         '''
 
+        # Button frame to contain all buttons
+        button_frame_width = self.button_width + 10  # 5px padding on each side
+        button_frame = ctk.CTkFrame(self, fg_color="#2e2e2e")
+        button_frame.pack(padx=50, pady=5)
+
+        # Research button
+        self.button_search = ctk.CTkButton(
+            button_frame, 
+            text="RESEARCH", 
+            command=self.launch_search,
+            width= self.button_width,
+            height=self.button_height,
+            state='disabled'  # Disabled until server starts
+        )
+        self.button_search.pack(padx=self.button_padx, pady=self.button_pady)
+
         # Archive button
         self.button_archive = ctk.CTkButton(
-            self, 
+            button_frame, 
             text="ARCHIVE", 
             command=self.launch_archive,
             width= self.button_width,
@@ -86,21 +166,20 @@ class LaunchpadApp(ctk.CTk):
         )
         self.button_archive.pack(pady=self.button_pady)
         
-        # Search button
-        self.button_search = ctk.CTkButton(
-            self, 
-            text="SEARCH", 
-            command=self.launch_search,
+        # Production button
+        self.button_production = ctk.CTkButton(
+            button_frame, 
+            text="PRODUCTION", 
             width= self.button_width,
             height=self.button_height,
             state='disabled'  # Disabled until server starts
         )
-        self.button_search.pack(pady=self.button_pady)
+        self.button_production.pack(pady=self.button_pady)
 
         # Status label
         #self.label_status = ctk.CTkLabel(
         self.label_status = ctk.CTkEntry(
-            self,
+            button_frame,
             font=ctk.CTkFont(size=11),
             state='disabled',
             text_color="gray",
@@ -118,7 +197,7 @@ class LaunchpadApp(ctk.CTk):
 
         # Exit button
         self.button_quit = ctk.CTkButton(
-            self, 
+            button_frame, 
             text="EXIT", 
             command=self.quit_app,
             fg_color="darkred",
@@ -205,7 +284,8 @@ class LaunchpadApp(ctk.CTk):
     def launch_search(self):
         """Open browser to search page"""
         if self.server_ready:
-            webbrowser.open(f"{self.flask_url}/search")
+            url = f"{self.flask_url}/search"
+            open_browser(url)
             self.status_update("Opened Search in browser", "green")
             self.time_countdown_reset()
         else:
@@ -214,7 +294,8 @@ class LaunchpadApp(ctk.CTk):
     def launch_archive(self):
         """Open browser to archive page"""
         if self.server_ready:
-            webbrowser.open(f"{self.flask_url}/archive")
+            url = f"{self.flask_url}/archive"
+            open_browser(url)
             self.status_update("Opened Archive in browser", "green")
             self.time_countdown_reset()
         else:
@@ -256,15 +337,22 @@ class LaunchpadApp(ctk.CTk):
     
     def quit_app(self):
         """Quit the application and terminate Flask server"""
-        if self.flask_process and self.flask_process.poll() is None:
-            print("Terminating Flask server...")
-            self.flask_process.terminate()
-            try:
-                self.flask_process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                self.flask_process.kill()
+        if self.flask_process:
+            if self.flask_process.poll() is None:  # Process is still running
+                print(f"Terminating Flask server on port {self.flask_port}...")
+                self.flask_process.terminate()
+                try:
+                    self.flask_process.wait(timeout=3)
+                    print("Flask server terminated successfully")
+                except subprocess.TimeoutExpired:
+                    print("Flask server did not terminate, forcing kill...")
+                    self.flask_process.kill()
+                    self.flask_process.wait()  # Ensure process is reaped
+                    print("Flask server killed")
+            else:
+                print("Flask server already stopped")
         
-        self.quit()
+        self.destroy()  # Use destroy() instead of quit() for proper cleanup
 
 
 def main():
