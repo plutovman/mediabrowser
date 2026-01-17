@@ -315,6 +315,7 @@ class LaunchpadApp(ctk.CTk):
 
     def launch_search(self):
         """Open browser to search page"""
+
         if self.server_ready:
             url = f"{self.flask_url}/index"
             open_browser(url)
