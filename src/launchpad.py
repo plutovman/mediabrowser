@@ -5,6 +5,7 @@ import threading
 import webbrowser
 import time
 import socket
+#import multiprocessing
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
@@ -55,12 +56,27 @@ def port_find_available(host='127.0.0.1', start_port=5000, max_attempts=10):
             return port
     return None
 
+###############################################################################
+###############################################################################
+def get_python_executable():
+    """Get the appropriate Python executable
+    
+    When running as a PyInstaller frozen app, sys.executable points to the
+    frozen executable itself, not Python. This causes recursive execution
+    when trying to launch Python scripts. This function returns the system
+    Python interpreter when frozen.
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as frozen executable - use system Python
+        return 'python3'  # WSL/Linux default
+    return sys.executable
+
 class LaunchpadApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         # Timer settings
-        self.app_close = 30  # seconds until auto-close
+        self.app_close = 60*15  # seconds until auto-close
         self.time_remaining = self.app_close
         
         self.title(f"[{self.time_format(self.time_remaining)}] Launchpad")
@@ -75,10 +91,12 @@ class LaunchpadApp(ctk.CTk):
         #self.update_idletasks()
         
         # Position window at upper right corner of screen
-        screen_width = self.winfo_screenwidth()
-        #screen_height = self.winfo_screenheight()
-        x_position = screen_width - self.app_width - 10  # 10px margin from edge
-        y_position = 10  # 10px margin from top
+        #screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        #x_position = screen_width - self.app_width - 10  # 10px margin from edge
+        #y_position = 10  # 10px margin from top
+        x_position = 5
+        y_position = screen_height/2 - self.app_height/2 
         self.geometry(f"{self.app_width}x{self.app_height}+{x_position}+{y_position}")
         self.resizable(False, False)  # Prevent window resizing
         self.minsize(self.app_width, self.app_height)  # Set minimum size
@@ -107,17 +125,18 @@ class LaunchpadApp(ctk.CTk):
                 logo_image = Image.open(logo_path)
                 # Resize logo maintaining aspect ratio
                 original_width, original_height = logo_image.size
-                max_height = 40
+                max_height = 50
                 aspect_ratio = original_width / original_height
                 new_width = int(max_height * aspect_ratio)
-                logo_image = logo_image.resize((new_width, max_height), Image.Resampling.LANCZOS)
-                self.logo_photo = ImageTk.PhotoImage(logo_image)
+                #logo_image = logo_image.resize((new_width, max_height), Image.Resampling.LANCZOS)
+                #self.logo_photo = ImageTk.PhotoImage(logo_image)
+                self.logo_photo = ctk.CTkImage(light_image=logo_image, dark_image=logo_image, size=(new_width, max_height))
                 self.logo_label = ctk.CTkLabel(
                     self,
                     image=self.logo_photo,
                     text=""
                 )
-                self.logo_label.pack(pady=(5, 5), anchor="e", padx=(0, 5))
+                self.logo_label.pack(pady=(10,10), anchor="e", padx=(0, 5))
             except Exception as e:
                 print(f"Error loading logo: {e}")
 
@@ -234,7 +253,7 @@ class LaunchpadApp(ctk.CTk):
             
             # Launch Flask server as subprocess with custom port and no auto-browser
             self.flask_process = subprocess.Popen(
-                [sys.executable, mediabrowser_path, '--port', str(self.flask_port), '--no-browser'],
+                [get_python_executable(), mediabrowser_path, '--port', str(self.flask_port), '--no-browser'],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=script_dir,
@@ -284,7 +303,7 @@ class LaunchpadApp(ctk.CTk):
     def launch_search(self):
         """Open browser to search page"""
         if self.server_ready:
-            url = f"{self.flask_url}/search"
+            url = f"{self.flask_url}/index"
             open_browser(url)
             self.status_update("Opened Search in browser", "green")
             self.time_countdown_reset()
@@ -356,6 +375,7 @@ class LaunchpadApp(ctk.CTk):
 
 
 def main():
+    #multiprocessing.freeze_support()  # Required for PyInstaller frozen apps
     app = LaunchpadApp()
     app.mainloop()
 

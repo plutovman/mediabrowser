@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>{% block title %}Media Gallery{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% block favicon %}{{ url_for('serve_resources', filename='foxlito_sqr.png') }}{% endblock %}">
 
     <style>
         /* Common styles shared across all pages */

@@ -1,5 +1,5 @@
 import sqlite3, os, math, webbrowser
-from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify, flash, get_flashed_messages
+from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify, flash, get_flashed_messages, send_from_directory
 import zipfile
 from datetime import datetime
 import io, zipfile, time
@@ -318,6 +318,12 @@ def inject_cart_count():
     
     count = cart_get_count(db_table)
     return {'cart_count': count, 'current_db_table': db_table, 'db_table': db_table}
+
+@app.route('/resources/<path:filename>')
+def serve_resources(filename):
+    """Serve files from the resources directory (e.g., favicon)"""
+    resources_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+    return send_from_directory(resources_dir, filename)
 
 @app.route('/')
 @app.route('/index')
