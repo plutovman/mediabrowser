@@ -1,6 +1,5 @@
 import os
 import sys
-import subprocess
 import threading
 import webbrowser
 import time
@@ -8,6 +7,7 @@ import socket
 #import multiprocessing
 import customtkinter as ctk
 from PIL import Image, ImageTk
+import mediabrowser as mb
 
 
 ctk.set_appearance_mode("dark")
@@ -244,56 +244,69 @@ class LaunchpadApp(ctk.CTk):
     def flask_server_start(self):
         """Start MediaBrowser Flask server on initialization"""
         try:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            mediabrowser_path = os.path.join(script_dir, 'mediabrowser.py')
-            
-            if not os.path.exists(mediabrowser_path):
-                self.status_update("Error: mediabrowser.py not found", "red")
-                return
-            
-            # Launch Flask server as subprocess with custom port and no auto-browser
-            self.flask_process = subprocess.Popen(
-                [get_python_executable(), mediabrowser_path, '--port', str(self.flask_port), '--no-browser'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=script_dir,
-                text=True,
-                bufsize=1
+            # Start Flask in a daemon thread instead of subprocess
+            flask_thread = threading.Thread(
+                target=self.flask_run_server,
+                daemon=True
             )
+            flask_thread.start()
             
             self.status_update("Starting server...", "orange")
             
-            # Start monitoring thread
+            # Start monitoring thread to check when server is ready
             monitor_thread = threading.Thread(
-                target=self.flask_startup_monitor,
+                target=self.flask_startup_monitor_http,
                 daemon=True
             )
             monitor_thread.start()
             
         except Exception as e:
             self.status_update(f"Error starting server: {str(e)}", "red")
-
-    def flask_startup_monitor(self):
-        """Monitor Flask server output until ready"""
+    
+    def flask_run_server(self):
+        """Run Flask server in thread"""
         try:
-            for line in iter(self.flask_process.stderr.readline, ''):
-                if not line:
-                    break
-                
-                # Detect Flask startup message
-                if 'Running on' in line or 'WARNING' in line:
-                    time.sleep(1)  # Give server a moment to fully initialize
-                    self.server_ready = True
-                    self.after(0, self.buttons_enable)
-                    self.after(0, lambda: self.status_update("Server ready", "green"))
-                
-                # Monitor for HTTP activity to reset timer
-                if any(method in line for method in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']):
-                    if 'HTTP' in line:
-                        self.after(0, self.time_countdown_reset)
-                        
+            # Configure Flask app from mediabrowser module
+            mb.app.config['SERVER_NAME'] = None  # Allow dynamic host/port
+            
+            # Run Flask server
+            mb.app.run(
+                host=self.flask_host,
+                port=self.flask_port,
+                debug=False,  # Must be False for threaded operation
+                use_reloader=False,  # Must be False in threads
+                threaded=True
+            )
         except Exception as e:
-            print(f"Error monitoring Flask: {e}")
+            print(f"Error running Flask server: {e}")
+            self.after(0, lambda: self.status_update(f"Server error: {str(e)}", "red"))
+
+    def flask_startup_monitor_http(self):
+        """Monitor Flask server readiness via HTTP probe"""
+        max_attempts = 30
+        attempt = 0
+        
+        while attempt < max_attempts:
+            try:
+                # Try to connect to Flask server
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    result = s.connect_ex((self.flask_host, self.flask_port))
+                    if result == 0:
+                        # Server is accepting connections
+                        time.sleep(0.5)  # Give it a moment to fully initialize
+                        self.server_ready = True
+                        self.after(0, self.buttons_enable)
+                        self.after(0, lambda: self.status_update("Server ready", "green"))
+                        return
+            except Exception as e:
+                pass
+            
+            attempt += 1
+            time.sleep(0.5)
+        
+        # Timeout reached
+        self.after(0, lambda: self.status_update("Server startup timeout", "red"))
 
     def buttons_enable(self):
         """Enable buttons once server is ready"""
@@ -355,23 +368,10 @@ class LaunchpadApp(ctk.CTk):
         self.time_remaining = self.app_close
     
     def quit_app(self):
-        """Quit the application and terminate Flask server"""
-        if self.flask_process:
-            if self.flask_process.poll() is None:  # Process is still running
-                print(f"Terminating Flask server on port {self.flask_port}...")
-                self.flask_process.terminate()
-                try:
-                    self.flask_process.wait(timeout=3)
-                    print("Flask server terminated successfully")
-                except subprocess.TimeoutExpired:
-                    print("Flask server did not terminate, forcing kill...")
-                    self.flask_process.kill()
-                    self.flask_process.wait()  # Ensure process is reaped
-                    print("Flask server killed")
-            else:
-                print("Flask server already stopped")
-        
-        self.destroy()  # Use destroy() instead of quit() for proper cleanup
+        """Quit the application"""
+        # Flask runs in daemon thread, will terminate automatically
+        print(f"Closing application (Flask server on port {self.flask_port} will stop)")
+        self.destroy()
 
 
 def main():
