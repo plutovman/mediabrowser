@@ -8,6 +8,19 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 # Get the current directory
 spec_root = os.path.abspath(SPECPATH)
+path_other = '/tmp/app'
+path_dist = os.path.join(path_other, 'dist')
+path_build = os.path.join(path_other, 'build')
+if not os.path.exists(path_dist):
+    os.makedirs(path_dist)
+if not os.path.exists(path_build):
+    os.makedirs(path_build)
+
+# Override default DISTPATH and BUILDPATH
+if not os.environ.get('_MEIPASS'):  # Only set if not running from frozen app
+    import PyInstaller.config
+    PyInstaller.config.CONF['distpath'] = os.path.join(path_other, 'dist')
+    PyInstaller.config.CONF['workpath'] = os.path.join(path_other, 'build')
 
 # Collect CustomTkinter data files
 customtkinter_datas = collect_data_files('customtkinter')
