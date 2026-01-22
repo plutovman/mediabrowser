@@ -259,28 +259,50 @@ table {
                 if (!originalData[fileId]) originalData[fileId] = {};
                 originalData[fileId][field] = value;
 
-                // Create input or textarea
+                // Create input, textarea, or select
                 let input;
                 if (field === 'captions') {
                     input = document.createElement('textarea');
                     input.rows = 3;
+                } else if (field === 'genre') {
+                    input = document.createElement('select');
+                    // Add empty option
+                    const emptyOption = document.createElement('option');
+                    emptyOption.value = '';
+                    emptyOption.textContent = '-- Select Genre --';
+                    input.appendChild(emptyOption);
+                    // Add genre options
+                    const genres = {{ genres|tojson }};
+                    genres.forEach(genre => {
+                        const option = document.createElement('option');
+                        option.value = genre;
+                        option.textContent = genre;
+                        if (genre === value) {
+                            option.selected = true;
+                        }
+                        input.appendChild(option);
+                    });
                 } else {
                     input = document.createElement('input');
                     input.type = 'text';
                 }
-                input.value = value;
+                if (field !== 'genre') {
+                    input.value = value;
+                }
                 input.dataset.field = field;
                 input.dataset.fileId = fileId;
                 input.className = 'edit-input';
 
-                // Track changes
-                input.addEventListener('input', function() {
+                // Track changes (use both 'input' and 'change' for select compatibility)
+                const changeHandler = function() {
                     if (this.value !== originalData[fileId][field]) {
                         cell.classList.add('modified');
                     } else {
                         cell.classList.remove('modified');
                     }
-                });
+                };
+                input.addEventListener('input', changeHandler);
+                input.addEventListener('change', changeHandler);
 
                 span.style.display = 'none';
                 cell.appendChild(input);

@@ -5,12 +5,21 @@
 import os
 import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+# app info
+app_name = 'launchapd'
+app_py = f'{app_name}.py'
+app_ico = 'foxlito_sqr.ico'
 
 # Get the current directory
 spec_root = os.path.abspath(SPECPATH)
 path_other = '/tmp/app'
-path_dist = os.path.join(path_other, 'dist')
-path_build = os.path.join(path_other, 'build')
+
+#path_dist = os.path.join(path_other, 'dist')
+#spec_rootpath_build = os.path.join(path_other, 'build')
+
+path_dist = os.path.join(spec_root, 'dist')
+path_build = os.path.join(spec_root, 'build')
+
 if not os.path.exists(path_dist):
     os.makedirs(path_dist)
 if not os.path.exists(path_build):
@@ -19,8 +28,10 @@ if not os.path.exists(path_build):
 # Override default DISTPATH and BUILDPATH
 if not os.environ.get('_MEIPASS'):  # Only set if not running from frozen app
     import PyInstaller.config
-    PyInstaller.config.CONF['distpath'] = os.path.join(path_other, 'dist')
-    PyInstaller.config.CONF['workpath'] = os.path.join(path_other, 'build')
+    #PyInstaller.config.CONF['distpath'] = os.path.join(path_other, 'dist')
+    #PyInstaller.config.CONF['workpath'] = os.path.join(path_other, 'build')
+    PyInstaller.config.CONF['distpath'] = os.path.join(path_dist)
+    PyInstaller.config.CONF['workpath'] = os.path.join(path_build)
 
 # Collect CustomTkinter data files
 customtkinter_datas = collect_data_files('customtkinter')
@@ -76,7 +87,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='app_launchpad',
+    name=app_py,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -89,5 +100,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=os.path.join(spec_root, 'resources', 'foxlito_sqr.ico'),  # Application icon
+    icon=os.path.join(spec_root, 'resources', app_ico),  # Application icon
 )

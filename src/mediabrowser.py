@@ -53,7 +53,9 @@ list_db_tables = [db_table_proj, db_table_arch]
 #list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj', 'other0', 'other1', 'other2', 'other3', 'other4']
 list_file_types = ['mp4', 'jpg', 'psd', 'prproj','docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 #list_genres = ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller']
-list_genres = ['noir', 'modern', 'vintage', 'abstract', 'realism', 'fantasy', 'sci-fi']
+#list_genres = ['noir', 'modern', 'vintage', 'abstract', 'realism', 'fantasy', 'sci-fi']
+# create a list_genres with 100 fake genres
+list_genres = [f"genre_{i:03d}" for i in range(100)]
 
 # Helper functions for db_table-aware cart management
 def cart_init():
@@ -517,7 +519,7 @@ def page_cart():
     # Get git commit info
     git_info = git_get_info()
     
-    return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url, git_info=git_info, db_table=db_table, db_tables=list_db_tables)
+    return render_template('cart.html', media=media_list, logo_path=logo_relative, back_url=back_url, git_info=git_info, db_table=db_table, db_tables=list_db_tables, genres=list_genres)
 
 @app.route('/clear_cart')
 def cart_clear():
@@ -609,13 +611,13 @@ def cart_items_update():
     # Check password
     correct_password = os.getenv('MEDIA_SQLITE_KEY')
     if not correct_password:
-        return {'success': False, 'error': 'Database password not configured on server'}
+        return jsonify({'success': False, 'error': 'Database password not configured on server'})
     
     if provided_password != correct_password:
-        return {'success': False, 'error': 'Incorrect password'}
+        return jsonify({'success': False, 'error': 'Incorrect password'})
     
     if not changes:
-        return {'success': False, 'error': 'No changes provided'}
+        return jsonify({'success': False, 'error': 'No changes provided'})
     
     # Validate fields
     allowed_fields = ['subject', 'genre', 'setting', 'captions', 'tags']
@@ -639,10 +641,10 @@ def cart_items_update():
         conn.commit()
         conn.close()
         
-        return {'success': True, 'updated': updated_count}
+        return jsonify({'success': True, 'updated': updated_count})
     except Exception as e:
         conn.close()
-        return {'success': False, 'error': str(e)}
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/prune_cart_items', methods=['POST'])
 def cart_items_prune():

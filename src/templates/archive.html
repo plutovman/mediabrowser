@@ -126,6 +126,7 @@
             background-color: #1a1a1a;
             color: #f0f0f0;
             font-family: inherit;
+            box-sizing: border-box;
         }
         
         .form-group input:disabled {
@@ -372,7 +373,12 @@
                     
                     <div class="form-group">
                         <label>Genre *</label>
-                        <input type="text" id="genre" name="genre" required placeholder="e.g., noir, modern, vintage, abstract">
+                        <select id="genre" name="genre" required>
+                            <option value="">-- Select Genre --</option>
+                            {% for g in genres %}
+                            <option value="{{ g }}">{{ g }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="form-group">

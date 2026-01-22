@@ -3,8 +3,21 @@
 {% block title %}Media Gallery{% endblock %}
 
 {% block extra_styles %}
+:root {
+    --col-checkbox: 20px;
+    --col-media: 300px;
+    --col-id: 150px;
+    --col-subject: 120px;
+    --col-genre: 120px;
+    --col-setting: 120px;
+    --col-captions: 300px;
+    --col-tags: 300px;
+    --col-filepath: 300px;
+}
+
 table {
     min-width: 1300px;
+    table-layout: fixed;
 }
 
 .play-button {
@@ -74,13 +87,15 @@ table {
         <table>
             <thead>
                 <tr>
-                    <th style="width: 20px;"><button type="button" id="toggleAll" style="padding: 5px 5px; cursor: pointer;">Sel</button></th>
-                    <th style="width: 300px;">Media</th>
-                    <th style="width: 120px;">Subject</th>
-                    <th style="width: 120px;">Genre</th>
-                    <th style="width: 120px;">Setting</th>
-                    <th style="width: 300px;">Captions</th>
-                    <th style="width: 300px;">Tags</th>
+                    <th style="width: var(--col-checkbox);"><button type="button" id="toggleAll" style="padding: 5px 5px; cursor: pointer;">Sel</button></th>
+                    <th style="width: var(--col-media);">Media</th>
+                    <th style="width: var(--col-id);">ID</th>
+                    <th style="width: var(--col-subject);">Subject</th>
+                    <th style="width: var(--col-genre);">Genre</th>
+                    <th style="width: var(--col-setting);">Setting</th>
+                    <th style="width: var(--col-captions);">Captions</th>
+                    <th style="width: var(--col-tags);">Tags</th>
+                    <th style="width: var(--col-filepath);">File Path</th>
                 </tr>
             </thead>
             <tbody>
@@ -88,7 +103,7 @@ table {
                 {% for media_item in media %}
                 <tr>
                     <td style="text-align: center;"><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}"></td>
-                    <td style="text-align: center;">
+                    <td style="text-align: center; width: var(--col-media);">
                         <div class="media-card">
                             {% if media_item['ext_is_viewable'] %}
                             {% if media_item['file_type'] == 'mp4' %}
@@ -118,11 +133,13 @@ table {
                         <p style="text-align: center; margin: 5px 0 0 0; font-size: 12px; word-break: break-all;">{{ media_item['file_name'] }}</p>
                     </td>
                     <!--specify width for each td -->
-                    <td>{{ media_item['subject'] }}</td>
-                    <td>{{ media_item['genre'] }}</td>
-                    <td>{{ media_item['setting'] }}</td>
-                    <td>{{ media_item['captions'] }}</td>
-                    <td>{{ media_item['tags'] }}</td>
+                    <td style="width: var(--col-id);">{{ media_item['file_id'] }}</td>
+                    <td style="width: var(--col-subject);">{{ media_item['subject'] }}</td>
+                    <td style="width: var(--col-genre);">{{ media_item['genre'] }}</td>
+                    <td style="width: var(--col-setting);">{{ media_item['setting'] }}</td>
+                    <td style="width: var(--col-captions);">{{ media_item['captions'] }}</td>
+                    <td style="width: var(--col-tags);">{{ media_item['tags'] }}</td>
+                    <td style="width: var(--col-filepath);">{{ media_item['file_path'] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
