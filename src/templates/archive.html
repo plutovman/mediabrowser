@@ -181,8 +181,14 @@
             color: white;
         }
         
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background-color: #3a8eef;
+        }
+        
+        .btn-primary:disabled {
+            background-color: #555;
+            color: #888;
+            cursor: not-allowed;
         }
         
         .btn-secondary {
@@ -304,7 +310,7 @@
                 
                 <div class="action-buttons" style="margin-top: 15px;">
                     <button type="button" class="btn-secondary" onclick="skipItem()">Remove Current</button>
-                    <button type="button" class="btn-primary" onclick="document.getElementById('metadataForm').requestSubmit()">Save to Database</button>
+                    <button type="button" id="saveButton" class="btn-primary" onclick="document.getElementById('metadataForm').requestSubmit()" disabled>Save to Database</button>
                 </div>
             </div>
             
@@ -447,6 +453,36 @@
         let currentIndex = {{ current_index }};
         let currentCopyId = null;
         let processedFiles = {{ processed_files|tojson }};
+        
+        // Function to check if all required fields are filled
+        function validateRequiredFields() {
+            const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
+            const saveButton = document.getElementById('saveButton');
+            
+            const allFilled = requiredFields.every(fieldId => {
+                const field = document.getElementById(fieldId);
+                return field && field.value && field.value.trim() !== '';
+            });
+            
+            if (saveButton) {
+                saveButton.disabled = !allFilled;
+            }
+        }
+        
+        // Add event listeners to all required fields
+        document.addEventListener('DOMContentLoaded', function() {
+            const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('input', validateRequiredFields);
+                    field.addEventListener('change', validateRequiredFields);
+                }
+            });
+            
+            // Initial validation
+            validateRequiredFields();
+        });
         
         // Drag and drop functionality
         const dropZone = document.getElementById('dropZone');
@@ -881,32 +917,49 @@
         });
         
         function skipItem() {
+            if (currentQueue.length === 0) {
+                showStatus('Queue is empty', 'info');
+                return;
+            }
+            
             const filePath = currentQueue[currentIndex];
+            
+            // Normalize path for comparison (convert backslashes to forward slashes)
+            const normalizedPath = filePath.replace(/\\/g, '/');
             
             // Remove from queue
             currentQueue.splice(currentIndex, 1);
             
-            // Remove from processed files cache
+            // Remove from processed files cache - try both original and normalized paths
             delete processedFiles[filePath];
+            delete processedFiles[normalizedPath];
+            
+            // Also check if the cached key is the absolute path
+            const pathBaseMedia = '{{ path_base_media }}'.replace(/\\/g, '/');
+            if (normalizedPath.startsWith(pathBaseMedia)) {
+                delete processedFiles[normalizedPath];
+            }
             
             // Update session
             fetch('/api/archive/update_queue', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({queue: currentQueue})
+            }).then(() => {
+                // Refresh queue display after successful update
+                refreshQueueDisplay();
+                
+                // Move to next item or previous if at end
+                if (currentQueue.length === 0) {
+                    showStatus('Queue is empty', 'info');
+                    window.location.reload();
+                } else {
+                    const newIndex = currentIndex >= currentQueue.length ? currentQueue.length - 1 : currentIndex;
+                    loadQueueItem(newIndex);
+                }
+            }).catch(error => {
+                showStatus('Error updating queue: ' + error, 'error');
             });
-            
-            // Refresh queue display
-            refreshQueueDisplay();
-            
-            // Move to previous item, or stay at current if at start
-            if (currentQueue.length === 0) {
-                showStatus('Queue is empty', 'info');
-                window.location.reload();
-            } else {
-                const newIndex = currentIndex > 0 ? currentIndex - 1 : 0;
-                loadQueueItem(newIndex);
-            }
         }
         
         function refreshQueueDisplay() {
