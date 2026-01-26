@@ -188,7 +188,8 @@ class LaunchpadApp(ctk.CTk):
         # Production button
         self.button_production = ctk.CTkButton(
             button_frame, 
-            text="PRODUCTION", 
+            text="PRODUCTION",
+            command=self.launch_production, 
             width= self.button_width,
             height=self.button_height,
             state='disabled'  # Disabled until server starts
@@ -312,6 +313,7 @@ class LaunchpadApp(ctk.CTk):
         """Enable buttons once server is ready"""
         self.button_search.configure(state='normal')
         self.button_archive.configure(state='normal')
+        self.button_production.configure(state='normal')
 
     def launch_search(self):
         """Open browser to search page"""
@@ -333,6 +335,17 @@ class LaunchpadApp(ctk.CTk):
             self.time_countdown_reset()
         else:
             self.status_update("Server not ready yet...", "orange")
+
+    def launch_production(self):
+        """Open browser to archive page"""
+        if self.server_ready:
+            url = f"{self.flask_url}/production"
+            open_browser(url)
+            self.status_update("Opened Production in browser", "green")
+            self.time_countdown_reset()
+        else:
+            self.status_update("Server not ready yet...", "orange")
+
 
     def status_update(self, message, color="gray"):
         """Update the status label"""

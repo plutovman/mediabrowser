@@ -1,6 +1,7 @@
 
 import random, string, re, pathlib, datetime
 import os, inspect, json
+import sqlite3
 
 job_mode_active = 'active'
 job_mode_archvd = 'archvd'
@@ -11,10 +12,45 @@ file_jobs_txt = 'pe_jobs_lnx.tcsh'
 file_jobs_json = 'db_jobs.json'
 file_jobs_legacy = 'pe_jobs_lnx.tcsh'
 
+list_dirs_apps = ['adobe', 'audio', 'data', 'houdini', 'maya', 'microsoft', 'movies', 'nuke', 'python']
 list_dirs_adobe = ['afterfx', 'illustrator', 'photoshop', 'premiere']
+list_dirs_audio = ['src', 'out']
 list_dirs_hou = ['bgeo', 'hip', 'hrender', 'otl']
 list_dirs_maya = ['mel', 'obj', 'scenes', 'sourceimages', 'textures']
 list_dirs_ms = ['excel', 'ppt', 'word']
+list_dirs_movies = ['src', 'out']
+list_dirs_nuke = []
+list_dirs_python = []
+list_dirs_data = []
+
+dict_apps = {
+    'adobe': list_dirs_adobe,
+    'audio': list_dirs_audio,
+    'data' : list_dirs_data,
+    'houdini': list_dirs_hou,
+    'maya': list_dirs_maya,
+    'microsoft': list_dirs_ms,
+    'movies': list_dirs_movies,
+    'nuke': list_dirs_nuke,
+    'python': list_dirs_python,
+}
+
+
+list_db_jobs_columns = ['job_id',
+                        'job_name', 
+                        'job_alias',
+                        'job_user',
+                        'job_notes',
+                        'job_year',
+                        'job_date_start',
+                        'job_date_due',
+                        'job_date_charge1',
+                        'job_date_charge2',
+                        'job_date_charge3',
+                        'job_state',
+                        'job_path_job',
+                        'job_path_rnd',
+                        'job_apps']
 
 ###############################################################################
 ###############################################################################
@@ -27,14 +63,15 @@ def db_job_dict():
                     'chg2' :'',
                     'chg3' :''}
 
-    dict_job_dirs = {'adobe': list_dirs_adobe,
-                     'audio': [],
+    dict_job_apps = {'adobe': list_dirs_adobe,
+                     'audio': list_dirs_audio,
+                     'data' : list_dirs_data,
                      'houdini': list_dirs_hou,
                      'maya': list_dirs_maya,
                      'microsoft': list_dirs_ms,
-                     'movies': [],
-                     'nuke': [],
-                     'python': [],
+                     'movies': list_dirs_movies,
+                     'nuke': list_dirs_nuke,
+                     'python': list_dirs_python,
                     }
     dict_job = {
         'job_alias' : '',
@@ -46,7 +83,7 @@ def db_job_dict():
         'job_state' : job_mode_active,
         'job_path_job' : '',
         'job_path_rnd' : '',
-        'job_dirs' : dict_job_dirs,
+        'job_apps' : dict_job_apps,
 
     }
     return (dict_job)
@@ -60,12 +97,28 @@ def db_job_id_create(list_id: list):
     """
     create a unique id for a new job entry that is not in list_id
     """
+
+    '''
     job_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
     while job_id in list_id:
         job_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
     return job_id
+    '''
+
+    job_id = db_token_generator()
+    while job_id in list_id:
+        job_id = db_token_generator()
+    return job_id
 
 # end of def db_job_id_create(list_id: list):
+
+def db_token_generator(token_length=12):
+    """
+    generate a random token of ascii characters and digits of length token_length
+    """
+    letters = string.ascii_lowercase
+    token = ''.join(random.choice(letters) for i in range(token_length) )
+    return token
 
 ###############################################################################
 ###############################################################################
@@ -188,7 +241,66 @@ def db_jobs_legacy_migrate():
     else:
         print (dbh + f'No legacy jobs txt file found: {path_jobs_txt}.') 
 
+def db_jobdirs_get(depot_current: str, job_year: str, job_name: str):
 
-#############################################
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
 
-db_jobs_legacy_migrate()
+    path_dummy = os.path.join(depot_current, 'assetdepot', 'jobs_dummy')
+    path_db = os.path.join(path_dummy, 'db', 'json')
+    path_proj = os.path.join(path_dummy, 'projectdepot') 
+    path_rend = os.path.join(path_dummy, 'renderdepot')
+    path_job = os.path.join(path_proj, job_year, job_name)
+    path_rnd = os.path.join(path_rend, job_year, job_name)
+    job_name_parts = job_name.split('_')
+    job_base = '_'.join(job_name_parts[-1])
+
+    dict_jobdirs = {
+        'path_db': path_db,
+        'path_proj': path_proj,
+        'path_rend': path_rend,
+        'path_job': path_job,
+        'path_rnd': path_rnd,
+        'job_base': job_base
+    }
+    return dict_jobdirs
+
+
+def db_sqlite_table_jobs_create(db_path: str, table_name: str):
+
+    '''
+    create sqlite table for jobs if it doesn't exist
+
+    '''
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_id TEXT NOT NULL,
+            job_name TEXT NOT NULL,
+            job_alias TEXT NOT NULL,
+            job_user TEXT NOT NULL,
+            job_year TEXT NOT NULL,
+            job_notes TEXT NOT NULL,
+            job_date_start TEXT NOT NULL,
+            job_date_due TEXT NOT NULL,
+            job_date_charge1 TEXT NOT NULL,
+            job_date_charge2 TEXT NOT NULL,
+            job_date_charge3 TEXT NOT NULL,
+            job_state TEXT NOT NULL,
+            job_path_job TEXT NOT NULL,
+            job_path_rnd TEXT NOT NULL,
+            job_apps TEXT NOT NULL,
+            UNIQUE(job_id, job_path_job, job_path_rnd)
+                   
+        )
+    ''')
+
+    conn.commit()
+    #conn.close()
+    return conn
+
+#db_jobs_legacy_migrate()

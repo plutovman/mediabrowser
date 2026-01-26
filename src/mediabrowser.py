@@ -33,8 +33,13 @@ CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
 CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
 CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud`
 
-app = Flask(__name__, static_folder=path_base_media)
+#app = Flask(__name__, static_folder=path_base_media)
+app = Flask(__name__, static_folder=depot_local)
 app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
+
+# Import and register projectbrowser routes
+import projectbrowser as pb
+pb.register_routes(app)
 
 dict_thumbs = {
     "afx": "adobe_afx.png",
@@ -100,8 +105,8 @@ def enrich_media_paths(item):
     if full_path.startswith('$DEPOT_ALL'):
         full_path = full_path.replace('$DEPOT_ALL', depot_local)
     item_dict['absolute_path'] = full_path
-    relative_path = os.path.relpath(full_path, path_base_media)
-    thumbs_other_relative_path  = os.path.relpath(path_base_thumbs, path_base_media)
+    relative_path = os.path.relpath(full_path, depot_local)
+    thumbs_other_relative_path  = os.path.relpath(path_base_thumbs, depot_local)
     item_dict['relative_path'] = relative_path
 
     ext_is_matched = False
@@ -117,7 +122,7 @@ def enrich_media_paths(item):
         # ffmpeg -ss 00:00:05 -i apod_2023_09_23_0.mp4 -frames:v 1 apod_2023_09_23_0.png
         for ext in ('.jpg', '.png'):
             candidate = base + ext
-            if os.path.exists(os.path.join(path_base_media, candidate)):
+            if os.path.exists(os.path.join(depot_local, candidate)):
                 thumb_relative_path = candidate
                 break
     # for 'jpg', 'jpeg', 'png' files, use the image itself as thumbnail
@@ -347,7 +352,7 @@ def page_index():
     conn.close()
     
     # Logo relative path for template
-    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    logo_relative = os.path.relpath(path_logo_sqr, depot_local)
     
     # Get top 20 subjects and genres for word cloud
     top_subjects = category_get_dict('subject', CNT_TOP_TOPICS, db_table)
@@ -460,7 +465,7 @@ def page_search():
         abort(404)
     
     # Logo relative path for template
-    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    logo_relative = os.path.relpath(path_logo_sqr, depot_local)
     
     # Get git commit info
     git_info = git_get_info()
@@ -511,7 +516,7 @@ def page_cart():
         conn.close()
     
     # Logo relative path for template
-    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    logo_relative = os.path.relpath(path_logo_sqr, depot_local)
     
     # Get back URL - default to search page if no previous search
     back_url = session.get('last_search_url', url_for('page_search'))
@@ -720,7 +725,7 @@ def page_archive():
     current_item = queue[current_index] if queue and current_index < len(queue) else None
     
     # Logo relative path
-    logo_relative = os.path.relpath(path_logo_sqr, path_base_media)
+    logo_relative = os.path.relpath(path_logo_sqr, depot_local)
     
     # Get git commit info
     git_info = git_get_info()
