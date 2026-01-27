@@ -1,0 +1,17 @@
+let's flesh out the product selection section. essentially, in this section, we want to show most of the information from the selected job's database entry laid out as editable text fields. the info would be laid out as: first row: job_name and job_alias; second row, job_path_job and job_path_rnd; third row, job_user, job_date_start, job_date_due; fourth row job_charge1, job_charge2, job_charge3; fourth row job_notes. the last field would be a tall text box with at least room for 3 lines of entry. the labels for all would be Job Name, Job Alias, Job Path, Rnd Path, Created By, Date Start, Date Due, Job Charge1, Job Charge2, Job Charge3, Job Notes. Change the. title from Job Selection to Job Dashboard.
+
+when i select a job, i am not seeing the job dashboard section show up. let's implement that by changing. the behavior of what happens when one clicks on a job_name. Instead of opening an explorer window to that location, let's add an action called action_jobactive_dashboard_populate that populates all the relevant fields in the dashboard
+
+
+If you want me to verify after you fix the DB, I can:
+
+start the app and exercise the /api/action_jobactive_dashboard_populate flow
+or run a quick API check for a specific job name
+Quick curl test you can run locally (replace <JOB_NAME>):
+
+What to check if you run it or test in the browser:
+
+HTTP status and response body for the POST
+Browser DevTools → Network → response payload
+Browser Console for any JS errors
+Tell me when you’re ready and I’ll run the verification or add extra logging to projectbrowser.py.

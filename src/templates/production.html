@@ -289,6 +289,10 @@
             <strong>Feedback:</strong>
             <div class="path-display" id="info-feedback">-</div>
         </div>
+        <hr style="border-color:#333;margin:12px 0;">
+        <div id="job-details" style="text-align:left;color:#b0b0b0;">
+            <!-- Job details will be injected here -->
+        </div>
     </div>
 
     <script>
@@ -333,7 +337,72 @@
                                 projectA.textContent = project.name;
                                 projectA.addEventListener('click', (e) => {
                                     e.stopPropagation();
-                                    openDirectory(project.path, project.name, null, null);
+                                    // Populate project selection info with DB data
+                                    fetch('/api/action_jobactive_dashboard_populate', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
+                                    })
+                                    .then(async (r) => {
+                                        const text = await r.text();
+                                        let data;
+                                        try {
+                                            data = text ? JSON.parse(text) : {};
+                                        } catch (err) {
+                                            document.getElementById('info-feedback').textContent = 'Error parsing response: ' + text;
+                                            document.getElementById('info-display').style.display = 'block';
+                                            return;
+                                        }
+
+                                        if (!r.ok) {
+                                            document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || r.statusText || 'Request failed');
+                                            document.getElementById('info-display').style.display = 'block';
+                                            return;
+                                        }
+
+                                        if (!data.success) {
+                                            document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || 'Unknown');
+                                            document.getElementById('info-display').style.display = 'block';
+                                            return;
+                                        }
+
+                                        const job = data.job || {};
+                                        document.getElementById('info-project').textContent = job.job_name || project.name;
+                                        document.getElementById('info-app').textContent = '-';
+                                        document.getElementById('info-feedback').textContent = job.job_path_job || project.path || '-';
+
+                                        // render job details
+                                        const details = document.getElementById('job-details');
+                                        details.innerHTML = '';
+                                        const addRow = (label, value) => {
+                                            const row = document.createElement('div');
+                                            row.style.marginBottom = '6px';
+                                            const lbl = document.createElement('strong');
+                                            lbl.textContent = label + ': ';
+                                            lbl.style.color = '#f0f0f0';
+                                            row.appendChild(lbl);
+                                            const span = document.createElement('span');
+                                            span.textContent = value || '-';
+                                            row.appendChild(span);
+                                            details.appendChild(row);
+                                        };
+
+                                        addRow('Job Alias', job.job_alias);
+                                        addRow('Rnd Path', job.job_path_rnd);
+                                        addRow('Created By', job.job_user);
+                                        addRow('Date Start', job.job_date_start);
+                                        addRow('Date Due', job.job_date_due);
+                                        addRow('Job Charge1', job.job_charge1);
+                                        addRow('Job Charge2', job.job_charge2);
+                                        addRow('Job Charge3', job.job_charge3);
+                                        addRow('Job Notes', job.job_notes);
+
+                                        document.getElementById('info-display').style.display = 'block';
+                                    })
+                                    .catch(err => {
+                                        document.getElementById('info-feedback').textContent = 'Error: ' + err.message;
+                                        document.getElementById('info-display').style.display = 'block';
+                                    });
                                 });
                                 projectLi.appendChild(projectA);
                                 

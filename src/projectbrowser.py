@@ -230,6 +230,70 @@ def api_open_app_directory():
         return jsonify(result), 500
 
 
+@app.route('/api/action_jobactive_query', methods=['POST'])
+def api_action_jobactive_query():
+    """Query the database for a selected job by name or path and return full row."""
+    data = request.get_json() or {}
+    job_name = data.get('job_name')
+    job_path_job = data.get('job_path_job')
+
+    if not job_name and not job_path_job:
+        return jsonify({'success': False, 'message': 'job_name or job_path_job required'}), 400
+
+    conn = db_get_connection()
+    cursor = conn.cursor()
+
+    if job_name:
+        cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
+        row = cursor.fetchone()
+    else:
+        cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_path_job = ?", (job_path_job,))
+        row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return jsonify({'success': False, 'message': 'Job not found'}), 404
+
+    job = {k: row[k] for k in row.keys()}
+    conn.close()
+    return jsonify({'success': True, 'job': job}), 200
+
+
+@app.route('/api/action_jobactive_dashboard_populate', methods=['POST'])
+def api_action_jobactive_dashboard_populate():
+    """Return the subset of job fields used to populate the Project Selection display."""
+    # Reuse query logic
+    data = request.get_json() or {}
+    job_name = data.get('job_name')
+    job_path_job = data.get('job_path_job')
+
+    if not job_name and not job_path_job:
+        return jsonify({'success': False, 'message': 'job_name or job_path_job required'}), 400
+
+    conn = db_get_connection()
+    cursor = conn.cursor()
+
+    if job_name:
+        cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
+        row = cursor.fetchone()
+    else:
+        cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_path_job = ?", (job_path_job,))
+        row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return jsonify({'success': False, 'message': 'Job not found'}), 404
+
+    job = {k: row[k] for k in row.keys()}
+    conn.close()
+
+    # Choose fields to expose for display
+    fields = ['job_name','job_alias','job_path_job','job_path_rnd','job_user','job_date_start','job_date_due','job_charge1','job_charge2','job_charge3','job_notes','job_apps','job_year']
+    job_out = {f: job.get(f, '') for f in fields}
+
+    return jsonify({'success': True, 'job': job_out}), 200
+
+
 def db_get_connection():
     
     """Connect to SQLite database and return connection with row factory enabled"""
@@ -256,4 +320,6 @@ def register_routes(flask_app):
     flask_app.add_url_rule('/api/apps_by_project', 'api_apps_by_project', api_apps_by_project, methods=['GET'])
     flask_app.add_url_rule('/api/subdirs_by_app', 'api_subdirs_by_app', api_subdirs_by_app, methods=['GET'])
     flask_app.add_url_rule('/api/open_app_directory', 'api_open_app_directory', api_open_app_directory, methods=['POST'])
+    flask_app.add_url_rule('/api/action_jobactive_query', 'api_action_jobactive_query', api_action_jobactive_query, methods=['POST'])
+    flask_app.add_url_rule('/api/action_jobactive_dashboard_populate', 'api_action_jobactive_dashboard_populate', api_action_jobactive_dashboard_populate, methods=['POST'])
 
