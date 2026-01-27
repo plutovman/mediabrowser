@@ -1,4 +1,4 @@
-import sqlite3, os, math, webbrowser
+import sqlite3, os, math, webbrowser, platform
 from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify, flash, get_flashed_messages, send_from_directory
 import zipfile
 from datetime import datetime
@@ -9,6 +9,7 @@ import cv2
 from PIL import Image
 import socket
 from threading import Timer
+import db_jobtools as dbj
 
 try:
     import git
@@ -78,12 +79,61 @@ def git_get_info():
         # Not a git repository or git command failed
         return None
 
+def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None):
+    """
+    OS-aware routine to open an explorer/finder window to the specified job app directory.
+    Replaces $DEPOT_ALL with actual path and opens the directory in the system file browser.
+    
+    Args:
+        job_path_job: Job path (may contain $DEPOT_ALL variable)
+        app: Application directory name (e.g., 'data', 'maya', 'houdini'), or None for project level
+        subdir: Optional subdirectory within app (e.g., 'afterfx' within 'adobe')
+    
+    Returns:
+        dict: {'success': bool, 'message': str, 'path': str}
+    """
+    # Replace $DEPOT_ALL with actual path
+    if '$DEPOT_ALL' in job_path_job:
+        job_path_job = job_path_job.replace('$DEPOT_ALL', depot_local)
+    
+    # Build full path to directory
+    if app is None:
+        # Open at project level
+        full_path = job_path_job
+    elif subdir:
+        full_path = os.path.join(job_path_job, app, subdir)
+    else:
+        full_path = os.path.join(job_path_job, app)
+    
+    # Check if path exists
+    if not os.path.exists(full_path):
+        return {'success': False, 'message': f'Directory does not exist: {full_path}', 'path': full_path}
+    
+    # Detect OS and open appropriate file browser
+    system = platform.system()
+    time.sleep(1)
+
+    try:
+        if system == 'Darwin':  # macOS
+            os.system(f'open "{full_path}"')
+        elif system == 'Windows':
+            os.system(f'explorer "{full_path}"')
+        elif system == 'Linux':
+            os.system(f'xdg-open "{full_path}"')
+        else:
+            return {'success': False, 'message': f'Unsupported OS: {system}', 'path': full_path}
+        
+        return {'success': True, 'message': f'Opened directory: {full_path}', 'path': full_path}
+    except Exception as e:
+        return {'success': False, 'message': f'Error opening directory: {str(e)}', 'path': full_path}
+
+
 @app.route('/production', methods=['GET', 'POST'])
 def page_production():
     
-    """Production interface - minimal page for future functionality"""
+    """Production interface with cascading dropdowns for years, projects, and apps"""
     
-    # Production uses 'media_proj' table
+    # Production uses 'projects' table
     db_table = db_table_proj
     
     # Logo relative path for template
@@ -92,11 +142,92 @@ def page_production():
     # Get git commit info
     git_info = git_get_info()
     
+    # Get all available years
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f'SELECT DISTINCT job_year FROM {db_table} ORDER BY job_year DESC')
+    years = [row['job_year'] for row in cursor.fetchall()]
+    conn.close()
+    
     return render_template('production.html',
                           logo_path=logo_relative,
                           db_table=db_table,
                           db_tables=list_db_tables,
-                          git_info=git_info)
+                          git_info=git_info,
+                          years=years)
+
+
+@app.route('/api/projects_by_year', methods=['GET'])
+def api_projects_by_year():
+    """API endpoint to get projects for a selected year"""
+    year = request.args.get('year')
+    
+    if not year:
+        return jsonify({'error': 'Year parameter required'}), 400
+    
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f'SELECT job_name, job_path_job FROM {db_table_proj} WHERE job_year = ? ORDER BY job_name', (year,))
+    projects = [{'name': row['job_name'], 'path': row['job_path_job']} for row in cursor.fetchall()]
+    conn.close()
+    
+    return jsonify({'projects': projects})
+
+
+@app.route('/api/apps_by_project', methods=['GET'])
+def api_apps_by_project():
+    """API endpoint to get apps for a selected project"""
+    project_name = request.args.get('project')
+    
+    if not project_name:
+        return jsonify({'error': 'Project parameter required'}), 400
+    
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f'SELECT job_apps, job_path_job FROM {db_table_proj} WHERE job_name = ?', (project_name,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if not row:
+        return jsonify({'error': 'Project not found'}), 404
+    
+    # Parse job_apps (comma-separated string)
+    apps = [app.strip() for app in row['job_apps'].split(',')]
+    
+    return jsonify({'apps': apps, 'job_path_job': row['job_path_job']})
+
+
+@app.route('/api/subdirs_by_app', methods=['GET'])
+def api_subdirs_by_app():
+    """API endpoint to get subdirectories for a selected app"""
+    app = request.args.get('app')
+    
+    if not app:
+        return jsonify({'error': 'App parameter required'}), 400
+    
+    # Get subdirectories from db_jobtools.dict_apps
+    subdirs = dbj.dict_apps.get(app, [])
+    
+    return jsonify({'subdirs': subdirs})
+
+
+@app.route('/api/open_app_directory', methods=['POST'])
+def api_open_app_directory():
+    """API endpoint to open a job app directory in the system file browser"""
+    data = request.get_json()
+    job_path_job = data.get('job_path_job')
+    app = data.get('app')  # Can be None for project-level opening
+    subdir = data.get('subdir')  # Optional subdirectory
+    
+    if not job_path_job:
+        return jsonify({'error': 'job_path_job parameter required'}), 400
+    
+    result = event_jobactive_navigate_to_app_dir(job_path_job, app, subdir)
+    
+    if result['success']:
+        return jsonify(result), 200
+    else:
+        return jsonify(result), 500
 
 
 def db_get_connection():
@@ -106,7 +237,7 @@ def db_get_connection():
     # Connects to the database and sets row_factory to sqlite3.Row 
     # to access columns by name (like a dictionary)
     # note that db table has the following columns:
-    
+
     conn = sqlite3.connect(path_db_sqlite)
     conn.row_factory = sqlite3.Row 
     return conn
@@ -121,4 +252,8 @@ def register_routes(flask_app):
         flask_app: Flask application instance to register routes with
     """
     flask_app.add_url_rule('/production', 'page_production', page_production, methods=['GET', 'POST'])
+    flask_app.add_url_rule('/api/projects_by_year', 'api_projects_by_year', api_projects_by_year, methods=['GET'])
+    flask_app.add_url_rule('/api/apps_by_project', 'api_apps_by_project', api_apps_by_project, methods=['GET'])
+    flask_app.add_url_rule('/api/subdirs_by_app', 'api_subdirs_by_app', api_subdirs_by_app, methods=['GET'])
+    flask_app.add_url_rule('/api/open_app_directory', 'api_open_app_directory', api_open_app_directory, methods=['POST'])
 

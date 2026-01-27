@@ -2,13 +2,514 @@
 
 {% block title %}PRODUCTION{% endblock %}
 
+{% block extra_styles %}
+.dropdown-container {
+    text-align: center;
+    margin: 30px 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.dropdown-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.dropdown-group label {
+    color: #f0f0f0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.dropdown-group select {
+    padding: 10px 15px;
+    font-size: 14px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #f0f0f0;
+    border-radius: 4px;
+    min-width: 200px;
+    cursor: pointer;
+}
+
+.dropdown-group select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.dropdown-group select:hover:not(:disabled) {
+    border-color: #777;
+    background-color: #3a3a3a;
+}
+
+/* Multilevel Dropdown Menu Styles */
+.dropdown-container {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.nav-menu-container {
+    display: inline-block;
+    position: relative;
+}
+
+#nav-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+}
+
+#nav-menu > li {
+    position: relative;
+    border-right: 1px solid #444;
+}
+
+#nav-menu > li:last-child {
+    border-right: none;
+}
+
+#nav-menu > li > a {
+    display: block;
+    padding: 12px 20px;
+    color: #f0f0f0;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+#nav-menu > li > a:hover {
+    background-color: #3a3a3a;
+}
+
+#nav-menu li.has-submenu > a::after {
+    content: '▼';
+    margin-left: 8px;
+    font-size: 10px;
+}
+
+/* Submenu styles */
+#nav-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background-color: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    min-width: 150px;
+    display: none;
+    z-index: 1000;
+    text-align: left;
+}
+
+/* Year menu - narrow width for 4-digit years, positioned below PROJECT SELECT, right-aligned */
+#years-menu {
+    min-width: 100px !important;
+    left: auto !important;
+    right: 0 !important;
+    top: 100% !important;
+}
+
+/* Nested submenus (projects, apps, subdirs) */
+#nav-menu ul ul {
+    left: 100%;
+    top: 0;
+    min-width: 150px;
+}
+
+#nav-menu li:hover > ul {
+    display: block;
+}
+
+/* Force all menus closed when this class is applied */
+.menus-closed #nav-menu ul {
+    display: none !important;
+}
+
+#nav-menu ul li {
+    position: relative;
+    border-bottom: 1px solid #333;
+}
+
+#nav-menu ul li:last-child {
+    border-bottom: none;
+}
+
+#nav-menu ul li a {
+    display: block;
+    padding: 10px 15px;
+    font-size: 13px;
+    color: #f0f0f0;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    text-align: left;
+}
+
+#nav-menu ul li a:hover {
+    background-color: #3a3a3a;
+}
+
+#nav-menu ul li.has-submenu > a::after {
+    content: '▶';
+    float: right;
+    font-size: 10px;
+}
+
+.nav-placeholder {
+    padding: 12px 20px;
+    color: #888;
+    font-style: italic;
+    text-align: center;
+}
+
+.open-button {
+    padding: 10px 30px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+.open-button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.open-button:hover:not(:disabled) {
+    background-color: #45a049;
+}
+
+.status-message {
+    text-align: center;
+    margin: 20px 0;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+}
+
+.status-success {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.status-error {
+    background-color: #f44336;
+    color: white;
+}
+
+.info-display {
+    text-align: center;
+    margin: 30px auto;
+    max-width: 800px;
+    padding: 20px;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    color: #b0b0b0;
+}
+
+.info-display .path-display {
+    font-family: monospace;
+    background-color: #1a1a1a;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+    word-break: break-all;
+    color: #4CAF50;
+}
+{% endblock %}
+
 {% block content %}
 
-    <div style="text-align: center; margin-top: 50px;">
+    <!-- <div style="text-align: center; margin-top: 30px;">
         <h1 style="color: #ffffff; font-size: 48px;">PRODUCTION</h1>
-        <p style="color: #b0b0b0; font-size: 18px; margin-top: 20px;">
+        <p style="color: #b0b0b0; font-size: 18px; margin-top: 10px;">
             Using database: {{ db_table }}
         </p>
+    </div> -->
+
+    <!-- Navigation Menu -->
+    <div class="dropdown-container">
+        <div class="nav-menu-container horizontal-menu">
+            <ul id="nav-menu" class="horizontal-nav">
+                <li id="project-select-root" class="has-submenu">
+                    <a>PROJECT SELECT</a>
+                    <ul id="years-menu" class="year-submenu">
+                        <!-- Years will be populated here -->
+                    </ul>
+                </li>
+                <li class="nav-button">
+                    <a onclick="newProject()">NEW PROJECT</a>
+                </li>
+                <li class="nav-button">
+                    <a onclick="research()">RESEARCH</a>
+                </li>
+                <li class="nav-button">
+                    <a onclick="archive()">ARCHIVE</a>
+                </li>
+            </ul>
+        </div>
     </div>
+
+    <!-- Action Buttons 
+    <div style="text-align: center;">
+        <button id="new-project-button" class="open-button">NEW PROJECT</button>
+        <button id="research-button" class="open-button">RESEARCH</button>
+        <button id="archive-button" class="open-button">ARCHIVE</button>
+    </div> -->
+
+    <!-- Info Display -->
+    <div id="info-display" class="info-display" style="display: none;">
+        <h3 style="color: #f0f0f0; margin-bottom: 15px;">Project Selection</h3>
+        <div>
+            <strong>Project:</strong> <span id="info-project">-</span>
+        </div>
+        <div>
+            <strong>App:</strong> <span id="info-app">-</span>
+        </div>
+        <div>
+            <strong>Feedback:</strong>
+            <div class="path-display" id="info-feedback">-</div>
+        </div>
+    </div>
+
+    <script>
+        let years = {{ years|tojson }};
+        let menuBuilt = false;
+
+        // Build years menu on first hover of PROJECT SELECT button
+        document.getElementById('project-select-root').addEventListener('mouseenter', async function() {
+            if (menuBuilt) return;
+            menuBuilt = true;
+            
+            const yearsMenu = document.getElementById('years-menu');
+            yearsMenu.innerHTML = '<li class="nav-placeholder">Loading...</li>';
+            
+            try {
+                yearsMenu.innerHTML = '';
+                
+                for (const year of years) {
+                    const yearLi = document.createElement('li');
+                    yearLi.className = 'has-submenu';
+                    
+                    const yearA = document.createElement('a');
+                    yearA.textContent = year;
+                    yearLi.appendChild(yearA);
+                    
+                    // Lazy load projects when year is hovered
+                    yearLi.addEventListener('mouseenter', async function() {
+                        if (this.dataset.loaded) return;
+                        this.dataset.loaded = 'true';
+                        
+                        const projectsResponse = await fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`);
+                        const projectsData = await projectsResponse.json();
+                        
+                        if (projectsData.projects && projectsData.projects.length > 0) {
+                            const projectsUl = document.createElement('ul');
+                            
+                            for (const project of projectsData.projects) {
+                                const projectLi = document.createElement('li');
+                                projectLi.className = 'has-submenu';
+                                
+                                const projectA = document.createElement('a');
+                                projectA.textContent = project.name;
+                                projectA.addEventListener('click', (e) => {
+                                    e.stopPropagation();
+                                    openDirectory(project.path, project.name, null, null);
+                                });
+                                projectLi.appendChild(projectA);
+                                
+                                // Lazy load apps when project is hovered
+                                projectLi.addEventListener('mouseenter', async function() {
+                                    if (this.dataset.loaded) return;
+                                    this.dataset.loaded = 'true';
+                                    
+                                    const appsResponse = await fetch(`/api/apps_by_project?project=${encodeURIComponent(project.name)}`);
+                                    const appsData = await appsResponse.json();
+                                    
+                                    if (appsData.apps && appsData.apps.length > 0) {
+                                        const appsUl = document.createElement('ul');
+                                        
+                                        for (const app of appsData.apps) {
+                                            const subdirsResponse = await fetch(`/api/subdirs_by_app?app=${encodeURIComponent(app)}`);
+                                            const subdirsData = await subdirsResponse.json();
+                                            
+                                            const appLi = document.createElement('li');
+                                            
+                                            if (subdirsData.subdirs && subdirsData.subdirs.length > 0) {
+                                                appLi.className = 'has-submenu';
+                                                const appA = document.createElement('a');
+                                                appA.textContent = app;
+                                                appA.addEventListener('click', (e) => {
+                                                    e.stopPropagation();
+                                                    openDirectory(appsData.job_path_job, project.name, app, null);
+                                                });
+                                                appLi.appendChild(appA);
+                                                
+                                                const subdirsUl = document.createElement('ul');
+                                                subdirsData.subdirs.forEach(subdir => {
+                                                    const subdirLi = document.createElement('li');
+                                                    const subdirA = document.createElement('a');
+                                                    subdirA.textContent = subdir;
+                                                    subdirA.addEventListener('click', (e) => {
+                                                        e.stopPropagation();
+                                                        openDirectory(appsData.job_path_job, project.name, app, subdir);
+                                                    });
+                                                    subdirLi.appendChild(subdirA);
+                                                    subdirsUl.appendChild(subdirLi);
+                                                });
+                                                appLi.appendChild(subdirsUl);
+                                            } else {
+                                                const appA = document.createElement('a');
+                                                appA.textContent = app;
+                                                appA.addEventListener('click', () => {
+                                                    openDirectory(appsData.job_path_job, project.name, app, null);
+                                                });
+                                                appLi.appendChild(appA);
+                                            }
+                                            
+                                            appsUl.appendChild(appLi);
+                                        }
+                                        
+                                        this.appendChild(appsUl);
+                                    }
+                                }, { once: true });
+                                
+                                projectsUl.appendChild(projectLi);
+                            }
+                            
+                            this.appendChild(projectsUl);
+                        }
+                    }, { once: true });
+                    
+                    yearsMenu.appendChild(yearLi);
+                }
+            } catch (error) {
+                yearsMenu.innerHTML = '<li class="nav-placeholder">Error loading menu</li>';
+                showStatus('Error building navigation menu: ' + error.message, 'error');
+            }
+        }, { once: true });
+
+        function openDirectory(jobPath, projectName, app, subdir) {
+            // Close all menus immediately
+            closeAllMenus();
+            
+            if (!jobPath || (!app && projectName)) {
+                // Opening project level directory
+                document.getElementById('info-project').textContent = projectName;
+                document.getElementById('info-app').textContent = '-';
+                document.getElementById('info-feedback').textContent = jobPath;
+                document.getElementById('info-display').style.display = 'block';
+                
+                // Call API to open project directory
+                fetch('/api/open_app_directory', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        job_path_job: jobPath,
+                        app: null,
+                        subdir: null
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        document.getElementById('info-feedback').textContent = 'Error: ' + data.message;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('info-feedback').textContent = 'Error: ' + error.message;
+                });
+                return;
+            }
+            
+            if (!jobPath || !app) {
+                document.getElementById('info-feedback').textContent = 'Error: Cannot open directory - missing path information';
+                document.getElementById('info-display').style.display = 'block';
+                return;
+            }
+            
+            // Build path with unexpanded environment variable for compact display
+            const displayPath = subdir ? `${jobPath}/${app}/${subdir}` : `${jobPath}/${app}`;
+            
+            // Update info display
+            document.getElementById('info-project').textContent = projectName;
+            document.getElementById('info-app').textContent = subdir ? `${app}/${subdir}` : app;
+            document.getElementById('info-feedback').textContent = displayPath;
+            document.getElementById('info-display').style.display = 'block';
+            
+            // Call API to open directory immediately
+            fetch('/api/open_app_directory', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    job_path_job: jobPath,
+                    app: app,
+                    subdir: subdir || null
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Optionally update feedback with success/error, or keep showing path
+                if (!data.success) {
+                    document.getElementById('info-feedback').textContent = 'Error: ' + data.message;
+                }
+            })
+            .catch(error => {
+                document.getElementById('info-feedback').textContent = 'Error: ' + error.message;
+            });
+        }
+
+        function closeAllMenus() {
+            // Add class to nav container to force all menus closed
+            const navContainer = document.querySelector('.nav-menu-container');
+            navContainer.classList.add('menus-closed');
+            
+            // Remove the class after a short delay so menus can be opened again on next hover
+            setTimeout(() => {
+                navContainer.classList.remove('menus-closed');
+            }, 300);
+        }
+
+        function showStatus(message, type) {
+            const feedbackDiv = document.getElementById('info-feedback');
+            feedbackDiv.textContent = message;
+            document.getElementById('info-display').style.display = 'block';
+        }
+        
+        function newProject() {
+            showStatus('NEW PROJECT functionality coming soon', 'info');
+        }
+        
+        function research() {
+            window.open('/search', '_blank');
+        }
+        
+        function archive() {
+            window.open('/archive', '_blank');
+        }
+    </script>
 
 {% endblock %}
