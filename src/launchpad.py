@@ -7,7 +7,7 @@ import socket
 #import multiprocessing
 import customtkinter as ctk
 from PIL import Image, ImageTk
-import mediabrowser as mb
+import app_flask as fb  # Import shared Flask app
 
 
 ctk.set_appearance_mode("dark")
@@ -267,11 +267,11 @@ class LaunchpadApp(ctk.CTk):
     def flask_run_server(self):
         """Run Flask server in thread"""
         try:
-            # Configure Flask app from mediabrowser module
-            mb.app.config['SERVER_NAME'] = None  # Allow dynamic host/port
+            # Configure Flask app from app_flask module
+            fb.app.config['SERVER_NAME'] = None  # Allow dynamic host/port
             
             # Run Flask server
-            mb.app.run(
+            fb.app.run(
                 host=self.flask_host,
                 port=self.flask_port,
                 debug=False,  # Must be False for threaded operation

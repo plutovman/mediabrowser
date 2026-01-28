@@ -97,14 +97,13 @@ def vpr_jobs_dummy_create():
             job_alias = ''.join([year_short, job])
             job_user = 'dummy_user'
             job_notes = 'dummy notes for {}'.format(job_name)
-            # get today's date`
-
+            job_tags = 'tag1, tag2'
             job_date_start = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             job_year = year
             job_date_due = job_date_start
-            job_date_charge1 = 'charge1'
-            job_date_charge2 = 'charge2'
-            job_date_charge3 = 'charge3'
+            job_charge1 = 'charge1'
+            job_charge2 = 'charge2'
+            job_charge3 = 'charge3'
             job_state = 'active'
             job_path_job = os.path.join(path_proj, year, job_name)
             job_path_job_symbolic = job_path_job.replace(depot_local, '$DEPOT_ALL')
@@ -118,12 +117,13 @@ def vpr_jobs_dummy_create():
                 'job_alias': job_alias,
                 'job_user': job_user,
                 'job_notes': job_notes,
+                'job_tags': job_tags,
                 'job_year': job_year,
                 'job_date_start': job_date_start,
                 'job_date_due': job_date_due,
-                'job_date_charge1': job_date_charge1,
-                'job_date_charge2': job_date_charge2,
-                'job_date_charge3': job_date_charge3,
+                'job_charge1': job_charge1,
+                'job_charge2': job_charge2,
+                'job_charge3': job_charge3,
                 'job_state': job_state,
                 'job_path_job': job_path_job_symbolic,
                 'job_path_rnd': job_path_rnd_symbolic,
@@ -137,8 +137,6 @@ def vpr_jobs_dummy_create():
             conn.execute(sql_insert, tuple(job_data.values()))
             conn.commit()
 
-            #job_name, job_alias, job_user, job_notes, job_date_start, job_date_due, job_charge1, job_charge2, job_charge3, job_state, job_path_job, job_path_rnd, job_apps
-            #job_name, job_alias, job_user, job_notes, job_date_start, job_date_due, job_charge1, job_charge2, job_charge3, job_state, job_path_job, job_path_rnd', 'job_apps'
             path_job_year = os.path.join(path_proj, year)
             path_rnd_year = os.path.join(path_rend, year)
 

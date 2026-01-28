@@ -1,20 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Archive - Add to Database</title>
-    <link rel="icon" type="image/png" href="{{ url_for('serve_resources', filename='foxlito_sqr.png') }}">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #242424;
-            color: #f0f0f0;
-            margin: 0;
-            padding: 20px;
-        }
-        
-        .container {
+{% extends "base.html" %}
+
+{% block title %}Media Archive - Add to Database{% endblock %}
+
+{% block extra_styles %}
+.container {
             max-width: 1400px;
             margin: 0 auto;
         }
@@ -260,28 +249,27 @@
         .action-buttons button {
             flex: 1;
         }
-    </style>
-</head>
-<body>
-    <!-- Logo in upper right corner -->
-    <div style="position: absolute; top: 10px; right: 10px; text-align: center;">
-        <a href="{{ url_for('page_index') }}">
-            <img src="{{ url_for('static', filename=logo_path) }}" alt="Logo" style="width: 125px; height: auto; display: block; margin: 0 auto;">
-        </a>
-    </div>
+{% endblock %}
 
-    <br><br><br><br>
+{% block cart_icon %}{% endblock %}
+
+{% block header_spacing %}{% endblock %}
+
+{% block header_link %}
+<div style="text-align: center;">
     <h1 style="margin-bottom: 5px;">MEDIA ARCHIVE</h1>
-    <div style="text-align: center; margin-bottom: 30px;">
+    <div style="margin-bottom: 30px;">
         <a href="{{ url_for('page_index') }}" style="color: #4a9eff; text-decoration: none; font-size: 0.95em;">MEDIA GALLERY</a>
     </div>
+</div>
+{% endblock %}
 
-    <div class="container">
-        
-        <div class="main-layout">
-            <!-- Left Panel: Queue -->
-            <div class="panel">
-                <h2>Processing Queue ({{ total_items }})</h2>
+{% block content %}
+<div class="container">
+    <div class="main-layout">
+        <!-- Left Panel: Queue -->
+        <div class="panel">
+            <h2>Processing Queue ({{ total_items }})</h2>
                 
                 <div class="drop-zone" id="dropZone">
                     <div class="drop-zone-icon">📁</div>
@@ -1020,15 +1008,7 @@
             loadQueueItem(currentIndex);
         }
     </script>
+</div>
+{% endblock %}
 
-    <!-- Footer with copyright -->
-    <footer style="text-align: center; margin-top: 40px; padding: 20px 0; color: #888; font-size: 12px; border-top: 1px solid #444;">
-        <p>&copy; 2026 Vladimir Sierra</p>
-        {% if git_info %}
-        <p style="margin-top: 10px; font-size: 0.85em; color: #666;">
-            App Version: {{ git_info.hash }} | Date: {{ git_info.date }} | Commit Info: {{ git_info.message }}
-        </p>
-        {% endif %}
-    </footer>
-</body>
-</html>
+{% block extra_scripts %}{% endblock %}
