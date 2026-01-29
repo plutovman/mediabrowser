@@ -1,0 +1,30 @@
+Looking at the code, file_path is NOT being passed from the backend to archive.html for display. Instead, it's being dynamically populated by JavaScript when a user selects a queue item.
+
+The Flow:
+Backend passes queue to template (line 485 in archive.html):
+
+{% if queue %}
+    {% for file in queue %}
+    <div class="queue-item">{{ file.split('/')[-1] }}</div>
+    {% endfor %}
+{% endif %}
+
+
+Only the filename is displayed in the queue list.
+
+JavaScript fetches and populates file_path when loadQueueItem(index) is called:
+
+From cache (if file already processed):
+
+From API (if file not yet processed):
+
+The form field (line 278):
+
+Gets populated client-side only - it's never pre-filled by the template.
+
+Key Points:
+file_path comes from either processedFiles cache (stored in session) or from the /api/archive/copy_file API response
+The backend route rendering archive.html only passes queue, current_index, processed_files, and genres - not individual file metadata
+All metadata display is handled asynchronously via JavaScript API calls
+
+

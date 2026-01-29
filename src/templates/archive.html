@@ -420,9 +420,9 @@
         let currentCopyId = null;
         let processedFiles = {{ processed_files|tojson }};
         
+        const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
         // Function to check if all required fields are filled
         function validateRequiredFields() {
-            const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
             const saveButton = document.getElementById('saveButton');
             
             const allFilled = requiredFields.every(fieldId => {
@@ -437,7 +437,7 @@
         
         // Add event listeners to all required fields
         document.addEventListener('DOMContentLoaded', function() {
-            const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
+            //const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
             requiredFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 if (field) {
@@ -609,6 +609,9 @@
                 
                 // Use the actual destination path as the cache key (matches where file was moved)
                 const actualFilePath = copyResult.dest_path_abs;
+
+                //console.log('Copy result:', copyResult);
+                //console.log('dest_path_rel:', copyResult.dest_path_rel);
                 
                 // Cache the processed data
                 processedFiles[actualFilePath] = {
