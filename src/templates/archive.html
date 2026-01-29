@@ -1,23 +1,12 @@
 {% extends "base.html" %}
 
 {% block title %}Media Archive - Add to Database{% endblock %}
+{% block header_subtitle %}M E D I A   A R C H I V E{% endblock %}
 
 {% block extra_styles %}
 .container {
             max-width: 1400px;
             margin: 0 auto;
-        }
-        
-        h1 {
-            color: #ffffff;
-            text-align: center;
-            margin: 20px 0 40px 0;
-        }
-        
-        h1 {
-            color: #ffffff;
-            text-align: center;
-            margin: 20px 0 40px 0;
         }
         
         .main-layout {
@@ -252,17 +241,6 @@
 {% endblock %}
 
 {% block cart_icon %}{% endblock %}
-
-{% block header_spacing %}{% endblock %}
-
-{% block header_link %}
-<div style="text-align: center;">
-    <h1 style="margin-bottom: 5px;">MEDIA ARCHIVE</h1>
-    <div style="margin-bottom: 30px;">
-        <a href="{{ url_for('page_index') }}" style="color: #4a9eff; text-decoration: none; font-size: 0.95em;">MEDIA GALLERY</a>
-    </div>
-</div>
-{% endblock %}
 
 {% block content %}
 <div class="container">

@@ -30,8 +30,12 @@ if not depot_local:
 # FLASK APP INITIALIZATION
 # ============================================================================
 
-app = Flask(__name__, static_folder=depot_local)
+# Get absolute path to templates directory
+template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+
+app = Flask(__name__, static_folder=depot_local, template_folder=template_dir)
 app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
+app.config['TEMPLATES_AUTO_RELOAD'] = True  # Force template reloading
 
 # ============================================================================
 # PORT MANAGEMENT UTILITIES

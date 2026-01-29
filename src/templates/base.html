@@ -43,6 +43,15 @@
             text-decoration: none;
         }
 
+        h2 {
+            color: #ffffff;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: normal;
+            margin-top: -10px;
+            white-space: pre;
+        }
+
         .flash-messages {
             max-width: 800px;
             margin: 20px auto;
@@ -199,6 +208,7 @@
 
     {% block header_spacing %}<br><br><br><br>{% endblock %}
     <h1>{% block header_link %}<a href="{{ url_for('page_index') }}">F O X L</a>{% endblock %}</h1>
+    <h2>{% block header_subtitle %}S U B T I T L E{% endblock %}</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
