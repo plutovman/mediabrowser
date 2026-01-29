@@ -497,8 +497,14 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // Save current form data before reloading
+                    await saveCurrentFormToCache();
+                    
                     showStatus(`Uploaded ${result.copied} file(s)`, 'success');
-                    window.location.reload();
+                    
+                    // Reload and auto-select the last item (newly added)
+                    const newQueueLength = currentQueue.length + result.copied;
+                    window.location.href = window.location.pathname + '?index=' + (newQueueLength - 1);
                 } else {
                     showStatus('Error: ' + result.error, 'error');
                 }
@@ -507,8 +513,36 @@
             }
         }
         
+        async function saveCurrentFormToCache() {
+            // Save current form values to cache before switching
+            if (currentIndex >= 0 && currentIndex < currentQueue.length) {
+                const currentFilePath = currentQueue[currentIndex];
+                if (processedFiles[currentFilePath]) {
+                    processedFiles[currentFilePath].subject = document.getElementById('subject').value;
+                    processedFiles[currentFilePath].genre = document.getElementById('genre').value;
+                    processedFiles[currentFilePath].setting = document.getElementById('setting').value;
+                    processedFiles[currentFilePath].category = document.getElementById('category').value;
+                    processedFiles[currentFilePath].lighting = document.getElementById('lighting').value;
+                    processedFiles[currentFilePath].captions = document.getElementById('captions').value;
+                    processedFiles[currentFilePath].tags = document.getElementById('tags').value;
+                    processedFiles[currentFilePath].source = document.getElementById('source')?.value || '';
+                    processedFiles[currentFilePath].source_id = document.getElementById('source_id')?.value || '';
+                    
+                    // Persist to session immediately
+                    await fetch('/api/archive/save_processed', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({file_path: currentFilePath, data: processedFiles[currentFilePath]})
+                    });
+                }
+            }
+        }
+        
         async function loadQueueItem(index) {
             if (index >= currentQueue.length) return;
+            
+            // Save current form values before switching
+            await saveCurrentFormToCache();
             
             currentIndex = index;
             const filePath = currentQueue[index];
@@ -533,6 +567,8 @@
                 document.getElementById('lighting').value = cached.lighting || '';
                 document.getElementById('captions').value = cached.captions || '';
                 document.getElementById('tags').value = cached.tags || '';
+                document.getElementById('source').value = cached.source || '';
+                document.getElementById('source_id').value = cached.source_id || '';
                 
                 // Show preview (use the copied file path)
                 const copiedPath = cached.file_path.replace('$DEPOT_ALL', '{{ depot_local }}');
@@ -613,8 +649,8 @@
                 //console.log('Copy result:', copyResult);
                 //console.log('dest_path_rel:', copyResult.dest_path_rel);
                 
-                // Cache the processed data
-                processedFiles[actualFilePath] = {
+                // Cache the processed data using the ORIGINAL queue path as key
+                processedFiles[filePath] = {
                     file_id: fileId,
                     file_name: metadata.file_name,
                     file_path: copyResult.dest_path_rel,
@@ -628,14 +664,16 @@
                     category: '',
                     lighting: '',
                     captions: '',
-                    tags: ''
+                    tags: '',
+                    source: '',
+                    source_id: ''
                 };
                 
                 // Save to session
                 await fetch('/api/archive/save_processed', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({file_path: actualFilePath, data: processedFiles[actualFilePath]})
+                    body: JSON.stringify({file_path: filePath, data: processedFiles[filePath]})
                 });
                 
                 // Show preview using the actual file location

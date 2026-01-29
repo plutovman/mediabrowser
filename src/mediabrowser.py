@@ -498,7 +498,18 @@ def register_mediabrowser_routes(app):
         session['target_db_table'] = db_table
         
         queue = session.get('processing_queue', [])
-        current_index = session.get('current_index', 0)
+        
+        # Check for index in URL parameter first, then session
+        current_index = request.args.get('index', type=int)
+        if current_index is None:
+            current_index = session.get('current_index', 0)
+        
+        # Ensure index is within bounds
+        if current_index >= len(queue):
+            current_index = len(queue) - 1 if queue else 0
+        
+        # Save to session for subsequent requests
+        session['current_index'] = current_index
         
         if 'processed_files' not in session:
             session['processed_files'] = {}
