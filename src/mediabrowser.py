@@ -30,6 +30,7 @@ from datetime import datetime
 from flask import render_template, request, url_for, abort, session, redirect, send_file, jsonify, flash, send_from_directory
 from PIL import Image
 
+import db_jobtools as dbj
 try:
     import git
     GIT_AVAILABLE = True
@@ -816,6 +817,8 @@ def register_mediabrowser_routes(app):
         
         try:
             file_path = request.json.get('file_path')
+
+            file_id = dbj.db_id_create(db_sqlite_path=path_db_media, db_table=db_table_arch, id_column='file_id')
             
             if not os.path.exists(file_path):
                 return jsonify({'success': False, 'error': 'File not found'})
@@ -825,6 +828,7 @@ def register_mediabrowser_routes(app):
             file_name = os.path.basename(file_path)
             file_ext = os.path.splitext(file_name)[1].lstrip('.')
             
+            metadata['file_id'] = file_id
             metadata['file_name'] = file_name
             metadata['file_type'] = file_ext.lower()
             metadata['source_path'] = file_path

@@ -127,14 +127,14 @@
         }
         
         .thumbnail-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             margin-top: 10px;
         }
         
         .thumbnail-grid img {
-            width: 100%;
+            max-width: 80%;
             border-radius: 4px;
             cursor: pointer;
             transition: transform 0.2s;
@@ -570,12 +570,20 @@
                 document.getElementById('source').value = cached.source || '';
                 document.getElementById('source_id').value = cached.source_id || '';
                 
+                // Clear thumbnail grid
+                document.getElementById('thumbnailGrid').innerHTML = '';
+                
                 // Show preview (use the copied file path)
                 const copiedPath = cached.file_path.replace('$DEPOT_ALL', '{{ depot_local }}');
                 if (['mp4', 'mov', 'avi', 'mkv'].includes(cached.file_type)) {
                     showVideoPreview(copiedPath);
                 } else if (['jpg', 'jpeg', 'png'].includes(cached.file_type)) {
                     showImagePreview(copiedPath);
+                } else {
+                    // Hide all previews for unsupported types
+                    document.getElementById('videoContainer').style.display = 'none';
+                    document.getElementById('imageContainer').style.display = 'none';
+                    document.getElementById('noPreview').style.display = 'block';
                 }
                 
                 showStatus('Loaded cached data', 'info');
@@ -584,6 +592,9 @@
                 document.querySelectorAll('.queue-item').forEach((item, i) => {
                     item.classList.toggle('active', i === index);
                 });
+                
+                // Validate fields to enable/disable save button
+                validateRequiredFields();
                 
                 return;
             }
@@ -634,8 +645,9 @@
                 await pollCopyProgress(currentCopyId);
                 
                 // Populate form
-                const fileId = 'MED' + Date.now() + Math.floor(Math.random() * 1000);
-                document.getElementById('file_id').value = fileId;
+                //const fileId = 'MED' + Date.now() + Math.floor(Math.random() * 1000);
+                //document.getElementById('file_id').value = fileId;
+                document.getElementById('file_id').value = metadata.file_id;
                 document.getElementById('file_name').value = metadata.file_name;
                 document.getElementById('file_path').value = copyResult.dest_path_rel;
                 document.getElementById('file_type').value = metadata.file_type;
@@ -651,7 +663,7 @@
                 
                 // Cache the processed data using the ORIGINAL queue path as key
                 processedFiles[filePath] = {
-                    file_id: fileId,
+                    file_id: metadata.file_id,
                     file_name: metadata.file_name,
                     file_path: copyResult.dest_path_rel,
                     file_type: metadata.file_type,
@@ -676,11 +688,19 @@
                     body: JSON.stringify({file_path: filePath, data: processedFiles[filePath]})
                 });
                 
+                // Clear thumbnail grid for new file
+                document.getElementById('thumbnailGrid').innerHTML = '';
+                
                 // Show preview using the actual file location
                 if (['mp4', 'mov', 'avi', 'mkv'].includes(metadata.file_type)) {
                     showVideoPreview(actualFilePath);
                 } else if (['jpg', 'jpeg', 'png'].includes(metadata.file_type)) {
                     showImagePreview(actualFilePath);
+                } else {
+                    // Hide all previews for unsupported types
+                    document.getElementById('videoContainer').style.display = 'none';
+                    document.getElementById('imageContainer').style.display = 'none';
+                    document.getElementById('noPreview').style.display = 'block';
                 }
                 
                 hideProgress();
@@ -690,6 +710,9 @@
                 document.querySelectorAll('.queue-item').forEach((item, i) => {
                     item.classList.toggle('active', i === index);
                 });
+                
+                // Validate fields to enable/disable save button
+                validateRequiredFields();
                 
             } catch (error) {
                 hideProgress();

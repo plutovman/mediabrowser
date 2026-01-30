@@ -113,6 +113,33 @@ def db_job_id_create(list_id: list):
 
 # end of def db_job_id_create(list_id: list):
 
+def db_id_create(db_sqlite_path: str, db_table: str, id_column: str):
+
+    """
+    create a unique id for a new file entry in the sqlite database
+    """
+
+    conn = sqlite3.connect(db_sqlite_path)
+    cursor = conn.cursor()
+
+    # Generate a unique file_id
+    file_id = db_token_generator()
+    
+    # Check if file_id already exists in the database
+    cursor.execute(f"SELECT COUNT(*) FROM {db_table} WHERE {id_column} = ?", (file_id,))
+    count = cursor.fetchone()[0]
+    
+    # Regenerate until we get a unique ID
+    while count > 0:
+        file_id = db_token_generator()
+        cursor.execute(f"SELECT COUNT(*) FROM {db_table} WHERE {id_column} = ?", (file_id,))
+        count = cursor.fetchone()[0]
+
+    conn.close()
+    return file_id
+
+# end of def db_id_create(db_sqlite_path: str):
+
 def db_token_generator(token_length=12):
     """
     generate a random token of ascii characters and digits of length token_length
