@@ -258,11 +258,11 @@
                 
                 <div class="queue-list" id="queueList">
                     {% if queue %}
-                        {% for file in queue %}
+                        {% for file_id in queue %}
                         <div class="queue-item {% if loop.index0 == current_index %}active{% endif %}" 
                              data-index="{{ loop.index0 }}" 
                              onclick="loadQueueItem({{ loop.index0 }})">
-                            {{ loop.index }}. {{ file.split('/')[-1] }}
+                            {{ loop.index }}. {{ processed_files.get(file_id, {}).get('file_name', file_id) }}
                         </div>
                         {% endfor %}
                     {% else %}
@@ -417,8 +417,15 @@
     <script>
         let currentQueue = {{ queue|tojson }};
         let currentIndex = {{ current_index }};
-        let currentCopyId = null;
         let processedFiles = {{ processed_files|tojson }};
+        
+        // Helper function to get current file_id from queue
+        function getCurrentFileId() {
+            if (currentIndex >= 0 && currentIndex < currentQueue.length) {
+                return currentQueue[currentIndex];
+            }
+            return null;
+        }
         
         const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
         // Function to check if all required fields are filled
@@ -437,7 +444,6 @@
         
         // Add event listeners to all required fields
         document.addEventListener('DOMContentLoaded', function() {
-            //const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
             requiredFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 if (field) {
@@ -515,42 +521,44 @@
         
         async function saveCurrentFormToCache() {
             // Save current form values to cache before switching
-            if (currentIndex >= 0 && currentIndex < currentQueue.length) {
-                const currentFilePath = currentQueue[currentIndex];
-                if (processedFiles[currentFilePath]) {
-                    processedFiles[currentFilePath].subject = document.getElementById('subject').value;
-                    processedFiles[currentFilePath].genre = document.getElementById('genre').value;
-                    processedFiles[currentFilePath].setting = document.getElementById('setting').value;
-                    processedFiles[currentFilePath].category = document.getElementById('category').value;
-                    processedFiles[currentFilePath].lighting = document.getElementById('lighting').value;
-                    processedFiles[currentFilePath].captions = document.getElementById('captions').value;
-                    processedFiles[currentFilePath].tags = document.getElementById('tags').value;
-                    processedFiles[currentFilePath].source = document.getElementById('source')?.value || '';
-                    processedFiles[currentFilePath].source_id = document.getElementById('source_id')?.value || '';
-                    
-                    // Persist to session immediately
-                    await fetch('/api/archive/save_processed', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({file_path: currentFilePath, data: processedFiles[currentFilePath]})
-                    });
-                }
+            const fileId = getCurrentFileId();
+            if (fileId && processedFiles[fileId]) {
+                processedFiles[fileId].subject = document.getElementById('subject').value;
+                processedFiles[fileId].genre = document.getElementById('genre').value;
+                processedFiles[fileId].setting = document.getElementById('setting').value;
+                processedFiles[fileId].category = document.getElementById('category').value;
+                processedFiles[fileId].lighting = document.getElementById('lighting').value;
+                processedFiles[fileId].captions = document.getElementById('captions').value;
+                processedFiles[fileId].tags = document.getElementById('tags').value;
+                processedFiles[fileId].source = document.getElementById('source')?.value || '';
+                processedFiles[fileId].source_id = document.getElementById('source_id')?.value || '';
+                
+                // Persist to session immediately
+                await fetch('/api/archive/save_processed', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({file_id: fileId, data: processedFiles[fileId]})
+                });
             }
         }
         
-        async function loadQueueItem(index) {
+        async function loadQueueItem(index, skipSave = false) {
             if (index >= currentQueue.length) return;
             
-            // Save current form values before switching
-            await saveCurrentFormToCache();
+            // Save current form values before switching (unless we just saved to DB)
+            if (!skipSave) {
+                await saveCurrentFormToCache();
+            }
             
             currentIndex = index;
-            const filePath = currentQueue[index];
+            const fileId = currentQueue[index];
             
-            // Check if file was already processed
-            if (processedFiles[filePath]) {
-                // Load cached data
-                const cached = processedFiles[filePath];
+            // Check if file exists in cache and has metadata extracted
+            const hasMetadata = processedFiles[fileId] && processedFiles[fileId].file_resolution;
+            
+            if (hasMetadata) {
+                // Load cached data with full metadata
+                const cached = processedFiles[fileId];
                 
                 // Populate form with cached data
                 document.getElementById('file_id').value = cached.file_id;
@@ -573,12 +581,11 @@
                 // Clear thumbnail grid
                 document.getElementById('thumbnailGrid').innerHTML = '';
                 
-                // Show preview (use the copied file path)
-                const copiedPath = cached.file_path.replace('$DEPOT_ALL', '{{ depot_local }}');
+                // Show preview using the database path (with $DEPOT_ALL prefix)
                 if (['mp4', 'mov', 'avi', 'mkv'].includes(cached.file_type)) {
-                    showVideoPreview(copiedPath);
+                    showVideoPreview(cached.file_path);
                 } else if (['jpg', 'jpeg', 'png'].includes(cached.file_type)) {
-                    showImagePreview(copiedPath);
+                    showImagePreview(cached.file_path);
                 } else {
                     // Hide all previews for unsupported types
                     document.getElementById('videoContainer').style.display = 'none';
@@ -599,8 +606,10 @@
                 return;
             }
             
-            // File not yet processed - do full processing
-            showStatus('Loading file...', 'info');
+            // File uploaded but metadata not yet extracted
+            const filePath = processedFiles[fileId].file_path;
+            
+            showStatus('Extracting metadata...', 'info');
             showProgress(0, 'Extracting metadata...');
             
             try {
@@ -620,82 +629,48 @@
                 
                 const metadata = metaResult.metadata;
                 
-                showProgress(30, 'Copying file to repository...');
+                showProgress(50, 'Updating metadata...');
                 
-                // Copy file
-                const copyResponse = await fetch('/api/archive/copy_file', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        source_path: filePath,
-                        file_type: metadata.file_type
-                    })
-                });
-                
-                const copyResult = await copyResponse.json();
-                
-                if (!copyResult.success) {
-                    showStatus('Error copying file: ' + copyResult.error, 'error');
-                    return;
-                }
-                
-                currentCopyId = copyResult.copy_id;
-                
-                // Poll for copy progress
-                await pollCopyProgress(currentCopyId);
-                
-                // Populate form
-                //const fileId = 'MED' + Date.now() + Math.floor(Math.random() * 1000);
-                //document.getElementById('file_id').value = fileId;
-                document.getElementById('file_id').value = metadata.file_id;
+                // Update form fields with extracted metadata
+                document.getElementById('file_id').value = fileId;
                 document.getElementById('file_name').value = metadata.file_name;
-                document.getElementById('file_path').value = copyResult.dest_path_rel;
+                document.getElementById('file_path').value = filePath;
                 document.getElementById('file_type').value = metadata.file_type;
                 document.getElementById('file_resolution').value = metadata.file_resolution || '';
                 document.getElementById('file_format').value = metadata.file_format || '';
                 document.getElementById('file_duration').value = metadata.file_duration || '';
                 
-                // Use the actual destination path as the cache key (matches where file was moved)
-                const actualFilePath = copyResult.dest_path_abs;
-
-                //console.log('Copy result:', copyResult);
-                //console.log('dest_path_rel:', copyResult.dest_path_rel);
+                // Load user-editable fields from cache (they should be empty for new files)
+                document.getElementById('subject').value = processedFiles[fileId].subject || '';
+                document.getElementById('genre').value = processedFiles[fileId].genre || '';
+                document.getElementById('setting').value = processedFiles[fileId].setting || '';
+                document.getElementById('category').value = processedFiles[fileId].category || '';
+                document.getElementById('lighting').value = processedFiles[fileId].lighting || '';
+                document.getElementById('captions').value = processedFiles[fileId].captions || '';
+                document.getElementById('tags').value = processedFiles[fileId].tags || '';
+                document.getElementById('source').value = processedFiles[fileId].source || '';
+                document.getElementById('source_id').value = processedFiles[fileId].source_id || '';
                 
-                // Cache the processed data using the ORIGINAL queue path as key
-                processedFiles[filePath] = {
-                    file_id: metadata.file_id,
-                    file_name: metadata.file_name,
-                    file_path: copyResult.dest_path_rel,
-                    file_type: metadata.file_type,
-                    file_resolution: metadata.file_resolution || '',
-                    file_format: metadata.file_format || '',
-                    file_duration: metadata.file_duration || '',
-                    subject: '',
-                    genre: '',
-                    setting: '',
-                    category: '',
-                    lighting: '',
-                    captions: '',
-                    tags: '',
-                    source: '',
-                    source_id: ''
-                };
+                // Update processedFiles with extracted metadata
+                processedFiles[fileId].file_resolution = metadata.file_resolution || '';
+                processedFiles[fileId].file_format = metadata.file_format || '';
+                processedFiles[fileId].file_duration = metadata.file_duration || '';
                 
                 // Save to session
                 await fetch('/api/archive/save_processed', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({file_path: filePath, data: processedFiles[filePath]})
+                    body: JSON.stringify({file_id: fileId, data: processedFiles[fileId]})
                 });
                 
                 // Clear thumbnail grid for new file
                 document.getElementById('thumbnailGrid').innerHTML = '';
                 
-                // Show preview using the actual file location
+                // Show preview using the database path (with $DEPOT_ALL)
                 if (['mp4', 'mov', 'avi', 'mkv'].includes(metadata.file_type)) {
-                    showVideoPreview(actualFilePath);
+                    showVideoPreview(filePath);
                 } else if (['jpg', 'jpeg', 'png'].includes(metadata.file_type)) {
-                    showImagePreview(actualFilePath);
+                    showImagePreview(filePath);
                 } else {
                     // Hide all previews for unsupported types
                     document.getElementById('videoContainer').style.display = 'none';
@@ -720,28 +695,6 @@
             }
         }
         
-        async function pollCopyProgress(copyId) {
-            return new Promise((resolve) => {
-                const interval = setInterval(async () => {
-                    try {
-                        const response = await fetch(`/api/archive/copy_progress/${copyId}`);
-                        const progress = await response.json();
-                        
-                        showProgress(30 + (progress.percent * 0.6), `Copying: ${progress.percent}%`);
-                        
-                        if (progress.status === 'complete') {
-                            clearInterval(interval);
-                            showProgress(100, 'Copy complete!');
-                            resolve();
-                        }
-                    } catch (error) {
-                        clearInterval(interval);
-                        resolve();
-                    }
-                }, 500);
-            });
-        }
-        
         function showVideoPreview(filePath) {
             document.getElementById('videoContainer').style.display = 'block';
             document.getElementById('imageContainer').style.display = 'none';
@@ -750,21 +703,10 @@
             const video = document.getElementById('videoPreview');
             const source = document.getElementById('videoSource');
             
-            // Normalize path to forward slashes
-            const normalizedPath = filePath.replace(/\\/g, '/');
+            // Handle $DEPOT_ALL prefix - replace with empty to get relative path from depot root
+            let relativePath = filePath.replace('$DEPOT_ALL/', '').replace('$DEPOT_ALL\\', '').replace(/\\/g, '/');
             
-            // Get base media path (already has forward slashes from Python)
-            const pathBaseMedia = '{{ path_base_media }}'.replace(/\\/g, '/');
-            
-            // Extract relative path by removing the base media prefix
-            // This handles Windows drive letters (M:/depot/...) correctly
-            let relativePath = normalizedPath;
-            if (relativePath.startsWith(pathBaseMedia)) {
-                relativePath = relativePath.substring(pathBaseMedia.length);
-            }
-            // Remove any leading slashes
-            relativePath = relativePath.replace(/^\/+/, '');
-            
+            // Construct URL for Flask static serving (static_folder = depot_local)
             source.src = `{{ url_for('static', filename='') }}${relativePath}`;
             video.load();
             
@@ -778,28 +720,26 @@
             
             const img = document.getElementById('imagePreview');
             
-            // Normalize path to forward slashes
-            const normalizedPath = filePath.replace(/\\/g, '/');
+            // Handle $DEPOT_ALL prefix - replace with empty to get relative path from depot root
+            let relativePath = filePath.replace('$DEPOT_ALL/', '').replace('$DEPOT_ALL\\', '').replace(/\\/g, '/');
             
-            // Get base media path (already has forward slashes from Python)
-            const pathBaseMedia = '{{ path_base_media }}'.replace(/\\/g, '/');
-            
-            // Extract relative path by removing the base media prefix
-            // This handles Windows drive letters (M:/depot/...) correctly
-            let relativePath = normalizedPath;
-            if (relativePath.startsWith(pathBaseMedia)) {
-                relativePath = relativePath.substring(pathBaseMedia.length);
-            }
-            // Remove any leading slashes
-            relativePath = relativePath.replace(/^\/+/, '');
-            
+            // Construct URL for Flask static serving
             img.src = `{{ url_for('static', filename='') }}${relativePath}`;
             
             showStatus('Image preview loaded', 'info');
         }
         
         async function generateThumbnails() {
-            const filePath = currentQueue[currentIndex];
+            const fileId = getCurrentFileId();
+            if (!fileId || !processedFiles[fileId]) {
+                showStatus('No file loaded', 'error');
+                return;
+            }
+            
+            const filePath = processedFiles[fileId].file_path;
+            
+            // Convert $DEPOT_ALL path to absolute path for backend
+            const absolutePath = filePath.replace('$DEPOT_ALL', '{{ depot_local }}').replace(/\\/g, '/');
             
             // Get current playhead position from video player
             const videoPlayer = document.getElementById('videoPreview');
@@ -812,7 +752,7 @@
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        file_path: filePath,
+                        file_path: absolutePath,
                         current_time: currentTime
                     })
                 });
@@ -847,21 +787,11 @@
             e.preventDefault();
             
             // Validate required fields
-            const requiredFields = [
-                {id: 'genre', label: 'Genre'},
-                {id: 'subject', label: 'Subject'},
-                {id: 'category', label: 'Category'},
-                {id: 'setting', label: 'Setting'},
-                {id: 'lighting', label: 'Lighting'},
-                {id: 'tags', label: 'Tags'},
-                {id: 'captions', label: 'Captions'}
-            ];
-            
             const missingFields = [];
-            for (const field of requiredFields) {
-                const element = document.getElementById(field.id);
+            for (const fieldId of requiredFields) {
+                const element = document.getElementById(fieldId);
                 if (!element.value || element.value.trim() === '') {
-                    missingFields.push(field.label);
+                    missingFields.push(fieldId);
                     element.style.borderColor = '#ff4444';
                 } else {
                     element.style.borderColor = '#444';
@@ -891,11 +821,11 @@
                     showStatus('Saved successfully!', 'success');
                     
                     // Remove saved item from queue
-                    const filePath = currentQueue[currentIndex];
+                    const fileId = getCurrentFileId();
                     currentQueue.splice(currentIndex, 1);
                     
                     // Remove from processed files cache
-                    delete processedFiles[filePath];
+                    delete processedFiles[fileId];
                     
                     // Update session queue
                     await fetch('/api/archive/update_queue', {
@@ -915,7 +845,7 @@
                         } else {
                             // If we removed the last item, go to previous, otherwise stay at current index
                             const newIndex = currentIndex >= currentQueue.length ? currentQueue.length - 1 : currentIndex;
-                            loadQueueItem(newIndex);
+                            loadQueueItem(newIndex, true); // Skip save since we just saved
                         }
                     }, 1000);
                 } else {
@@ -926,25 +856,8 @@
             }
         });
         
-        // Auto-save editable fields to cache
-        ['subject', 'genre', 'setting', 'captions', 'tags', 'category', 'lighting'].forEach(fieldId => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.addEventListener('change', async () => {
-                    const filePath = currentQueue[currentIndex];
-                    if (processedFiles[filePath]) {
-                        processedFiles[filePath][fieldId] = field.value;
-                        
-                        // Save to session
-                        await fetch('/api/archive/save_processed', {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({file_path: filePath, data: processedFiles[filePath]})
-                        });
-                    }
-                });
-            }
-        });
+        // Note: Auto-save is handled by saveCurrentFormToCache() when switching items
+        // and when submitting the form. No need for change event listeners.
         
         function skipItem() {
             if (currentQueue.length === 0) {
@@ -952,22 +865,14 @@
                 return;
             }
             
-            const filePath = currentQueue[currentIndex];
-            
-            // Normalize path for comparison (convert backslashes to forward slashes)
-            const normalizedPath = filePath.replace(/\\/g, '/');
+            const fileId = getCurrentFileId();
             
             // Remove from queue
             currentQueue.splice(currentIndex, 1);
             
-            // Remove from processed files cache - try both original and normalized paths
-            delete processedFiles[filePath];
-            delete processedFiles[normalizedPath];
-            
-            // Also check if the cached key is the absolute path
-            const pathBaseMedia = '{{ path_base_media }}'.replace(/\\/g, '/');
-            if (normalizedPath.startsWith(pathBaseMedia)) {
-                delete processedFiles[normalizedPath];
+            // Remove from processed files cache
+            if (fileId) {
+                delete processedFiles[fileId];
             }
             
             // Update session
@@ -985,7 +890,7 @@
                     window.location.reload();
                 } else {
                     const newIndex = currentIndex >= currentQueue.length ? currentQueue.length - 1 : currentIndex;
-                    loadQueueItem(newIndex);
+                    loadQueueItem(newIndex, true); // Skip save since we're discarding this item
                 }
             }).catch(error => {
                 showStatus('Error updating queue: ' + error, 'error');
@@ -1001,7 +906,7 @@
             }
             
             queueList.innerHTML = '';
-            currentQueue.forEach((file, index) => {
+            currentQueue.forEach((fileId, index) => {
                 const div = document.createElement('div');
                 div.className = 'queue-item';
                 if (index === currentIndex) {
@@ -1009,7 +914,8 @@
                 }
                 div.setAttribute('data-index', index);
                 div.onclick = () => loadQueueItem(index);
-                div.textContent = `${index + 1}. ${file.split('/').pop()}`;
+                const fileName = processedFiles[fileId] ? processedFiles[fileId].file_name : fileId;
+                div.textContent = `${index + 1}. ${fileName}`;
                 queueList.appendChild(div);
             });
         }

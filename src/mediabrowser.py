@@ -196,14 +196,18 @@ def enrich_media_paths(item):
 
     # logic for displaying thumbnails when loading mp4 files
     if item_dict.get('file_type', '').lower() == 'mp4':
-        ext_is_matched = True
+        #ext_is_matched = True
         ext_is_viewable = True
         base, _ = os.path.splitext(relative_path)
         for ext in ('.jpg', '.png'):
             candidate = base + ext
             if os.path.exists(os.path.join(depot_local, candidate)):
                 thumb_relative_path = candidate
+                ext_is_matched = True
                 break
+        if not ext_is_matched:
+            thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs["other"])
+            ext_is_matched = True
     # for 'jpg', 'jpeg', 'png' files, use the image itself as thumbnail
     elif item_dict.get('file_type', '').lower() in ['jpg', 'jpeg', 'png']:
         ext_is_matched = True
@@ -512,8 +516,18 @@ def register_mediabrowser_routes(app):
         # Save to session for subsequent requests
         session['current_index'] = current_index
         
+        # Clean up processed_files - remove entries not in current queue
         if 'processed_files' not in session:
             session['processed_files'] = {}
+        else:
+            # Keep only files that are in the current queue
+            processed_files = session['processed_files']
+            file_ids_to_keep = set(queue)
+            file_ids_to_remove = [fid for fid in processed_files.keys() if fid not in file_ids_to_keep]
+            for fid in file_ids_to_remove:
+                del processed_files[fid]
+            session['processed_files'] = processed_files
+            session.modified = True
         
         current_item = queue[current_index] if queue and current_index < len(queue) else None
         
@@ -744,52 +758,77 @@ def register_mediabrowser_routes(app):
             os.makedirs(path_base_archive, exist_ok=True)
             
             queue = session.get('processing_queue', [])
-            copied_files = []
+            processed_files = session.get('processed_files', {})
+            copied_file_ids = []
             
             for file in uploaded_files:
                 if file.filename == '':
                     continue
                 
                 file_name = file.filename
-                dest_path = os.path.join(path_base_archive, file_name)
+                file_ext = os.path.splitext(file_name)[1].lstrip('.').lower()
+                
+                # Determine subfolder based on file type
+                if file_ext in ['mp4', 'mov', 'avi', 'mkv']:
+                    dest_folder = os.path.join(path_base_archive, 'videos')
+                elif file_ext in ['jpg', 'jpeg', 'png', 'psd']:
+                    dest_folder = os.path.join(path_base_archive, 'images')
+                else:
+                    dest_folder = os.path.join(path_base_archive, 'other')
+                
+                os.makedirs(dest_folder, exist_ok=True)
+                dest_path = os.path.join(dest_folder, file_name)
                 
                 if os.path.exists(dest_path):
                     base, ext = os.path.splitext(file_name)
                     counter = 1
                     while os.path.exists(dest_path):
-                        dest_path = os.path.join(path_base_archive, f"{base}_{counter}{ext}")
+                        dest_path = os.path.join(dest_folder, f"{base}_{counter}{ext}")
                         counter += 1
                 
                 file.save(dest_path)
-                dest_path = dest_path.replace('\\', '/')
                 
-                if dest_path not in queue:
-                    queue.append(dest_path)
-                    copied_files.append(dest_path)
+                # Convert to relative path with $DEPOT_ALL prefix
+                dest_path_rel = dest_path.replace(depot_local, '$DEPOT_ALL').replace('\\', '/')
+                
+                # Generate unique file_id
+                file_id = dbj.db_id_create(db_sqlite_path=path_db_media, db_table=db_table_arch, id_column='file_id')
+                
+                # Store initial file data in processed_files
+                processed_files[file_id] = {
+                    'file_id': file_id,
+                    'file_name': os.path.basename(dest_path),
+                    'file_path': dest_path_rel,
+                    'file_type': file_ext,
+                    'file_resolution': '',
+                    'file_format': '',
+                    'file_duration': '',
+                    'subject': '',
+                    'genre': '',
+                    'setting': '',
+                    'category': '',
+                    'lighting': '',
+                    'captions': '',
+                    'tags': '',
+                    'source': '',
+                    'source_id': ''
+                }
+                
+                # Add file_id to queue
+                if file_id not in queue:
+                    queue.append(file_id)
+                    copied_file_ids.append(file_id)
             
             session['processing_queue'] = queue
+            session['processed_files'] = processed_files
             session['current_index'] = 0
+            session.modified = True
             
             return jsonify({
                 'success': True,
                 'count': len(queue),
-                'copied': len(copied_files)
+                'copied': len(copied_file_ids)
             })
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)})
-    
-    @app.route('/api/archive/get_processed', methods=['POST'])
-    def api_archive_get_processed():
-        """Get cached processed file data if exists"""
-        
-        try:
-            file_path = request.json.get('file_path')
-            processed_files = session.get('processed_files', {})
-            
-            if file_path in processed_files:
-                return jsonify({'success': True, 'data': processed_files[file_path], 'cached': True})
-            else:
-                return jsonify({'success': True, 'cached': False})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)})
     
@@ -798,13 +837,13 @@ def register_mediabrowser_routes(app):
         """Save processed file data to session"""
         
         try:
-            file_path = request.json.get('file_path')
+            file_id = request.json.get('file_id')
             data = request.json.get('data')
             
             if 'processed_files' not in session:
                 session['processed_files'] = {}
             
-            session['processed_files'][file_path] = data
+            session['processed_files'][file_id] = data
             session.modified = True
             
             return jsonify({'success': True})
@@ -817,18 +856,21 @@ def register_mediabrowser_routes(app):
         
         try:
             file_path = request.json.get('file_path')
-
-            file_id = dbj.db_id_create(db_sqlite_path=path_db_media, db_table=db_table_arch, id_column='file_id')
             
-            if not os.path.exists(file_path):
+            # Convert $DEPOT_ALL to actual path if present
+            if file_path.startswith('$DEPOT_ALL'):
+                file_path_abs = file_path.replace('$DEPOT_ALL', depot_local).replace('\\', '/')
+            else:
+                file_path_abs = file_path
+            
+            if not os.path.exists(file_path_abs):
                 return jsonify({'success': False, 'error': 'File not found'})
             
-            metadata = extract_media_metadata(file_path)
+            metadata = extract_media_metadata(file_path_abs)
             
             file_name = os.path.basename(file_path)
             file_ext = os.path.splitext(file_name)[1].lstrip('.')
             
-            metadata['file_id'] = file_id
             metadata['file_name'] = file_name
             metadata['file_type'] = file_ext.lower()
             metadata['source_path'] = file_path
@@ -839,93 +881,6 @@ def register_mediabrowser_routes(app):
             return jsonify({'success': True, 'metadata': metadata})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)})
-    
-    @app.route('/api/archive/copy_file', methods=['POST'])
-    def api_archive_copy_file():
-        """Copy file to repository with progress tracking"""
-        
-        try:
-            data = request.json
-            source_path = data.get('source_path')
-            file_type = data.get('file_type')
-            
-            if file_type in ['mp4', 'mov', 'avi', 'mkv']:
-                dest_folder = os.path.join(path_base_archive, 'videos')
-            elif file_type in ['jpg', 'jpeg', 'png', 'psd']:
-                dest_folder = os.path.join(path_base_archive, 'images')
-            else:
-                dest_folder = os.path.join(path_base_archive, 'other')
-            
-            os.makedirs(dest_folder, exist_ok=True)
-            
-            file_name = os.path.basename(source_path)
-            dest_path = os.path.join(dest_folder, file_name)
-            
-            if os.path.exists(dest_path):
-                base, ext = os.path.splitext(file_name)
-                counter = 1
-                while os.path.exists(dest_path):
-                    dest_path = os.path.join(dest_folder, f"{base}_{counter}{ext}")
-                    counter += 1
-            
-            copy_id = f"copy_{int(time.time()*1000)}"
-            session[f'copy_progress_{copy_id}'] = {'percent': 0, 'status': 'copying'}
-            
-            total_size = os.path.getsize(source_path)
-            copied = 0
-            
-            with open(source_path, 'rb') as src, open(dest_path, 'wb') as dst:
-                while True:
-                    chunk = src.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    dst.write(chunk)
-                    copied += len(chunk)
-                    percent = int((copied / total_size) * 100)
-                    session[f'copy_progress_{copy_id}'] = {'percent': percent, 'status': 'copying'}
-            
-            session[f'copy_progress_{copy_id}'] = {'percent': 100, 'status': 'complete'}
-            
-            rel_path = dest_path.replace(depot_local, '$DEPOT_ALL').replace('\\', '/')
-            
-            # Auto-generate thumbnail for video files
-            if file_type in ['mp4', 'mov', 'avi', 'mkv']:
-                try:
-                    cap = cv2.VideoCapture(dest_path)
-                    if cap.isOpened():
-                        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                        fps = cap.get(cv2.CAP_PROP_FPS)
-                        if fps > 0:
-                            duration = frame_count / fps
-                            seek_time = 1.0 if duration > 4 else duration * 0.25
-                            cap.set(cv2.CAP_PROP_POS_MSEC, seek_time * 1000)
-                        
-                        ret, frame = cap.read()
-                        cap.release()
-                        
-                        if ret:
-                            base_name = os.path.splitext(os.path.basename(dest_path))[0]
-                            thumb_path = os.path.join(dest_folder, f"{base_name}.jpg")
-                            cv2.imwrite(thumb_path, frame)
-                except Exception as e:
-                    print(f"Warning: Could not auto-generate thumbnail: {e}")
-            
-            if 'file_copy_cache' not in session:
-                session['file_copy_cache'] = {}
-            session['file_copy_cache'][source_path] = dest_path
-            session.modified = True
-            
-            dest_path_abs = dest_path.replace('\\', '/')
-            return jsonify({'success': True, 'dest_path_rel': rel_path, 'dest_path_abs': dest_path_abs, 'copy_id': copy_id})
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)})
-    
-    @app.route('/api/archive/copy_progress/<copy_id>')
-    def api_archive_copy_progress(copy_id):
-        """Get file copy progress"""
-        
-        progress = session.get(f'copy_progress_{copy_id}', {'percent': 0, 'status': 'unknown'})
-        return jsonify(progress)
     
     @app.route('/api/archive/generate_thumbnails', methods=['POST'])
     def api_archive_generate_thumbnails():
