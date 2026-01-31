@@ -1,14 +1,6 @@
-import sqlite3, os, math, webbrowser, platform
-from flask import Flask, render_template, request, url_for, abort, session, redirect, send_file, jsonify, flash, get_flashed_messages, send_from_directory
-import zipfile
+import sqlite3, os, platform, time
+from flask import Flask, render_template, request, jsonify
 from datetime import datetime
-import io, zipfile, time
-import shutil
-import random
-import cv2
-from PIL import Image
-import socket
-from threading import Timer
 import db_jobtools as dbj
 
 try:
@@ -296,19 +288,68 @@ def api_action_jobactive_dashboard_populate():
               'job_path_rnd',
               'job_user_id',
               'job_user_name',
+              'job_date_created',
               'job_edit_user_id',
               'job_edit_user_name',
               'job_edit_date',
-              'job_date_start',
+              'job_date_created',
               'job_date_due',
               'job_charge1',
               'job_charge2',
               'job_charge3',
+              'job_apps',
               'job_notes',
               'job_tags']
     job_out = {f: job.get(f, '') for f in fields}
 
     return jsonify({'success': True, 'job': job_out}), 200
+
+
+@app.route('/api/action_jobactive_dashboard_update', methods=['POST'])
+def api_action_jobactive_dashboard_update():
+    """Update job data in the database from the dashboard form."""
+    data = request.get_json() or {}
+    job_name = data.get('job_name')
+    
+    if not job_name:
+        return jsonify({'success': False, 'message': 'job_name required'}), 400
+    
+    # Get updateable fields (exclude job_name since it's readonly and used as key)
+    updateable_fields = [
+        'job_alias', 'job_state', 'job_year', 'job_user_id', 'job_user_name',
+        'job_date_created', 'job_edit_user_id', 'job_edit_user_name', 'job_edit_date',
+        'job_date_created', 'job_date_due', 'job_charge1', 'job_charge2', 'job_charge3',
+        'job_path_job', 'job_path_rnd', 'job_apps', 'job_tags', 'job_notes'
+    ]
+    
+    # Build UPDATE query dynamically
+    set_clauses = []
+    values = []
+    for field in updateable_fields:
+        if field in data:
+            set_clauses.append(f"{field} = ?")
+            values.append(data[field])
+    
+    if not set_clauses:
+        return jsonify({'success': False, 'message': 'No fields to update'}), 400
+    
+    values.append(job_name)  # For WHERE clause
+    
+    try:
+        conn = db_get_connection()
+        cursor = conn.cursor()
+        query = f"UPDATE {db_table_proj} SET {', '.join(set_clauses)} WHERE job_name = ?"
+        cursor.execute(query, values)
+        conn.commit()
+        
+        if cursor.rowcount == 0:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Job not found'}), 404
+        
+        conn.close()
+        return jsonify({'success': True, 'message': 'Job updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 def db_get_connection():
@@ -339,4 +380,6 @@ def register_routes(flask_app):
     flask_app.add_url_rule('/api/open_app_directory', 'api_open_app_directory', api_open_app_directory, methods=['POST'])
     flask_app.add_url_rule('/api/action_jobactive_query', 'api_action_jobactive_query', api_action_jobactive_query, methods=['POST'])
     flask_app.add_url_rule('/api/action_jobactive_dashboard_populate', 'api_action_jobactive_dashboard_populate', api_action_jobactive_dashboard_populate, methods=['POST'])
+    flask_app.add_url_rule('/api/action_jobactive_dashboard_update', 'api_action_jobactive_dashboard_update', api_action_jobactive_dashboard_update, methods=['POST'])
+
 

@@ -48,7 +48,7 @@ list_db_jobs_columns = ['job_id',
                         'job_edit_date',
                         'job_notes',
                         'job_tags',
-                        'job_date_start',
+                        'job_date_created',
                         'job_date_due',
                         'job_charge1',
                         'job_charge2',
@@ -87,7 +87,7 @@ def db_job_dict():
         'job_edit_date' : '',
         'job_notes' : '',
         'job_tags' : '',
-        'job_date_start' : '',
+        'job_date_created' : '',
         'job_date_due' : '',
         'job_charge1' : '',
         'job_charge2' : '',
@@ -247,7 +247,7 @@ def db_jobs_legacy_to_json(db_path_legacy, db_path_json, file_jobs_txt, file_job
                 job_name = dict_jobs_alias[job_alias]
                 dict_job = dict_jobs_txt[job_name]
                 dict_job['job_user_id'] = job_user_id
-                dict_job['job_date_start'] = date_string_out
+                dict_job['job_date_created'] = date_string_out
                 dict_job['job_edit_date'] = date_string_out
 
     f.close()
@@ -330,7 +330,7 @@ def db_sqlite_table_jobs_create(db_path: str, table_name: str):
             job_edit_date TEXT NOT NULL,
             job_notes TEXT NOT NULL,
             job_tags TEXT NOT NULL,
-            job_date_start TEXT NOT NULL,
+            job_date_created TEXT NOT NULL,
             job_date_due TEXT NOT NULL,
             job_charge1 TEXT NOT NULL,
             job_charge2 TEXT NOT NULL,

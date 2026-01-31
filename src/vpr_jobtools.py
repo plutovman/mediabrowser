@@ -99,9 +99,9 @@ def vpr_jobs_dummy_create():
             job_user_name = 'TBD'
             job_notes = 'dummy notes for {}'.format(job_name)
             job_tags = 'tag1, tag2'
-            job_date_start = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            job_date_created = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             job_year = year
-            job_date_due = job_date_start
+            job_date_due = job_date_created
             job_charge1 = 'charge1'
             job_charge2 = 'charge2'
             job_charge3 = 'charge3'
@@ -122,10 +122,10 @@ def vpr_jobs_dummy_create():
                 'job_user_name': job_user_name,
                 'job_edit_user_id': job_user_id,
                 'job_edit_user_name': job_user_name,
-                'job_edit_date': job_date_start,
+                'job_edit_date': job_date_created,
                 'job_notes': job_notes,
                 'job_tags': job_tags,
-                'job_date_start': job_date_start,
+                'job_date_created': job_date_created,
                 'job_date_due': job_date_due,
                 'job_charge1': job_charge1,
                 'job_charge2': job_charge2,
@@ -161,4 +161,4 @@ def vpr_jobs_dummy_create():
 ###############################################################################
 
 
-#vpr_jobs_dummy_create()
+vpr_jobs_dummy_create()

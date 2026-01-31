@@ -17,3 +17,84 @@ Browser Console for any JS errors
 Tell me when you’re ready and I’ll run the verification or add extra logging to projectbrowser.py.
 
 let's flesh out the product selection section. we want to show the selected job's database info laid out as editable text fields styled in the same way as the middle column of archive.html.  The info is to be laid out as follows: first row: job_name, job_alias, job_state; second row, job_user_id, job_user_name, job_edit_date; third row, job_edit_user_id, job_edit_user_name, job_edit_date, job_date_start, job_date_due; fourth row job_charge1, job_charge2, job_charge3; fourth row, job_path_job and job_path_rnd;fifth row job_notes. the job_notes field would be a tall text box with at least room for 3 lines of entry. Set appropriate labels for each entry.  Change the. title from Job Selection to Job Dashboard.
+
+
+
+@app.route('/api/action_jobactive_dashboard_update', methods=['POST'])
+def api_action_jobactive_dashboard_update():
+    """Update job database entry with edited values"""
+    try:
+        data = request.json
+        job_name = data.get('job_name')  # Primary key for UPDATE WHERE clause
+        
+        if not job_name:
+            return jsonify({'success': False, 'message': 'Job name is required'}), 400
+        
+        # Connect to database
+        conn = dbj.db_get_connection(path_db_jobs)
+        cursor = conn.cursor()
+        
+        # Update the job record
+        cursor.execute('''
+            UPDATE projects SET
+                job_alias = ?,
+                job_state = ?,
+                job_year = ?,
+                job_user_id = ?,
+                job_user_name = ?,
+                job_date_created = ?,
+                job_edit_user_id = ?,
+                job_edit_user_name = ?,
+                job_edit_date = ?,
+                job_date_start = ?,
+                job_date_due = ?,
+                job_charge1 = ?,
+                job_charge2 = ?,
+                job_charge3 = ?,
+                job_path_job = ?,
+                job_path_rnd = ?,
+                job_apps = ?,
+                job_tags = ?,
+                job_notes = ?
+            WHERE job_name = ?
+        ''', (
+            data.get('job_alias', ''),
+            data.get('job_state', ''),
+            data.get('job_year', ''),
+            data.get('job_user_id', ''),
+            data.get('job_user_name', ''),
+            data.get('job_date_created', ''),
+            data.get('job_edit_user_id', ''),
+            data.get('job_edit_user_name', ''),
+            data.get('job_edit_date', ''),
+            data.get('job_date_start', ''),
+            data.get('job_date_due', ''),
+            data.get('job_charge1', ''),
+            data.get('job_charge2', ''),
+            data.get('job_charge3', ''),
+            data.get('job_path_job', ''),
+            data.get('job_path_rnd', ''),
+            data.get('job_apps', ''),
+            data.get('job_tags', ''),
+            data.get('job_notes', ''),
+            job_name  # WHERE clause
+        ))
+        
+        conn.commit()
+        rows_affected = cursor.rowcount
+        conn.close()
+        
+        if rows_affected == 0:
+            return jsonify({'success': False, 'message': f'Job "{job_name}" not found in database'}), 404
+        
+        return jsonify({'success': True, 'message': f'Job "{job_name}" updated successfully'})
+        
+    except sqlite3.Error as e:
+        return jsonify({'success': False, 'message': f'Database error: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+
+
+
+modify layout so that job_name, job_alias, job_state, job_year are on first column; job_user_id, job_user_name, job_crated_date are on second column; job_edit_user_id, job_edit_user_name, job_edit_date are on third column; job_charge1, job_charge2, job_charge3, job_date_due are on fourth column; job_path_job and job_path_rnd are on the fifth, job_tags are on the sixth column, and job_notes are on the last. get rid of job_apps entry

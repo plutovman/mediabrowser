@@ -274,25 +274,133 @@
         <button id="new-project-button" class="open-button">NEW PROJECT</button>
         <button id="research-button" class="open-button">RESEARCH</button>
         <button id="archive-button" class="open-button">ARCHIVE</button>
-    </div> -->
+    </div> --> 
+    <!-- Action Buttons -->
+    <div style="display: flex; gap: 15px; margin-top: 20px; justify-content: center;">
+        <button type="button" class="btn-primary" onclick="jobEditSave()" style="padding: 10px 30px; background-color: #4a9eff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Edit Job
+        </button>
+        <button type="button" class="btn-primary" onclick="jobEditNew()" style="padding: 10px 30px; background-color: #4a9eff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            New Job
+        </button>
+        <button type="button" class="btn-secondary" onclick="jobEditCancel()" style="padding: 10px 30px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Cancel
+        </button>
+    </div>
 
-    <!-- Info Display -->
-    <div id="info-display" class="info-display" style="display: none;">
-        <h3 style="color: #f0f0f0; margin-bottom: 15px;">Project Selection</h3>
-        <div>
-            <strong>Project:</strong> <span id="info-project">-</span>
+    <!-- Job Dashboard -->
+    <div id="info-display" class="info-display" style="display: none; max-width: 900px; margin: 20px auto;">
+        <h3 style="color: #4a9eff; margin-bottom: 20px; text-align: center;">Job Dashboard</h3>
+        
+        <!-- Info Display Section (for openDirectory feedback) -->
+        <div style="margin-bottom: 20px; padding: 15px; background-color: #1a1a1a; border-radius: 4px;">
+            <div>
+                <strong style="color: #aaa;">Opening Browser To:</strong>
+                <span id="info-feedback" style="color: #4CAF50; margin-left: 10px; font-family: monospace;">-</span>
+            </div>
+            <!-- Hidden elements for JS compatibility -->
+            <span id="info-project" style="display: none;"></span>
+            <span id="info-app" style="display: none;"></span>
         </div>
-        <div>
-            <strong>App:</strong> <span id="info-app">-</span>
-        </div>
-        <div>
-            <strong>Feedback:</strong>
-            <div class="path-display" id="info-feedback">-</div>
-        </div>
-        <hr style="border-color:#333;margin:12px 0;">
-        <div id="job-details" style="text-align:left;color:#b0b0b0;">
-            <!-- Job details will be injected here -->
-        </div>
+        
+        <form id="jobForm">
+            <!-- Row 1: Job Name, Job Alias, Job State, Job Year -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>Job Name</label>
+                    <input type="text" id="job_name" name="job_name" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Job Alias</label>
+                    <input type="text" id="job_alias" name="job_alias" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Job State</label>
+                    <input type="text" id="job_state" name="job_state" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Job Year</label>
+                    <input type="text" id="job_year" name="job_year" readonly>
+                </div>
+            </div>
+            
+            <!-- Row 2: Job User ID, Job User Name, Job Date Created -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>Created: userId</label>
+                    <input type="text" id="job_user_id" name="job_user_id" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Created: userName</label>
+                    <input type="text" id="job_user_name" name="job_user_name" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Created Date</label>
+                    <input type="text" id="job_date_created" name="job_date_created" readonly>
+                </div>
+            </div>
+            
+            <!-- Row 3: Edit User ID, Edit User Name, Edit Date -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>Edited: userId</label>
+                    <input type="text" id="job_edit_user_id" name="job_edit_user_id" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Edited: userName</label>
+                    <input type="text" id="job_edit_user_name" name="job_edit_user_name" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Edited: Date</label>
+                    <input type="text" id="job_edit_date" name="job_edit_date" readonly>
+                </div>
+            </div>
+            
+            <!-- Row 4: Paths -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>Job Path</label>
+                    <input type="text" id="job_path_job" name="job_path_job" readonly>
+                </div>
+                <div class="form-group">
+                    <label>R&D Path</label>
+                    <input type="text" id="job_path_rnd" name="job_path_rnd" readonly>
+                </div>
+            </div>
+            
+            <!-- Row 5: Charges and Date Due -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div class="form-group">
+                    <label>Job Charge 1</label>
+                    <input type="text" id="job_charge1" name="job_charge1">
+                </div>
+                <div class="form-group">
+                    <label>Job Charge 2</label>
+                    <input type="text" id="job_charge2" name="job_charge2">
+                </div>
+                <div class="form-group">
+                    <label>Job Charge 3</label>
+                    <input type="text" id="job_charge3" name="job_charge3">
+                </div>
+                <div class="form-group">
+                    <label>Date Due</label>
+                    <input type="text" id="job_date_due" name="job_date_due">
+                </div>
+            </div>
+
+            <!-- Row 6: Notes -->
+            <div class="form-group">
+                <label>Job Notes</label>
+                <textarea id="job_notes" name="job_notes" rows="4" style="min-height: 80px;"></textarea>
+            </div>
+            
+            <!-- Row 7: Tags -->
+            <div class="form-group">
+                <label>Job Tags</label>
+                <input type="text" id="job_tags" name="job_tags">
+            </div>
+            
+        </form>
     </div>
 
     <script>
@@ -371,39 +479,8 @@
                                         document.getElementById('info-app').textContent = '-';
                                         document.getElementById('info-feedback').textContent = job.job_path_job || project.path || '-';
 
-                                        // render job details
-                                        const details = document.getElementById('job-details');
-                                        details.innerHTML = '';
-                                        const addRow = (label, value) => {
-                                            const row = document.createElement('div');
-                                            row.style.marginBottom = '6px';
-                                            const lbl = document.createElement('strong');
-                                            lbl.textContent = label + ': ';
-                                            lbl.style.color = '#f0f0f0';
-                                            row.appendChild(lbl);
-                                            const span = document.createElement('span');
-                                            span.textContent = value || '-';
-                                            row.appendChild(span);
-                                            details.appendChild(row);
-                                        };
-
-                                        addRow('Job Alias', job.job_alias);
-                                        addRow('Job State', job.job_state);
-                                        addRow('Job Year', job.job_year);
-                                        addRow('Rnd Path', job.job_path_rnd);
-                                        addRow('Job Create User', job.job_user_name);
-                                        addRow('Job Create UserId', job.job_user_id);
-                                        addRow('Job Edit User', job.job_edit_user_name);
-                                        addRow('Job Edit UserId', job.job_edit_user_id);
-                                        addRow('Job Edit Date', job.job_edit_date);
-                                        addRow('Date Start', job.job_date_start);
-                                        addRow('Date Due', job.job_date_due);
-                                        addRow('Job Charge1', job.job_charge1);
-                                        addRow('Job Charge2', job.job_charge2);
-                                        addRow('Job Charge3', job.job_charge3);
-                                        addRow('Job Tags', job.job_tags);
-                                        addRow('Job Notes', job.job_notes);
-
+                                        // Populate job dashboard form
+                                        populateJobForm(job);
                                         document.getElementById('info-display').style.display = 'block';
                                     })
                                     .catch(err => {
@@ -585,6 +662,83 @@
         
         function archive() {
             window.open('/archive', '_blank');
+        }
+        
+        // Populate job dashboard form with job data
+        function populateJobForm(job) {
+            document.getElementById('job_name').value = job.job_name || '';
+            document.getElementById('job_alias').value = job.job_alias || '';
+            document.getElementById('job_state').value = job.job_state || '';
+            document.getElementById('job_year').value = job.job_year || '';
+            document.getElementById('job_user_id').value = job.job_user_id || '';
+            document.getElementById('job_user_name').value = job.job_user_name || '';
+            document.getElementById('job_date_created').value = job.job_date_created || '';
+            document.getElementById('job_edit_user_id').value = job.job_edit_user_id || '';
+            document.getElementById('job_edit_user_name').value = job.job_edit_user_name || '';
+            document.getElementById('job_edit_date').value = job.job_edit_date || '';
+            document.getElementById('job_date_created').value = job.job_date_created || '';
+            document.getElementById('job_date_due').value = job.job_date_due || '';
+            document.getElementById('job_charge1').value = job.job_charge1 || '';
+            document.getElementById('job_charge2').value = job.job_charge2 || '';
+            document.getElementById('job_charge3').value = job.job_charge3 || '';
+            document.getElementById('job_path_job').value = job.job_path_job || '';
+            document.getElementById('job_path_rnd').value = job.job_path_rnd || '';
+            document.getElementById('job_tags').value = job.job_tags || '';
+            document.getElementById('job_notes').value = job.job_notes || '';
+        }
+        
+        // Save job data
+        async function jobEditSave() {
+            const formData = {
+                job_name: document.getElementById('job_name').value,
+                job_alias: document.getElementById('job_alias').value,
+                job_state: document.getElementById('job_state').value,
+                job_year: document.getElementById('job_year').value,
+                job_user_id: document.getElementById('job_user_id').value,
+                job_user_name: document.getElementById('job_user_name').value,
+                job_date_created: document.getElementById('job_date_created').value,
+                job_edit_user_id: document.getElementById('job_edit_user_id').value,
+                job_edit_user_name: document.getElementById('job_edit_user_name').value,
+                job_edit_date: document.getElementById('job_edit_date').value,
+                job_date_created: document.getElementById('job_date_created').value,
+                job_date_due: document.getElementById('job_date_due').value,
+                job_charge1: document.getElementById('job_charge1').value,
+                job_charge2: document.getElementById('job_charge2').value,
+                job_charge3: document.getElementById('job_charge3').value,
+                job_path_job: document.getElementById('job_path_job').value,
+                job_path_rnd: document.getElementById('job_path_rnd').value,
+                job_tags: document.getElementById('job_tags').value,
+                job_notes: document.getElementById('job_notes').value
+            };
+            
+            try {
+                const response = await fetch('/api/action_jobactive_dashboard_update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('Job data saved successfully', 'success');
+                } else {
+                    showStatus('Error saving job data: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error saving job data: ' + error.message, 'error');
+            }
+        }
+        
+        // New Job
+        function jobEditNew() {
+            document.getElementById('info-display').style.display = 'none';
+            // Optionally reload original data
+        }
+        // Cancel job edit
+        function jobEditCancel() {
+            document.getElementById('info-display').style.display = 'none';
+            // Optionally reload original data
         }
     </script>
 
