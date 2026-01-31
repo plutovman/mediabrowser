@@ -94,8 +94,9 @@ def vpr_jobs_dummy_create():
         for job in list_jobs_base:
             job_id = dbj.db_job_id_create(list_id=list_job_ids)
             job_name = '_'.join([year_short, job, base_rev])
-            job_alias = ''.join([year_short, job])
-            job_user = 'dummy_user'
+            job_alias = ''.join([job, year_short])
+            job_user_id = 'dummy_user'
+            job_user_name = 'TBD'
             job_notes = 'dummy notes for {}'.format(job_name)
             job_tags = 'tag1, tag2'
             job_date_start = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -115,16 +116,20 @@ def vpr_jobs_dummy_create():
                 'job_id': job_id,
                 'job_name': job_name,
                 'job_alias': job_alias,
-                'job_user': job_user,
+                'job_state': job_state,
+                'job_year': job_year,
+                'job_user_id': job_user_id,
+                'job_user_name': job_user_name,
+                'job_edit_user_id': job_user_id,
+                'job_edit_user_name': job_user_name,
+                'job_edit_date': job_date_start,
                 'job_notes': job_notes,
                 'job_tags': job_tags,
-                'job_year': job_year,
                 'job_date_start': job_date_start,
                 'job_date_due': job_date_due,
                 'job_charge1': job_charge1,
                 'job_charge2': job_charge2,
                 'job_charge3': job_charge3,
-                'job_state': job_state,
                 'job_path_job': job_path_job_symbolic,
                 'job_path_rnd': job_path_rnd_symbolic,
                 'job_apps': job_apps

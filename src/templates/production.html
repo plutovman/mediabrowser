@@ -388,13 +388,20 @@
                                         };
 
                                         addRow('Job Alias', job.job_alias);
+                                        addRow('Job State', job.job_state);
+                                        addRow('Job Year', job.job_year);
                                         addRow('Rnd Path', job.job_path_rnd);
-                                        addRow('Created By', job.job_user);
+                                        addRow('Job Create User', job.job_user_name);
+                                        addRow('Job Create UserId', job.job_user_id);
+                                        addRow('Job Edit User', job.job_edit_user_name);
+                                        addRow('Job Edit UserId', job.job_edit_user_id);
+                                        addRow('Job Edit Date', job.job_edit_date);
                                         addRow('Date Start', job.job_date_start);
                                         addRow('Date Due', job.job_date_due);
                                         addRow('Job Charge1', job.job_charge1);
                                         addRow('Job Charge2', job.job_charge2);
                                         addRow('Job Charge3', job.job_charge3);
+                                        addRow('Job Tags', job.job_tags);
                                         addRow('Job Notes', job.job_notes);
 
                                         document.getElementById('info-display').style.display = 'block';

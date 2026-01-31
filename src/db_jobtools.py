@@ -39,16 +39,20 @@ dict_apps = {
 list_db_jobs_columns = ['job_id',
                         'job_name', 
                         'job_alias',
-                        'job_user',
+                        'job_state',
+                        'job_year',
+                        'job_user_id',
+                        'job_user_name',
+                        'job_edit_user_id',
+                        'job_edit_user_name',
+                        'job_edit_date',
                         'job_notes',
                         'job_tags',
-                        'job_year',
                         'job_date_start',
                         'job_date_due',
                         'job_charge1',
                         'job_charge2',
                         'job_charge3',
-                        'job_state',
                         'job_path_job',
                         'job_path_rnd',
                         'job_apps']
@@ -60,10 +64,6 @@ def db_job_dict():
     """
     Docstring for db_job_dict
     """
-    dict_job_chg = {'chg1' :'',
-                    'chg2' :'',
-                    'chg3' :''}
-
     dict_job_apps = {'adobe': list_dirs_adobe,
                      'audio': list_dirs_audio,
                      'data' : list_dirs_data,
@@ -75,13 +75,23 @@ def db_job_dict():
                      'python': list_dirs_python,
                     }
     dict_job = {
+        'job_id' : '',
+        'job_name' : '',
         'job_alias' : '',
-        'job_user' : '',
-        'job_notes' : '',
-        'job_date_start' : '',
-        'job_date_end' : '',
-        'job_charges' : dict_job_chg,
         'job_state' : job_mode_active,
+        'job_year' : '',
+        'job_user_id' : '',
+        'job_user_name' : '',
+        'job_edit_user_id' : '',
+        'job_edit_user_name' : '',
+        'job_edit_date' : '',
+        'job_notes' : '',
+        'job_tags' : '',
+        'job_date_start' : '',
+        'job_date_due' : '',
+        'job_charge1' : '',
+        'job_charge2' : '',
+        'job_charge3' : '',
         'job_path_job' : '',
         'job_path_rnd' : '',
         'job_apps' : dict_job_apps,
@@ -185,7 +195,7 @@ def db_jobs_legacy_to_json(db_path_legacy, db_path_json, file_jobs_txt, file_job
     In the lines above, here is how the words positionally break down:
     job_alias = misc26
     job_name = 26_misc_a
-    job_user = vss
+    job_user_id = vss
     job_year = 2026
     job_notes = ''
     job_path_job = $JOBS_LNX/2026/26_misc_a
@@ -224,7 +234,7 @@ def db_jobs_legacy_to_json(db_path_legacy, db_path_json, file_jobs_txt, file_job
             list_words = line.split()
             if line.startswith('#'):
                 job_alias = list_words[1]
-                job_user = list_words[4]
+                job_user_id = list_words[4]
                 date_month = list_words[7]
                 date_day = list_words[8]
                 date_year = list_words[11]
@@ -236,8 +246,9 @@ def db_jobs_legacy_to_json(db_path_legacy, db_path_json, file_jobs_txt, file_job
                 date_string_out = date_object.strftime(format_out)
                 job_name = dict_jobs_alias[job_alias]
                 dict_job = dict_jobs_txt[job_name]
-                dict_job['job_user'] = job_user
+                dict_job['job_user_id'] = job_user_id
                 dict_job['job_date_start'] = date_string_out
+                dict_job['job_edit_date'] = date_string_out
 
     f.close()
     with open ( path_jobs_json, 'w') as f_json:
@@ -306,12 +317,17 @@ def db_sqlite_table_jobs_create(db_path: str, table_name: str):
 
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS {table_name} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY,
             job_id TEXT NOT NULL,
             job_name TEXT NOT NULL,
             job_alias TEXT NOT NULL,
-            job_user TEXT NOT NULL,
+            job_state TEXT NOT NULL,
             job_year TEXT NOT NULL,
+            job_user_id TEXT NOT NULL,
+            job_user_name TEXT NOT NULL,
+            job_edit_user_id TEXT NOT NULL,
+            job_edit_user_name TEXT NOT NULL,
+            job_edit_date TEXT NOT NULL,
             job_notes TEXT NOT NULL,
             job_tags TEXT NOT NULL,
             job_date_start TEXT NOT NULL,
@@ -319,7 +335,6 @@ def db_sqlite_table_jobs_create(db_path: str, table_name: str):
             job_charge1 TEXT NOT NULL,
             job_charge2 TEXT NOT NULL,
             job_charge3 TEXT NOT NULL,
-            job_state TEXT NOT NULL,
             job_path_job TEXT NOT NULL,
             job_path_rnd TEXT NOT NULL,
             job_apps TEXT NOT NULL,

@@ -288,7 +288,24 @@ def api_action_jobactive_dashboard_populate():
     conn.close()
 
     # Choose fields to expose for display
-    fields = ['job_name','job_alias','job_path_job','job_path_rnd','job_user','job_date_start','job_date_due','job_charge1','job_charge2','job_charge3','job_notes','job_apps','job_year']
+    fields = ['job_name',
+              'job_alias',
+              'job_state',
+              'job_year',
+              'job_path_job',
+              'job_path_rnd',
+              'job_user_id',
+              'job_user_name',
+              'job_edit_user_id',
+              'job_edit_user_name',
+              'job_edit_date',
+              'job_date_start',
+              'job_date_due',
+              'job_charge1',
+              'job_charge2',
+              'job_charge3',
+              'job_notes',
+              'job_tags']
     job_out = {f: job.get(f, '') for f in fields}
 
     return jsonify({'success': True, 'job': job_out}), 200
