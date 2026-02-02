@@ -625,7 +625,7 @@ def cart_items_update():
         return jsonify({'success': False, 'error': 'No changes provided'})
     
     # Validate fields
-    allowed_fields = ['subject', 'genre', 'setting', 'captions', 'tags']
+    list_columns_editable = ['subject', 'genre', 'setting', 'captions', 'tags']
     
     conn = db_get_connection()
     updated_count = 0
@@ -636,7 +636,7 @@ def cart_items_update():
             field = change.get('field')
             value = change.get('value', '')
             
-            if field not in allowed_fields:
+            if field not in list_columns_editable:
                 continue
                 
             sql = f'UPDATE {db_table} SET {field} = ? WHERE file_id = ?'

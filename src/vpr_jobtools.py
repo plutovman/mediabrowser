@@ -11,6 +11,101 @@ def vpr_file_parts_get(file_name: str):
 
 # end of def vpr_file_parts_get(file_name: str):
 
+def vpr_job_base_is_valid(job_base: str):
+    """
+    verify the legality of job_base from a set of rules
+    Returns: (bool, str) - (is_valid, reason/job_base)
+    """
+
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    # rules: 
+    # 1. only lowercase letters, numbers, and underscores
+    # 2. must start with a letter
+    # 3. no consecutive underscores
+    # 4. max length 8 characters
+    # 5. no special characters
+    # 6. no spaces
+    # 7. cannot end in a number
+
+    import re
+    len_min = 4
+    len_max = 10
+    # Check minimum length (at least len_min characters for start and end with letter)
+    if len(job_base) < len_min:
+        return False, f'Job base must be at least {len_min} characters long'
+    
+    # Check maximum length (8 characters)
+    if len(job_base) > len_max:
+        return False, f'Job base cannot exceed {len_max} characters'
+    
+    # Check for only lowercase letters, numbers, and underscores (check this early)
+    if not re.match(r'^[a-z0-9_]+$', job_base):
+        return False, 'Job base can only contain lowercase letters, numbers, and underscores'
+    
+    # Check if it starts with a letter
+    if not re.match(r'^[a-z]', job_base):
+        return False, 'Job base must start with a lowercase letter'
+    
+    # Check if it ends with a letter (cannot end in a number or underscore)
+    if not re.search(r'[a-z]$', job_base):
+        return False, 'Job base must end with a lowercase letter'
+    
+    # Check for consecutive underscores
+    if '__' in job_base:
+        return False, 'Job base cannot contain consecutive underscores'
+    
+    # All rules passed
+    return True, job_base
+
+# end of def vpr_job_base_verify(job_base: str):
+
+def vpr_job_rev_set(job_rev: str):
+
+    """
+    set revision letter for job_name
+    """
+
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    # take job_rev and increment to next letter
+    # Increment revision letter
+    if job_rev == '':
+        job_rev_new = 'a'
+    elif job_rev.isalpha() and job_rev.islower():
+        job_rev_new = chr(ord(job_rev) + 1) if job_rev != 'z' else 'a'
+    else:
+        print (dbh + 'Invalid job_rev: {}'.format(job_rev))
+        return None
+
+    return job_rev_new
+
+def vpr_job_name_create(job_base: str, job_revision: str):
+    """
+    create job_name from year, job_base, and revision
+    """
+
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    is_valid, reason = vpr_job_base_is_valid(job_base)
+    #if is_valid:
+    #    revision = vpr_job_rev_set(job_base=job_base)
+
+    if not is_valid:
+        print (dbh + 'Invalid job_base: {} - {}'.format(job_base, reason))
+        return None
+    
+    year = datetime.datetime.now().strftime('%Y')
+    year_short = year[-2:]  # get last two digits of year
+    job_name = '_'.join([year_short, job_base, job_revision])
+    job_alias = ''.join([job_base, year_short])
+    return job_name, job_alias
+
+# end of def vpr_job_name_create(job_base: str, revision: str):
+
 def vpr_job_create_directories(job_name: str, path_job: str, path_rnd: str):
     """
     Create job directories for given job_name under path_job and path_rnd.
@@ -92,7 +187,7 @@ def vpr_jobs_dummy_create():
         year_short = year[-2:]
         base_rev = 'a'
         for job in list_jobs_base:
-            job_id = dbj.db_job_id_create(list_id=list_job_ids)
+            job_id = dbj.db_job_id_create_temp(list_id=list_job_ids)
             job_name = '_'.join([year_short, job, base_rev])
             job_alias = ''.join([job, year_short])
             job_user_id = 'dummy_user'
@@ -161,4 +256,4 @@ def vpr_jobs_dummy_create():
 ###############################################################################
 
 
-vpr_jobs_dummy_create()
+#vpr_jobs_dummy_create()

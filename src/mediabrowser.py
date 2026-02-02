@@ -2,7 +2,7 @@
 MediaBrowser Routes Module
 ==========================
 Contains all routes and functionality for search, archive, and cart operations.
-This module provides register_mediabrowser_routes() which adds all mediabrowser
+This module provides register_routes() which adds all mediabrowser
 routes to a Flask app instance.
 
 Routes provided:
@@ -327,7 +327,7 @@ def extract_media_metadata(file_path):
 # ROUTE REGISTRATION FUNCTION
 # ============================================================================
 
-def register_mediabrowser_routes(app):
+def register_routes(app):
     """
     Register all mediabrowser routes to the provided Flask app instance.
     
@@ -671,7 +671,7 @@ def register_mediabrowser_routes(app):
         if not changes:
             return jsonify({'success': False, 'error': 'No changes provided'})
         
-        allowed_fields = ['subject', 'genre', 'setting', 'captions', 'tags']
+        list_columns_editable = ['subject', 'genre', 'setting', 'captions', 'tags']
         
         conn = db_get_connection()
         updated_count = 0
@@ -682,7 +682,7 @@ def register_mediabrowser_routes(app):
                 field = change.get('field')
                 value = change.get('value', '')
                 
-                if field not in allowed_fields:
+                if field not in list_columns_editable:
                     continue
                     
                 sql = f'UPDATE {db_table} SET {field} = ? WHERE file_id = ?'

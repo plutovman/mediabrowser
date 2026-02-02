@@ -637,7 +637,7 @@ def cart_items_update():
     if not changes:
         return jsonify({'success': False, 'error': 'No changes provided'})
     
-    allowed_fields = ['subject', 'genre', 'setting', 'captions', 'tags']
+    list_columns_editable = ['subject', 'genre', 'setting', 'captions', 'tags']
     
     conn = db_get_connection()
     updated_count = 0
@@ -648,7 +648,7 @@ def cart_items_update():
             field = change.get('field')
             value = change.get('value', '')
             
-            if field not in allowed_fields:
+            if field not in list_columns_editable:
                 continue
                 
             sql = f'UPDATE {db_table} SET {field} = ? WHERE file_id = ?'
@@ -1003,7 +1003,7 @@ def api_archive_serve_file():
 # ROUTE REGISTRATION FOR EXTERNAL MODULES
 # ============================================================================
 
-def register_project_routes():
+def register_routes_projectbrowser():
     """
     Register projectbrowser routes if module is available.
     This allows projectbrowser to add its own routes to the shared Flask app.
@@ -1019,4 +1019,4 @@ def register_project_routes():
         print(f"⚠ Error registering projectbrowser routes: {e}")
 
 # Attempt to register project routes on module load
-register_project_routes()
+register_routes_projectbrowser()

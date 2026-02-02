@@ -103,7 +103,7 @@ def db_job_dict():
 
 ###############################################################################
 ###############################################################################
-def db_job_id_create(list_id: list):
+def db_job_id_create_temp(list_id: list):
 
     """
     create a unique id for a new job entry that is not in list_id
@@ -121,7 +121,7 @@ def db_job_id_create(list_id: list):
         job_id = db_token_generator()
     return job_id
 
-# end of def db_job_id_create(list_id: list):
+# end of def db_job_id_create_temp(list_id: list):
 
 def db_id_create(db_sqlite_path: str, db_table: str, id_column: str):
 

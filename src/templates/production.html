@@ -116,7 +116,7 @@
     text-align: left;
 }
 
-/* Year menu - narrow width for 4-digit years, positioned below PROJECT SELECT, right-aligned */
+/* Year menu - narrow width for 4-digit years, positioned below JOB SELECT, right-aligned */
 #years-menu {
     min-width: 100px !important;
     left: auto !important;
@@ -180,22 +180,24 @@
 .open-button {
     padding: 10px 30px;
     font-size: 16px;
-    background-color: #4CAF50;
+    background-color: #4a9eff;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     margin-top: 20px;
+    transition: all 0.2s;
 }
 
 .open-button:disabled {
     background-color: #555;
+    color: #888;
     cursor: not-allowed;
     opacity: 0.5;
 }
 
 .open-button:hover:not(:disabled) {
-    background-color: #45a049;
+    background-color: #3a8eef;
 }
 
 .status-message {
@@ -251,13 +253,13 @@
         <div class="nav-menu-container horizontal-menu">
             <ul id="nav-menu" class="horizontal-nav">
                 <li id="project-select-root" class="has-submenu">
-                    <a>PROJECT SELECT</a>
+                    <a>JOB SELECT</a>
                     <ul id="years-menu" class="year-submenu">
                         <!-- Years will be populated here -->
                     </ul>
                 </li>
                 <li class="nav-button">
-                    <a onclick="newProject()">NEW PROJECT</a>
+                    <a onclick="newProject()">NEW JOB</a>
                 </li>
                 <li class="nav-button">
                     <a onclick="research()">RESEARCH</a>
@@ -269,24 +271,6 @@
         </div>
     </div>
 
-    <!-- Action Buttons 
-    <div style="text-align: center;">
-        <button id="new-project-button" class="open-button">NEW PROJECT</button>
-        <button id="research-button" class="open-button">RESEARCH</button>
-        <button id="archive-button" class="open-button">ARCHIVE</button>
-    </div> --> 
-    <!-- Action Buttons -->
-    <div style="display: flex; gap: 15px; margin-top: 20px; justify-content: center;">
-        <button type="button" class="btn-primary" onclick="jobEditSave()" style="padding: 10px 30px; background-color: #4a9eff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Edit Job
-        </button>
-        <button type="button" class="btn-primary" onclick="jobEditNew()" style="padding: 10px 30px; background-color: #4a9eff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            New Job
-        </button>
-        <button type="button" class="btn-secondary" onclick="jobEditCancel()" style="padding: 10px 30px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Cancel
-        </button>
-    </div>
 
     <!-- Job Dashboard -->
     <div id="info-display" class="info-display" style="display: none; max-width: 900px; margin: 20px auto;">
@@ -403,11 +387,68 @@
         </form>
     </div>
 
+    <!-- Action Buttons -->
+    <div id="action-buttons" style="display: none; gap: 15px; margin-top: 20px; justify-content: center;">
+        <button type="button" id="buttonEdit" class="btn-primary" onclick="jobEditOrSave()" style="padding: 10px 30px;">
+            Edit Job
+        </button>
+        <button type="button" id="buttonCancel" class="btn-secondary" onclick="jobEditCancel()" style="padding: 10px 30px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Cancel
+        </button>
+    </div>
+
+    <!-- New Job Dashboard -->
+    <div id="new-job-display" class="info-display" style="display: none; max-width: 600px; margin: 20px auto;">
+        <h3 style="color: #4a9eff; margin-bottom: 20px; text-align: center;">New Job Name</h3>
+        
+        <form id="newJobForm">
+            <!-- Job Base -->
+            <div class="form-group">
+                <label>Job Base <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <input type="text" id="new_job_base" name="job_base" placeholder="lowercase letters, numbers, underscores only" oninput="validateJobBase()">
+            </div>
+
+            <!-- Validation Feedback -->
+            <div id="validation-feedback" style="display: none; margin-top: 15px; margin-bottom: 15px; padding: 10px; background-color: #4a1a1a; border-left: 4px solid #ff4444; border-radius: 4px;">
+                <span id="validation-feedback-text" style="color: #ff6666;">Only lowercase letters, numbers, and underscores allowed</span>
+            </div>
+            
+            <!-- Job Name  -->
+            <div class="form-group">
+                <label>Job Name <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <input type="text" id="new_job_name" name="job_name" readonly>
+            </div>
+            
+            <!-- Job Alias  -->
+            <div class="form-group">
+                <label>Job Alias <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <input type="text" id="new_job_alias" name="job_alias" readonly>
+            </div>
+            
+            <!-- Job Path  -->
+            <div class="form-group">
+                <label>Job Path <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <input type="text" id="new_job_path" name="job_path" readonly>
+            </div>
+            
+        </form>
+        
+        <!-- Action Buttons for New Job -->
+        <div style="display: flex; gap: 15px; margin-top: 20px; justify-content: center;">
+            <button type="button" id="btn-create-job" class="btn-primary" onclick="createNewJob()" style="padding: 10px 30px;">
+                Create Job
+            </button>
+            <button type="button" class="btn-secondary" onclick="cancelNewJob()" style="padding: 10px 30px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Cancel
+            </button>
+        </div>
+    </div>
+
     <script>
         let years = {{ years|tojson }};
         let menuBuilt = false;
 
-        // Build years menu on first hover of PROJECT SELECT button
+        // Build years menu on first hover of JOB SELECT button
         document.getElementById('project-select-root').addEventListener('mouseenter', async function() {
             if (menuBuilt) return;
             menuBuilt = true;
@@ -653,7 +694,24 @@
         }
         
         function newProject() {
-            showStatus('NEW PROJECT functionality coming soon', 'info');
+            // Hide existing job dashboard
+            document.getElementById('info-display').style.display = 'none';
+            document.getElementById('action-buttons').style.display = 'none';
+            
+            // Clear and show new job dashboard
+            document.getElementById('new_job_base').value = '';
+            document.getElementById('new_job_name').value = '';
+            document.getElementById('new_job_alias').value = '';
+            document.getElementById('new_job_path').value = '';
+            document.getElementById('validation-feedback').style.display = 'none';
+            document.getElementById('new-job-display').style.display = 'block';
+            
+            // Reset field colors
+            document.getElementById('new_job_name').style.color = '#f0f0f0';
+            document.getElementById('new_job_alias').style.color = '#f0f0f0';
+            
+            // Close all menus
+            closeAllMenus();
         }
         
         function research() {
@@ -665,7 +723,20 @@
         }
         
         // Populate job dashboard form with job data
+        // Constants for button states
+        const jobContextEdit = 'Edit Job Info';
+        const jobContextSave = 'Save Job Info';
+        
+        // List of editable fields (matching list_columns_editable in backend)
+        const editableFields = ['job_date_due', 'job_charge1', 'job_charge2', 'job_charge3', 'job_tags', 'job_notes'];
+        
+        // Store original job data for cancel/restore functionality
+        let originalJobData = null;
+        
         function populateJobForm(job) {
+            // Store original job data for cancel functionality
+            originalJobData = JSON.parse(JSON.stringify(job)); // Deep copy
+            
             document.getElementById('job_name').value = job.job_name || '';
             document.getElementById('job_alias').value = job.job_alias || '';
             document.getElementById('job_state').value = job.job_state || '';
@@ -685,48 +756,80 @@
             document.getElementById('job_path_rnd').value = job.job_path_rnd || '';
             document.getElementById('job_tags').value = job.job_tags || '';
             document.getElementById('job_notes').value = job.job_notes || '';
+            
+            // Disable all editable fields initially
+            editableFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) field.disabled = true;
+            });
+            
+            // Reset button to "Edit Job" mode
+            const editButton = document.querySelector('button[onclick="jobEditOrSave()"]');
+            if (editButton) {
+                editButton.textContent = jobContextEdit;
+                editButton.dataset.mode = 'edit';
+            }
+            
+            // Show action buttons when job is loaded
+            document.getElementById('action-buttons').style.display = 'flex';
         }
         
-        // Save job data
-        async function jobEditSave() {
-            const formData = {
-                job_name: document.getElementById('job_name').value,
-                job_alias: document.getElementById('job_alias').value,
-                job_state: document.getElementById('job_state').value,
-                job_year: document.getElementById('job_year').value,
-                job_user_id: document.getElementById('job_user_id').value,
-                job_user_name: document.getElementById('job_user_name').value,
-                job_date_created: document.getElementById('job_date_created').value,
-                job_edit_user_id: document.getElementById('job_edit_user_id').value,
-                job_edit_user_name: document.getElementById('job_edit_user_name').value,
-                job_edit_date: document.getElementById('job_edit_date').value,
-                job_date_created: document.getElementById('job_date_created').value,
-                job_date_due: document.getElementById('job_date_due').value,
-                job_charge1: document.getElementById('job_charge1').value,
-                job_charge2: document.getElementById('job_charge2').value,
-                job_charge3: document.getElementById('job_charge3').value,
-                job_path_job: document.getElementById('job_path_job').value,
-                job_path_rnd: document.getElementById('job_path_rnd').value,
-                job_tags: document.getElementById('job_tags').value,
-                job_notes: document.getElementById('job_notes').value
-            };
+        // Toggle between Edit and Save modes
+        async function jobEditOrSave() {
+            const editButton = document.querySelector('button[onclick="jobEditOrSave()"]');
+            const mode = editButton.dataset.mode || 'edit';
             
-            try {
-                const response = await fetch('/api/action_jobactive_dashboard_update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
+            if (mode === 'edit') {
+                // Switch to edit mode: enable editable fields
+                editableFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field) field.disabled = false;
                 });
                 
-                const data = await response.json();
+                // Change button to "Save Job"
+                editButton.textContent = jobContextSave;
+                editButton.dataset.mode = 'save';
                 
-                if (data.success) {
-                    showStatus('Job data saved successfully', 'success');
-                } else {
-                    showStatus('Error saving job data: ' + (data.message || 'Unknown error'), 'error');
+            } else {
+                // Save mode: send data to backend
+                const formData = {
+                    job_name: document.getElementById('job_name').value
+                };
+                
+                // Only include editable fields in the update
+                editableFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        formData[fieldId] = field.value || '';
+                    }
+                });
+                
+                try {
+                    const response = await fetch('/api/action_jobactive_dashboard_update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showStatus('Job data saved successfully', 'success');
+                        
+                        // Disable fields again and switch back to edit mode
+                        editableFields.forEach(fieldId => {
+                            const field = document.getElementById(fieldId);
+                            if (field) field.disabled = true;
+                        });
+                        
+                        editButton.textContent = jobContextEdit;
+                        editButton.dataset.mode = 'edit';
+                    } else {
+                        showStatus('Error saving job data: ' + (data.message || 'Unknown error'), 'error');
+                    }
+                } catch (error) {
+                    showStatus('Error saving job data: ' + error.message, 'error');
                 }
-            } catch (error) {
-                showStatus('Error saving job data: ' + error.message, 'error');
             }
         }
         
@@ -735,10 +838,157 @@
             document.getElementById('info-display').style.display = 'none';
             // Optionally reload original data
         }
+        
         // Cancel job edit
         function jobEditCancel() {
-            document.getElementById('info-display').style.display = 'none';
-            // Optionally reload original data
+            const editButton = document.querySelector('button[onclick="jobEditOrSave()"]');
+            const mode = editButton.dataset.mode || 'edit';
+            
+            // If in edit mode (fields are enabled), reload original data and disable fields
+            if (mode === 'save') {
+                // Restore original data if available
+                if (originalJobData) {
+                    populateJobForm(originalJobData);
+                } else {
+                    // Just disable fields if no original data stored
+                    editableFields.forEach(fieldId => {
+                        const field = document.getElementById(fieldId);
+                        if (field) field.disabled = true;
+                    });
+                    
+                    // Switch button back to "Edit Job" mode
+                    editButton.textContent = jobContextEdit;
+                    editButton.dataset.mode = 'edit';
+                }
+            } else {
+                // Not in edit mode, just hide the dashboard and buttons
+                document.getElementById('info-display').style.display = 'none';
+                document.getElementById('action-buttons').style.display = 'none';
+            }
+        }
+        
+        // Validate job base as user types
+        async function validateJobBase() {
+            const jobBase = document.getElementById('new_job_base').value;
+            const jobNameField = document.getElementById('new_job_name');
+            const jobAliasField = document.getElementById('new_job_alias');
+            const jobPathField = document.getElementById('new_job_path');
+            const feedbackDiv = document.getElementById('validation-feedback');
+            const createButton = document.getElementById('btn-create-job');
+            
+            // Clear fields if job_base is empty
+            if (!jobBase) {
+                jobNameField.value = '';
+                jobAliasField.value = '';
+                jobPathField.value = '';
+                jobNameField.style.color = '#f0f0f0';
+                jobAliasField.style.color = '#f0f0f0';
+                feedbackDiv.style.display = 'none';
+                createButton.disabled = true;
+                return;
+            }
+            
+            try {
+                // Call backend API to validate and generate job name/alias
+                const response = await fetch('/api/job_name_validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_base: jobBase })
+                });
+                
+                const data = await response.json();
+                
+                if (data.valid) {
+                    // Valid input - show generated values in normal color
+                    jobNameField.value = data.job_name || '';
+                    jobAliasField.value = data.job_alias || '';
+                    jobPathField.value = data.job_path || '';
+                    jobNameField.style.color = '#4CAF50';
+                    jobAliasField.style.color = '#4CAF50';
+                    feedbackDiv.style.display = 'none';
+                    createButton.disabled = false;
+                } else {
+                    // Invalid input - show error feedback with specific reason
+                    jobNameField.value = '';
+                    jobAliasField.value = '';
+                    jobPathField.value = '';
+                    jobNameField.style.color = '#ff4444';
+                    jobAliasField.style.color = '#ff4444';
+                    createButton.disabled = true;
+                    
+                    // Update feedback message with specific validation reason
+                    const feedbackText = document.getElementById('validation-feedback-text');
+                    if (feedbackText && data.reason) {
+                        feedbackText.textContent = data.reason;
+                    }
+                    feedbackDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error validating job base:', error);
+            }
+        }
+        
+        // Create new job
+        async function createNewJob() {
+            const jobBase = document.getElementById('new_job_base').value;
+            const jobName = document.getElementById('new_job_name').value;
+            const jobAlias = document.getElementById('new_job_alias').value;
+            
+            if (!jobBase || !jobName || !jobAlias) {
+                showStatus('Please enter a valid job base', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/job_new_create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        job_base: jobBase,
+                        job_name: jobName,
+                        job_alias: jobAlias
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('Job created successfully: ' + data.job_name, 'success');
+                    cancelNewJob();
+                    
+                    // Load the new job into the Job Dashboard and enter edit mode
+                    if (data.job_data) {
+                        // Show the job dashboard with the new job data
+                        document.getElementById('info-display').style.display = 'block';
+                        populateJobForm(data.job_data);
+                        
+                        // Automatically enter edit mode
+                        const editButton = document.querySelector('button[onclick="jobEditOrSave()"]');
+                        if (editButton && editButton.dataset.mode === 'edit') {
+                            // Trigger edit mode by simulating the button click logic
+                            editableFields.forEach(fieldId => {
+                                const field = document.getElementById(fieldId);
+                                if (field) field.disabled = false;
+                            });
+                            editButton.textContent = jobContextSave;
+                            editButton.dataset.mode = 'save';
+                        }
+                    }
+                } else {
+                    showStatus('Error creating job: ' + (data.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error creating job: ' + error.message, 'error');
+            }
+        }
+        
+        // Cancel new job creation
+        function cancelNewJob() {
+            document.getElementById('new-job-display').style.display = 'none';
+            document.getElementById('new_job_base').value = '';
+            document.getElementById('new_job_name').value = '';
+            document.getElementById('new_job_alias').value = '';
+            document.getElementById('new_job_path').value = '';
         }
     </script>
 

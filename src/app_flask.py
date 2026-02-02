@@ -82,25 +82,24 @@ def port_find_available(host='127.0.0.1', start_port=5000, max_attempts=10):
 # ROUTE REGISTRATION
 # ============================================================================
 
-def register_mediabrowser_routes():
+def register_routes_mediabrowser():
     """Register mediabrowser routes if module is available"""
     try:
         import mediabrowser as mb
-        if hasattr(mb, 'register_mediabrowser_routes'):
-            mb.register_mediabrowser_routes(app)
+        if hasattr(mb, 'register_routes'):
+            mb.register_routes(app)
     except ImportError:
         print("⚠ mediabrowser module not found, search/archive/cart routes not registered")
     except Exception as e:
         print(f"⚠ Error registering mediabrowser routes: {e}")
 
 
-def register_project_routes():
+def register_routes_projectbrowser():
     """Register projectbrowser routes if module is available"""
     try:
         import projectbrowser as pb
         if hasattr(pb, 'register_routes'):
             pb.register_routes(app)
-            print("✓ Registered projectbrowser routes")
     except ImportError:
         print("ℹ projectbrowser module not found, skipping route registration")
     except Exception as e:
@@ -108,8 +107,8 @@ def register_project_routes():
 
 
 # Attempt to register routes on module load
-register_mediabrowser_routes()
-register_project_routes()
+register_routes_mediabrowser()
+register_routes_projectbrowser()
 
 # ============================================================================
 # MAIN CLI LAUNCHER
