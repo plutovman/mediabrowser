@@ -55,6 +55,20 @@
             margin-bottom: 10px;
         }
         
+        /* Status Message Container */
+        #statusMessage {
+            min-height: 50px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+        
+        #statusMessage .status-message {
+            width: 100%;
+        }
+        
         /* Queue List */
         .queue-list {
             max-height: 400px;
@@ -165,6 +179,11 @@
             border-left: 4px solid #5cb85c;
         }
         
+        .status-processing {
+            background-color: #4a4a2a;
+            border-left: 4px solid #f0ad4e;
+        }
+        
         .status-error {
             background-color: #5a2a2a;
             border-left: 4px solid #d9534f;
@@ -197,6 +216,8 @@
                     <input type="file" id="fileInput" multiple accept="video/*,image/*" style="display: none;">
                 </div>
                 
+                <div id="statusMessage"></div>
+                
                 <div class="queue-list" id="queueList">
                     {% if queue %}
                         {% for file_id in queue %}
@@ -211,7 +232,7 @@
                     {% endif %}
                 </div>
                 
-                <div class="action-buttons" style="margin-top: 15px;">
+                <div class="action-buttons" style="margin-top: 25px;">
                     <button class="btn-secondary" onclick="clearQueue()">Clear All</button>
                 </div>
                 
@@ -224,8 +245,6 @@
             <!-- Center Panel: Metadata Form -->
             <div class="panel">
                 <h2>Media Metadata</h2>
-                
-                <div id="statusMessage"></div>
                 
                 <div id="progressContainer" style="display: none;">
                     <div class="progress-bar">
@@ -360,6 +379,13 @@
         let currentIndex = {{ current_index }};
         let processedFiles = {{ processed_files|tojson }};
         
+        // Show processing message IMMEDIATELY after variables are initialized
+        const processingMsg = sessionStorage.getItem('processingMessage');
+        if (processingMsg && currentQueue.length > 0) {
+            // Use showStatus to ensure consistent behavior and protection
+            showStatus(processingMsg, 'processing');
+        }
+        
         // Helper function to get current file_id from queue
         function getCurrentFileId() {
             if (currentIndex >= 0 && currentIndex < currentQueue.length) {
@@ -447,7 +473,8 @@
                     // Save current form data before reloading
                     await saveCurrentFormToCache();
                     
-                    showStatus(`Uploaded ${result.copied} file(s)`, 'success');
+                    // Store processing message to persist across reload
+                    sessionStorage.setItem('processingMessage', `Processing ${result.copied} file(s), please wait...`);
                     
                     // Reload and auto-select the last item (newly added)
                     const newQueueLength = currentQueue.length + result.copied;
@@ -534,7 +561,8 @@
                     document.getElementById('noPreview').style.display = 'block';
                 }
                 
-                showStatus('Loaded cached data', 'info');
+                // Don't show status here - it interferes with processing message
+                // showStatus('Loaded cached data', 'info');
                 
                 // Update active queue item
                 document.querySelectorAll('.queue-item').forEach((item, i) => {
@@ -620,7 +648,7 @@
                 }
                 
                 hideProgress();
-                showStatus('File loaded successfully!', 'success');
+                //showStatus('File loaded successfully!', 'success');
                 
                 // Update active queue item
                 document.querySelectorAll('.queue-item').forEach((item, i) => {
@@ -629,6 +657,15 @@
                 
                 // Validate fields to enable/disable save button
                 validateRequiredFields();
+                
+                // Clear processing message after file finishes loading
+                if (sessionStorage.getItem('processingMessage')) {
+                    sessionStorage.removeItem('processingMessage');
+                    const statusContainer = document.getElementById('statusMessage');
+                    if (statusContainer && statusContainer.querySelector('.status-processing')) {
+                        statusContainer.innerHTML = '';
+                    }
+                }
                 
             } catch (error) {
                 hideProgress();
@@ -874,11 +911,35 @@
         
         function showStatus(message, type) {
             const container = document.getElementById('statusMessage');
+            if (!container) {
+                console.error('statusMessage div not found');
+                return;
+            }
+            
+            // If a processing message exists in sessionStorage, don't replace it with info/success
+            const processingMsg = sessionStorage.getItem('processingMessage');
+            if (processingMsg && (type === 'info' || type === 'success')) {
+                console.log('Preserving processing message, ignoring:', message);
+                return; // Keep the processing message visible
+            }
+            
             container.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
             
+            // Only auto-clear info/success messages, not processing or error
             if (type === 'success' || type === 'info') {
-                setTimeout(() => container.innerHTML = '', 3000);
+                setTimeout(() => {
+                    // Only clear if the current message still has the same type AND no processing message exists
+                    const currentMsg = container.querySelector('.status-message');
+                    //const stillProcessing = sessionStorage.getItem('processingMessage');
+                    //if stillProcessing{
+                    //    return; // Don't clear if processing message is active
+                    if (currentMsg && currentMsg.classList.contains(`status-${type}`) {
+                        connst processingMsg = 'Uploading...Please wait.';
+                        container.innerHTML = `<div class="status-message status-processing">${processingMsg}</div>`;
+                    }
+                }, 10000);
             }
+            // processing and error messages never auto-clear
         }
         
         function showProgress(percent, text) {
