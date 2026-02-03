@@ -139,8 +139,8 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_
     # Replace $DEPOT_ALL with actual path
     job_path_job = expand_depot_path(job_path_job)
 
-    # Use passed storage_source parameter, or fall back to global storage_src
-    active_storage = storage_source if storage_source is not None else storage_src
+    # Use passed storage_source parameter, or fall back to network storage
+    active_storage = storage_source if storage_source is not None else storage_netwk
     
     if (active_storage == storage_local):
         if path_proj_netwk and path_proj_local:
