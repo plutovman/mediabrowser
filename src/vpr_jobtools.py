@@ -165,8 +165,9 @@ def vpr_jobs_dummy_create():
     dbh = '[{}]'.format(func_name)
 
     depot_local = os.getenv('DEPOT_ALL')
-    path_proj = os.getenv('DUMMY_JOBS')
-    path_rend = os.getenv('DUMMY_REND')
+    path_proj_netwk = os.getenv('DUMMY_JOBS_NETWK')
+    path_rend_netwk = os.getenv('DUMMY_REND_NETWK')
+    
     path_db = os.getenv('DUMMY_DB')
     file_sqlite = 'jobs.sqlite3'
     #path_db_json = os.path.join(path_db, 'json')
@@ -201,9 +202,9 @@ def vpr_jobs_dummy_create():
             job_charge2 = 'charge2'
             job_charge3 = 'charge3'
             job_state = 'active'
-            job_path_job = os.path.join(path_proj, year, job_name)
+            job_path_job = os.path.join(path_proj_netwk, year, job_name)
             job_path_job_symbolic = job_path_job.replace(depot_local, '$DEPOT_ALL')
-            job_path_rnd = os.path.join(path_rend, year, job_name)
+            job_path_rnd = os.path.join(path_rend_netwk, year, job_name)
             job_path_rnd_symbolic = job_path_rnd.replace(depot_local, '$DEPOT_ALL')
             print (dbh + 'Creating job: {}'.format(job_name))
 
@@ -237,8 +238,8 @@ def vpr_jobs_dummy_create():
             conn.execute(sql_insert, tuple(job_data.values()))
             conn.commit()
 
-            path_job_year = os.path.join(path_proj, year)
-            path_rnd_year = os.path.join(path_rend, year)
+            path_job_year = os.path.join(path_proj_netwk, year)
+            path_rnd_year = os.path.join(path_rend_netwk, year)
 
             if not os.path.exists(path_job_year):
                 os.makedirs(path_job_year, 0o755)

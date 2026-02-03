@@ -254,8 +254,8 @@
             <ul id="nav-menu" class="horizontal-nav">
                 <li id="project-select-root" class="has-submenu">
                     <a>JOB SELECT</a>
-                    <ul id="years-menu" class="year-submenu">
-                        <!-- Years will be populated here -->
+                    <ul id="storage-menu">
+                        <!-- Storage sources will be populated here -->
                     </ul>
                 </li>
                 <li class="nav-button">
@@ -279,7 +279,7 @@
         <!-- Info Display Section (for openDirectory feedback) -->
         <div style="margin-bottom: 20px; padding: 15px; background-color: #1a1a1a; border-radius: 4px;">
             <div>
-                <strong style="color: #aaa;">Opening Browser To:</strong>
+                <!--<strong style="color: #aaa;">Opening Browser To:</strong>-->
                 <span id="info-feedback" style="color: #4CAF50; margin-left: 10px; font-family: monospace;">-</span>
             </div>
             <!-- Hidden elements for JS compatibility -->
@@ -405,7 +405,7 @@
             <!-- Job Base -->
             <div class="form-group">
                 <label>Job Base <span style="color: #aaa; font-size: 0.9em;"></span></label>
-                <input type="text" id="new_job_base" name="job_base" placeholder="lowercase letters, numbers, underscores only" oninput="validateJobBase()">
+                <input type="text" id="new_job_base" name="job_base" placeholder="Create a descriptive, easy-to-type job name made up of letters, numbers, and underscores." oninput="validateJobBase()">
             </div>
 
             <!-- Validation Feedback -->
@@ -446,165 +446,240 @@
 
     <script>
         let years = {{ years|tojson }};
+        let storageSources = {{ storage_sources|tojson }};
         let menuBuilt = false;
+        let currentStorage = null;  // Track selected storage for API calls
 
-        // Build years menu on first hover of JOB SELECT button
+        // Build storage sources menu on first hover of JOB SELECT button
         document.getElementById('project-select-root').addEventListener('mouseenter', async function() {
             if (menuBuilt) return;
             menuBuilt = true;
             
-            const yearsMenu = document.getElementById('years-menu');
-            yearsMenu.innerHTML = '<li class="nav-placeholder">Loading...</li>';
+            const storageMenu = document.getElementById('storage-menu');
+            storageMenu.innerHTML = '<li class="nav-placeholder">Loading...</li>';
             
             try {
-                yearsMenu.innerHTML = '';
+                storageMenu.innerHTML = '';
                 
-                for (const year of years) {
-                    const yearLi = document.createElement('li');
-                    yearLi.className = 'has-submenu';
+                // Build storage sources as first level
+                for (const storage of storageSources) {
+                    const storageListItem = document.createElement('li');
+                    storageListItem.className = 'has-submenu';
                     
-                    const yearA = document.createElement('a');
-                    yearA.textContent = year;
-                    yearLi.appendChild(yearA);
+                    const storageAnchor = document.createElement('a');
+                    storageAnchor.textContent = storage;
+                    storageListItem.appendChild(storageAnchor);
                     
-                    // Lazy load projects when year is hovered
-                    yearLi.addEventListener('mouseenter', async function() {
+                    // Lazy load years when storage is hovered
+                    storageListItem.addEventListener('mouseenter', async function() {
                         if (this.dataset.loaded) return;
                         this.dataset.loaded = 'true';
                         
-                        const projectsResponse = await fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`);
-                        const projectsData = await projectsResponse.json();
+                        // Set current storage for API calls and capture in closure
+                        const selectedStorage = storage;  // Capture storage in this closure
+                        currentStorage = storage;
                         
-                        if (projectsData.projects && projectsData.projects.length > 0) {
-                            const projectsUl = document.createElement('ul');
+                        const yearsUnoList = document.createElement('ul');
+                        
+                        for (const year of years) {
+                            const yearListItem = document.createElement('li');
+                            yearListItem.className = 'has-submenu';
                             
-                            for (const project of projectsData.projects) {
-                                const projectLi = document.createElement('li');
-                                projectLi.className = 'has-submenu';
+                            const yearAnchor = document.createElement('a');
+                            yearAnchor.textContent = year;
+                            yearListItem.appendChild(yearAnchor);
+                    
+                            // Lazy load projects when year is hovered
+                            yearListItem.addEventListener('mouseenter', async function() {
+                                if (this.dataset.loaded) return;
+                                this.dataset.loaded = 'true';
                                 
-                                const projectA = document.createElement('a');
-                                projectA.textContent = project.name;
-                                projectA.addEventListener('click', (e) => {
-                                    e.stopPropagation();
-                                    // Populate project selection info with DB data
-                                    fetch('/api/action_jobactive_dashboard_populate', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
-                                    })
-                                    .then(async (r) => {
-                                        const text = await r.text();
-                                        let data;
-                                        try {
-                                            data = text ? JSON.parse(text) : {};
-                                        } catch (err) {
-                                            document.getElementById('info-feedback').textContent = 'Error parsing response: ' + text;
-                                            document.getElementById('info-display').style.display = 'block';
-                                            return;
-                                        }
-
-                                        if (!r.ok) {
-                                            document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || r.statusText || 'Request failed');
-                                            document.getElementById('info-display').style.display = 'block';
-                                            return;
-                                        }
-
-                                        if (!data.success) {
-                                            document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || 'Unknown');
-                                            document.getElementById('info-display').style.display = 'block';
-                                            return;
-                                        }
-
-                                        const job = data.job || {};
-                                        document.getElementById('info-project').textContent = job.job_name || project.name;
-                                        document.getElementById('info-app').textContent = '-';
-                                        document.getElementById('info-feedback').textContent = job.job_path_job || project.path || '-';
-
-                                        // Populate job dashboard form
-                                        populateJobForm(job);
-                                        document.getElementById('info-display').style.display = 'block';
-                                    })
-                                    .catch(err => {
-                                        document.getElementById('info-feedback').textContent = 'Error: ' + err.message;
-                                        document.getElementById('info-display').style.display = 'block';
-                                    });
-                                });
-                                projectLi.appendChild(projectA);
+                                const projectsResponse = await fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`);
+                                const projectsData = await projectsResponse.json();
                                 
-                                // Lazy load apps when project is hovered
-                                projectLi.addEventListener('mouseenter', async function() {
-                                    if (this.dataset.loaded) return;
-                                    this.dataset.loaded = 'true';
+                                if (projectsData.projects && projectsData.projects.length > 0) {
+                                    const projectsUnoList = document.createElement('ul');
                                     
-                                    const appsResponse = await fetch(`/api/apps_by_project?project=${encodeURIComponent(project.name)}`);
-                                    const appsData = await appsResponse.json();
-                                    
-                                    if (appsData.apps && appsData.apps.length > 0) {
-                                        const appsUl = document.createElement('ul');
+                                    for (const project of projectsData.projects) {
+                                        const projectListItem = document.createElement('li');
+                                        projectListItem.className = 'has-submenu';
                                         
-                                        for (const app of appsData.apps) {
-                                            const subdirsResponse = await fetch(`/api/subdirs_by_app?app=${encodeURIComponent(app)}`);
-                                            const subdirsData = await subdirsResponse.json();
+                                        const projectAnchor = document.createElement('a');
+                                        projectAnchor.textContent = project.name;
+                                        projectAnchor.addEventListener('click', (e) => {
+                                            e.stopPropagation();
+                                            // Close all menus immediately
+                                            closeAllMenus();
+                                            // Populate project selection info with DB data
+                                            fetch('/api/action_jobactive_dashboard_populate', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
+                                            })
+                                            .then(async (r) => {
+                                                const text = await r.text();
+                                                let data;
+                                                try {
+                                                    data = text ? JSON.parse(text) : {};
+                                                } catch (err) {
+                                                    document.getElementById('info-feedback').textContent = 'Error parsing response: ' + text;
+                                                    document.getElementById('info-display').style.display = 'block';
+                                                    return;
+                                                }
+
+                                                if (!r.ok) {
+                                                    document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || r.statusText || 'Request failed');
+                                                    document.getElementById('info-display').style.display = 'block';
+                                                    return;
+                                                }
+
+                                                if (!data.success) {
+                                                    document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || 'Unknown');
+                                                    document.getElementById('info-display').style.display = 'block';
+                                                    return;
+                                                }
+
+                                                const job = data.job || {};
+                                                document.getElementById('info-project').textContent = job.job_name || project.name;
+                                                document.getElementById('info-app').textContent = '-';
+                                                document.getElementById('info-feedback').textContent = job.job_path_job || project.path || '-';
+
+                                                // Populate job dashboard form
+                                                populateJobForm(job);
+                                                document.getElementById('info-display').style.display = 'block';
+                                            })
+                                            .catch(err => {
+                                                document.getElementById('info-feedback').textContent = 'Error: ' + err.message;
+                                                document.getElementById('info-display').style.display = 'block';
+                                            });
+                                        });
+                                        projectListItem.appendChild(projectAnchor);
+                                        
+                                        // Lazy load apps when project is hovered
+                                        projectListItem.addEventListener('mouseenter', async function() {
+                                            if (this.dataset.loaded) return;
+                                            this.dataset.loaded = 'true';
                                             
-                                            const appLi = document.createElement('li');
+                                            const appsResponse = await fetch(`/api/apps_by_project?project=${encodeURIComponent(project.name)}`);
+                                            const appsData = await appsResponse.json();
                                             
-                                            if (subdirsData.subdirs && subdirsData.subdirs.length > 0) {
-                                                appLi.className = 'has-submenu';
-                                                const appA = document.createElement('a');
-                                                appA.textContent = app;
-                                                appA.addEventListener('click', (e) => {
-                                                    e.stopPropagation();
-                                                    openDirectory(appsData.job_path_job, project.name, app, null);
-                                                });
-                                                appLi.appendChild(appA);
+                                            if (appsData.apps && appsData.apps.length > 0) {
+                                                const appsUnoList = document.createElement('ul');
                                                 
-                                                const subdirsUl = document.createElement('ul');
-                                                subdirsData.subdirs.forEach(subdir => {
-                                                    const subdirLi = document.createElement('li');
-                                                    const subdirA = document.createElement('a');
-                                                    subdirA.textContent = subdir;
-                                                    subdirA.addEventListener('click', (e) => {
-                                                        e.stopPropagation();
-                                                        openDirectory(appsData.job_path_job, project.name, app, subdir);
-                                                    });
-                                                    subdirLi.appendChild(subdirA);
-                                                    subdirsUl.appendChild(subdirLi);
-                                                });
-                                                appLi.appendChild(subdirsUl);
-                                            } else {
-                                                const appA = document.createElement('a');
-                                                appA.textContent = app;
-                                                appA.addEventListener('click', () => {
-                                                    openDirectory(appsData.job_path_job, project.name, app, null);
-                                                });
-                                                appLi.appendChild(appA);
+                                                for (const app of appsData.apps) {
+                                                    const subdirsResponse = await fetch(`/api/subdirs_by_app?app=${encodeURIComponent(app)}`);
+                                                    const subdirsData = await subdirsResponse.json();
+                                                    
+                                                    const appListItem = document.createElement('li');
+                                                    
+                                                    if (subdirsData.subdirs && subdirsData.subdirs.length > 0) {
+                                                        appListItem.className = 'has-submenu';
+                                                        const appAnchor = document.createElement('a');
+                                                        appAnchor.textContent = app;
+                                                        appAnchor.addEventListener('click', (e) => {
+                                                            e.stopPropagation();
+                                                            // Populate job dashboard first
+                                                            fetch('/api/action_jobactive_dashboard_populate', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
+                                                            })
+                                                            .then(response => response.json())
+                                                            .then(data => {
+                                                                if (data.success) {
+                                                                    populateJobForm(data.job);
+                                                                }
+                                                            })
+                                                            .catch(err => console.error('Error loading job data:', err));
+                                                            // Then open directory
+                                                            openDirectory(appsData.job_path_job, project.name, app, null, selectedStorage);
+                                                        });
+                                                        appListItem.appendChild(appAnchor);
+                                                        
+                                                        const subdirsUnoList = document.createElement('ul');
+                                                        subdirsData.subdirs.forEach(subdir => {
+                                                            const subdirListItem = document.createElement('li');
+                                                            const subdirAnchor = document.createElement('a');
+                                                            subdirAnchor.textContent = subdir;
+                                                            subdirAnchor.addEventListener('click', (e) => {
+                                                                e.stopPropagation();
+                                                                // Populate job dashboard first
+                                                                fetch('/api/action_jobactive_dashboard_populate', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
+                                                                })
+                                                                .then(response => response.json())
+                                                                .then(data => {
+                                                                    if (data.success) {
+                                                                        populateJobForm(data.job);
+                                                                    }
+                                                                })
+                                                                .catch(err => console.error('Error loading job data:', err));
+                                                                // Then open directory
+                                                                openDirectory(appsData.job_path_job, project.name, app, subdir, selectedStorage);
+                                                            });
+                                                            subdirListItem.appendChild(subdirAnchor);
+                                                            subdirsUnoList.appendChild(subdirListItem);
+                                                        });
+                                                        appListItem.appendChild(subdirsUnoList);
+                                                    } else {
+                                                        const appAnchor = document.createElement('a');
+                                                        appAnchor.textContent = app;
+                                                        appAnchor.addEventListener('click', () => {
+                                                            // Populate job dashboard first
+                                                            fetch('/api/action_jobactive_dashboard_populate', {
+                                                                method: 'POST',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
+                                                            })
+                                                            .then(response => response.json())
+                                                            .then(data => {
+                                                                if (data.success) {
+                                                                    populateJobForm(data.job);
+                                                                }
+                                                            })
+                                                            .catch(err => console.error('Error loading job data:', err));
+                                                            // Then open directory
+                                                            openDirectory(appsData.job_path_job, project.name, app, null, selectedStorage);
+                                                        });
+                                                        appListItem.appendChild(appAnchor);
+                                                    }
+                                                    
+                                                    appsUnoList.appendChild(appListItem);
+                                                }
+                                                
+                                                this.appendChild(appsUnoList);
                                             }
-                                            
-                                            appsUl.appendChild(appLi);
-                                        }
+                                        }, { once: true });
                                         
-                                        this.appendChild(appsUl);
+                                        projectsUnoList.appendChild(projectListItem);
                                     }
-                                }, { once: true });
-                                
-                                projectsUl.appendChild(projectLi);
-                            }
+                                    
+                                    this.appendChild(projectsUnoList);
+                                }
+                            }, { once: true });
                             
-                            this.appendChild(projectsUl);
+                            yearsUnoList.appendChild(yearListItem);
                         }
+                        
+                        this.appendChild(yearsUnoList);
                     }, { once: true });
                     
-                    yearsMenu.appendChild(yearLi);
+                    storageMenu.appendChild(storageListItem);
                 }
             } catch (error) {
-                yearsMenu.innerHTML = '<li class="nav-placeholder">Error loading menu</li>';
+                storageMenu.innerHTML = '<li class="nav-placeholder">Error loading menu</li>';
                 showStatus('Error building navigation menu: ' + error.message, 'error');
             }
         }, { once: true });
 
-        function openDirectory(jobPath, projectName, app, subdir) {
+        function openDirectory(jobPath, projectName, app, subdir, storage) {
             // Close all menus immediately
             closeAllMenus();
+            
+            // Use passed storage parameter (required)
+            const storageSource = storage;
             
             if (!jobPath || (!app && projectName)) {
                 // Opening project level directory
@@ -622,7 +697,8 @@
                     body: JSON.stringify({
                         job_path_job: jobPath,
                         app: null,
-                        subdir: null
+                        subdir: null,
+                        storage_src: storageSource
                     })
                 })
                 .then(response => response.json())
@@ -661,7 +737,8 @@
                 body: JSON.stringify({
                     job_path_job: jobPath,
                     app: app,
-                    subdir: subdir || null
+                    subdir: subdir || null,
+                    storage_src: storageSource
                 })
             })
             .then(response => response.json())

@@ -15,13 +15,13 @@ file_jobs_legacy = 'pe_jobs_lnx.tcsh'
 list_dirs_apps = ['adobe', 'audio', 'data', 'houdini', 'maya', 'microsoft', 'movies', 'nuke', 'python']
 list_dirs_adobe = ['afterfx', 'illustrator', 'photoshop', 'premiere']
 list_dirs_audio = ['src', 'out']
+list_dirs_data = ['step', 'obj', 'other']
 list_dirs_hou = ['bgeo', 'hip', 'hrender', 'otl']
 list_dirs_maya = ['mel', 'obj', 'scenes', 'sourceimages', 'textures']
 list_dirs_ms = ['excel', 'ppt', 'word']
 list_dirs_movies = ['src', 'out']
 list_dirs_nuke = []
 list_dirs_python = []
-list_dirs_data = []
 
 dict_apps = {
     'adobe': list_dirs_adobe,
@@ -287,17 +287,17 @@ def db_jobdirs_get(depot_current: str, job_year: str, job_name: str):
 
     path_dummy = os.path.join(depot_current, 'assetdepot', 'jobs_dummy')
     path_db = os.path.join(path_dummy, 'db', 'json')
-    path_proj = os.path.join(path_dummy, 'projectdepot') 
-    path_rend = os.path.join(path_dummy, 'renderdepot')
-    path_job = os.path.join(path_proj, job_year, job_name)
-    path_rnd = os.path.join(path_rend, job_year, job_name)
+    path_proj_netwk = os.path.join(path_dummy, 'projectdepot') 
+    path_rend_netwk = os.path.join(path_dummy, 'renderdepot')
+    path_job = os.path.join(path_proj_netwk, job_year, job_name)
+    path_rnd = os.path.join(path_rend_netwk, job_year, job_name)
     job_name_parts = job_name.split('_')
     job_base = '_'.join(job_name_parts[-1])
 
     dict_jobdirs = {
         'path_db': path_db,
-        'path_proj': path_proj,
-        'path_rend': path_rend,
+        'path_proj_netwk': path_proj_netwk,
+        'path_rend_netwk': path_rend_netwk,
         'path_job': path_job,
         'path_rnd': path_rnd,
         'job_base': job_base

@@ -39,8 +39,11 @@ depot_local = os.getenv('DEPOT_ALL')
 if not depot_local:
     raise EnvironmentError("DEPOT_ALL environment variable must be set")
 
-path_proj = os.getenv('DUMMY_JOBS')
-path_rend = os.getenv('DUMMY_REND')
+path_proj_netwk = os.getenv('DUMMY_JOBS_NETWK')
+path_rend_netwk = os.getenv('DUMMY_REND_NETWK')
+path_proj_local = os.getenv('DUMMY_JOBS_LOCAL')
+path_rend_local = os.getenv('DUMMY_REND_LOCAL')
+
 path_db = os.getenv('DUMMY_DB')
 file_sqlite = 'jobs.sqlite3'
 db_table_proj = 'projects'
@@ -51,6 +54,11 @@ path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
 file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
 list_db_tables = ['media_proj', 'media_arch']
+storage_local = 'LOCAL'
+storage_netwk = 'NETWK'
+list_storage_src = [storage_local, storage_netwk]
+
+storage_src = storage_netwk  # Default storage source
 
 # View configuration
 CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
@@ -97,7 +105,7 @@ def git_get_info():
         # Not a git repository or git command failed
         return None
 
-def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None):
+def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_source=None):
     """
     OS-aware routine to open an explorer/finder window to the specified job app directory.
     Replaces $DEPOT_ALL with actual path and opens the directory in the system file browser.
@@ -106,6 +114,7 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None):
         job_path_job: Job path (may contain $DEPOT_ALL variable)
         app: Application directory name (e.g., 'data', 'maya', 'houdini'), or None for project level
         subdir: Optional subdirectory within app (e.g., 'afterfx' within 'adobe')
+        storage_source: Storage location (e.g., 'LOCAL' or 'NETWK'), defaults to None (uses global setting)
     
     Returns:
         dict: {'success': bool, 'message': str, 'path': str}
@@ -113,7 +122,17 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None):
     # Replace $DEPOT_ALL with actual path
     if '$DEPOT_ALL' in job_path_job:
         job_path_job = job_path_job.replace('$DEPOT_ALL', depot_local)
+
+    # Use passed storage_source parameter, or fall back to global storage_src
+    active_storage = storage_source if storage_source is not None else storage_src
     
+    if (active_storage == storage_local):
+        if path_proj_netwk and path_proj_local:
+            job_path_job = job_path_job.replace(path_proj_netwk, path_proj_local)
+
+    if not os.path.exists(job_path_job):
+        return {'success': False, 'message': f'Path does not exist: {job_path_job}', 'path': job_path_job}
+        
     # Build full path to directory
     if app is None:
         # Open at project level
@@ -198,7 +217,8 @@ def register_routes(flask_app):
                               db_table=db_table,
                               db_tables=list_db_tables,
                               git_info=git_info,
-                              years=years)
+                              years=years,
+                              storage_sources=list_storage_src)
     
     # ========================================================================
     # ROUTES - API ENDPOINTS
@@ -262,11 +282,12 @@ def register_routes(flask_app):
         job_path_job = data.get('job_path_job')
         app = data.get('app')  # Can be None for project-level opening
         subdir = data.get('subdir')  # Optional subdirectory
+        storage_source = data.get('storage_src')  # Optional storage source
         
         if not job_path_job:
             return jsonify({'error': 'job_path_job parameter required'}), 400
         
-        result = event_jobactive_navigate_to_app_dir(job_path_job, app, subdir)
+        result = event_jobactive_navigate_to_app_dir(job_path_job, app, subdir, storage_source)
         
         if result['success']:
             return jsonify(result), 200
@@ -444,8 +465,8 @@ def register_routes(flask_app):
         
         job_name, job_alias = result
         
-        # Generate job path (using path_proj from config)
-        job_path = os.path.join(path_proj, job_name) if path_proj else ''
+        # Generate job path (using path_proj_netwk from config)
+        job_path = os.path.join(path_proj_netwk, job_name) if path_proj_netwk else ''
 
         # replace depot_local with $DEPOT_ALL for symbolic path
         job_path = job_path.replace(depot_local, '$DEPOT_ALL')
@@ -490,8 +511,8 @@ def register_routes(flask_app):
         job_apps = ','.join(dbj.list_dirs_apps)  # Default apps from db_jobtools
         
         # Generate paths
-        job_path_job = os.path.join(path_proj, job_year, job_name) if path_proj else ''
-        job_path_rnd = os.path.join(path_rend, job_year, job_name) if path_rend else ''
+        job_path_job = os.path.join(path_proj_netwk, job_year, job_name) if path_proj_netwk else ''
+        job_path_rnd = os.path.join(path_rend_netwk, job_year, job_name) if path_rend_netwk else ''
         
         job_path_job_symbolic = job_path_job.replace(depot_local, '$DEPOT_ALL')
         job_path_rnd_symbolic = job_path_rnd.replace(depot_local, '$DEPOT_ALL')
@@ -508,15 +529,6 @@ def register_routes(flask_app):
                 conn.close()
                 return jsonify({'success': False, 'message': f'Job {job_name} already exists'}), 409
             
-
-            # Insert new job into database
-            #cursor.execute(f"""
-            #    INSERT INTO {db_table_proj} 
-            #    (job_name, job_alias, job_state, job_year, job_user_id, job_user_name, 
-            #     job_date_created, job_path_job, job_path_rnd)
-            #    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            #""", (job_name, job_alias, 'active', current_year, user_id, user_name, 
-            #      date_created, job_path_job, job_path_rnd))
 
             ##########
             job_data = {
@@ -573,7 +585,7 @@ def register_routes(flask_app):
                 'job_data': {
                     'job_name': job_name,
                     'job_alias': job_alias,
-                    'job_state': 'active',
+                    'job_state': job_state,
                     'job_year': job_year,
                     'job_user_id': job_user_id,
                     'job_user_name': job_user_name,

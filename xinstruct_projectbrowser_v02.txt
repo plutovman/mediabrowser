@@ -97,4 +97,4 @@ def api_action_jobactive_dashboard_update():
 
 
 
-modify layout so that job_name, job_alias, job_state, job_year are on first column; job_user_id, job_user_name, job_crated_date are on second column; job_edit_user_id, job_edit_user_name, job_edit_date are on third column; job_charge1, job_charge2, job_charge3, job_date_due are on fourth column; job_path_job and job_path_rnd are on the fifth, job_tags are on the sixth column, and job_notes are on the last. get rid of job_apps entry
+modify layout so that job_name, job_alias, job_state, job_year are on first row; job_user_id, job_user_name, job_crated_date are on second row; job_edit_user_id, job_edit_user_name, job_edit_date are on third row; job_charge1, job_charge2, job_charge3, job_date_due are on fourth row; job_path_job and job_path_rnd are on the fifth, job_tags are on the sixth row, and job_notes are on the last. get rid of job_apps entry
