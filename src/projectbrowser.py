@@ -63,8 +63,6 @@ sync_local_to_netwk = 'LOCAL TO NETWK'
 sync_netwk_to_local = 'NETWK TO LOCAL'
 list_sync_directions = [sync_local_to_netwk, sync_netwk_to_local]
 
-storage_src = storage_netwk  # Default storage source
-
 # View configuration
 CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
 CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
@@ -78,6 +76,20 @@ app.secret_key = 'your_secret_key_here'  # Set secret key for session
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+def expand_depot_path(path):
+    """
+    Replace $DEPOT_ALL placeholder with actual depot path.
+    
+    Args:
+        path (str): Path that may contain $DEPOT_ALL placeholder
+        
+    Returns:
+        str: Path with $DEPOT_ALL replaced by actual depot_local value
+    """
+    if path and '$DEPOT_ALL' in path:
+        return path.replace('$DEPOT_ALL', depot_local)
+    return path
 
 def git_get_info():
     """
@@ -125,8 +137,7 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_
         dict: {'success': bool, 'message': str, 'path': str}
     """
     # Replace $DEPOT_ALL with actual path
-    if '$DEPOT_ALL' in job_path_job:
-        job_path_job = job_path_job.replace('$DEPOT_ALL', depot_local)
+    job_path_job = expand_depot_path(job_path_job)
 
     # Use passed storage_source parameter, or fall back to global storage_src
     active_storage = storage_source if storage_source is not None else storage_src
@@ -298,8 +309,7 @@ def register_routes(flask_app):
             return jsonify({'success': False, 'message': 'Invalid sync_direction'}), 400
         
         # Replace $DEPOT_ALL with actual path
-        if '$DEPOT_ALL' in job_path_job:
-            job_path_job = job_path_job.replace('$DEPOT_ALL', depot_local)
+        job_path_job = expand_depot_path(job_path_job)
         
         # Build full path to directory
         if app is None:

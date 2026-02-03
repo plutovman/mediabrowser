@@ -3,6 +3,23 @@
 {% block title %}PRODUCTION{% endblock %}
 
 {% block extra_styles %}
+:root {
+    /* Menu width variables */
+    --menu-width-standard: 150px;
+    --menu-width-years: 100px;
+    --menu-width-sync-item: 180px;
+    --menu-width-sync-container: 200px;
+    
+    /* Color variables */
+    --color-background: #242424;
+    --color-background-light: #2a2a2a;
+    --color-background-lighter: #333;
+    --color-background-hover: #3a3a3a;
+    --color-text: #f0f0f0;
+    --color-border: #555;
+    --color-border-light: #777;
+}
+
 .dropdown-container {
     text-align: center;
     margin: 30px 0;
@@ -125,9 +142,9 @@
     left: 0;
     top: 100%;
     background-color: #2a2a2a;
-    border: 1px solid #555;
+    border: 1px solid var(--color-border);
     border-radius: 4px;
-    min-width: 200px;
+    min-width: var(--menu-width-sync-container);
     display: none;
     z-index: 1000;
     text-align: left;
@@ -135,7 +152,7 @@
 
 /* Year menu - narrow width for 4-digit years, positioned below JOB NAV, right-aligned */
 #years-menu {
-    min-width: 100px !important;
+    min-width: var(--menu-width-years) !important;
     left: auto !important;
     right: 0 !important;
     top: 100% !important;
@@ -145,7 +162,7 @@
 #nav-menu ul ul {
     left: 100%;
     top: 0;
-    min-width: 150px;
+    min-width: var(--menu-width-standard);
 }
 
 #sync-menu ul {
@@ -155,7 +172,7 @@
     position: absolute;
     left: 100%;
     top: 0;
-    min-width: 150px;
+    min-width: var(--menu-width-standard);
     background-color: #2a2a2a;
     border: 1px solid #555;
     border-radius: 4px;
@@ -957,9 +974,7 @@
             closeAllMenus();
             
             // Hide all other dashboards
-            document.getElementById('info-display').style.display = 'none';
-            document.getElementById('new-job-display').style.display = 'none';
-            document.getElementById('action-buttons').style.display = 'none';
+            hideAllDashboards();
             
             // Store sync data
             currentSyncData = {
@@ -1064,7 +1079,7 @@
             // Close all menus immediately
             closeAllMenus();
             
-            // Hide all other dashboards
+            // Hide sync and new job dashboards (nav dashboard will be shown)
             document.getElementById('new-job-display').style.display = 'none';
             document.getElementById('sync-confirmation').style.display = 'none';
             
@@ -1154,6 +1169,13 @@
             }, 300);
         }
 
+        function hideAllDashboards() {
+            document.getElementById('info-display').style.display = 'none';
+            document.getElementById('new-job-display').style.display = 'none';
+            document.getElementById('sync-confirmation').style.display = 'none';
+            document.getElementById('action-buttons').style.display = 'none';
+        }
+
         function showStatus(message, type) {
             const feedbackDiv = document.getElementById('info-feedback');
             feedbackDiv.textContent = message;
@@ -1161,10 +1183,8 @@
         }
         
         function newProject() {
-            // Hide existing job dashboard
-            document.getElementById('info-display').style.display = 'none';
-            document.getElementById('action-buttons').style.display = 'none';
-            document.getElementById('sync-confirmation').style.display = 'none';
+            // Hide all other dashboards
+            hideAllDashboards();
             
             // Clear and show new job dashboard
             document.getElementById('new_job_base').value = '';
@@ -1202,7 +1222,7 @@
         let originalJobData = null;
         
         function populateJobForm(job) {
-            // Hide all other dashboards
+            // Hide sync and new job dashboards (nav dashboard will be populated)
             document.getElementById('new-job-display').style.display = 'none';
             document.getElementById('sync-confirmation').style.display = 'none';
             
