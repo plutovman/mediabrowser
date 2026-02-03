@@ -54,9 +54,14 @@ path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
 file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
 list_db_tables = ['media_proj', 'media_arch']
+
 storage_local = 'LOCAL'
 storage_netwk = 'NETWK'
 list_storage_src = [storage_local, storage_netwk]
+
+sync_local_to_netwk = 'LOCAL TO NETWK'
+sync_netwk_to_local = 'NETWK TO LOCAL'
+list_sync_directions = [sync_local_to_netwk, sync_netwk_to_local]
 
 storage_src = storage_netwk  # Default storage source
 
@@ -218,7 +223,8 @@ def register_routes(flask_app):
                               db_tables=list_db_tables,
                               git_info=git_info,
                               years=years,
-                              storage_sources=list_storage_src)
+                              storage_sources=list_storage_src,
+                              sync_directions=list_sync_directions)
     
     # ========================================================================
     # ROUTES - API ENDPOINTS
@@ -274,6 +280,72 @@ def register_routes(flask_app):
         subdirs = dbj.dict_apps.get(app, [])
         
         return jsonify({'subdirs': subdirs})
+    
+    @flask_app.route('/api/sync_directory', methods=['POST'])
+    def api_sync_directory():
+        """API endpoint to synchronize directories between local and network storage"""
+        data = request.get_json()
+        job_path_job = data.get('job_path_job')
+        app = data.get('app')  # Can be None for project-level sync
+        subdir = data.get('subdir')  # Optional subdirectory
+        sync_direction = data.get('sync_direction')  # 'LOCAL TO NETWK' or 'NETWK TO LOCAL'
+        storage_source = data.get('storage_src', storage_netwk)  # Default to network
+        
+        if not job_path_job:
+            return jsonify({'success': False, 'message': 'job_path_job parameter required'}), 400
+        
+        if not sync_direction or sync_direction not in list_sync_directions:
+            return jsonify({'success': False, 'message': 'Invalid sync_direction'}), 400
+        
+        # Replace $DEPOT_ALL with actual path
+        if '$DEPOT_ALL' in job_path_job:
+            job_path_job = job_path_job.replace('$DEPOT_ALL', depot_local)
+        
+        # Build full path to directory
+        if app is None:
+            # Sync at project level
+            target_path = job_path_job
+        elif subdir:
+            target_path = os.path.join(job_path_job, app, subdir)
+        else:
+            target_path = os.path.join(job_path_job, app)
+        
+        # Determine local and network paths based on target
+        # Network path is the target_path as stored in DB
+        path_netwk = target_path
+        
+        # Local path is derived by replacing network base with local base
+        if path_proj_netwk and path_proj_local:
+            path_local = target_path.replace(path_proj_netwk, path_proj_local)
+        else:
+            return jsonify({'success': False, 'message': 'Local/Network paths not configured'}), 500
+        
+        # Validate paths exist
+        if sync_direction == sync_local_to_netwk:
+            if not os.path.exists(path_local):
+                return jsonify({'success': False, 'message': f'Local path does not exist: {path_local}'}), 400
+        else:  # NETWK TO LOCAL
+            if not os.path.exists(path_netwk):
+                return jsonify({'success': False, 'message': f'Network path does not exist: {path_netwk}'}), 400
+        
+        # Call vpr_dir_synchronize
+        try:
+            result = vpr.vpr_dir_synchronize(path_local, path_netwk, sync_direction)
+            
+            if result:
+                return jsonify({
+                    'success': True,
+                    'message': f'Successfully synchronized {sync_direction}',
+                    'path_local': path_local,
+                    'path_netwk': path_netwk
+                }), 200
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': 'Synchronization failed. Check server logs for details.'
+                }), 500
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Error during sync: {str(e)}'}), 500
     
     @flask_app.route('/api/open_app_directory', methods=['POST'])
     def api_open_app_directory():

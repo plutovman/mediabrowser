@@ -1,4 +1,4 @@
-import os, platform, inspect
+import os, platform, inspect, subprocess
 import db_jobtools as dbj 
 import datetime
 
@@ -10,6 +10,173 @@ def vpr_file_parts_get(file_name: str):
     return list_parts
 
 # end of def vpr_file_parts_get(file_name: str):
+
+def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
+    """
+    OS-aware directory synchronization using rsync (Linux/macOS/WSL) or robocopy (Windows).
+    
+    Args:
+        path_local: Local directory path
+        path_netwk: Network directory path
+        direction: 'LOCAL TO NETWK' or 'NETWK TO LOCAL'
+    
+    Returns:
+        bool: True if synchronization succeeded, False otherwise
+    
+    Notes:
+        - Ignores hidden files/directories (starting with '.')
+        - Ignores common temporary and system files
+        - Uses archive mode to preserve permissions and timestamps
+        - Deletes files in destination that don't exist in source
+    """
+
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    # Detect operating system
+    system = platform.system()
+    
+    # Determine source and destination based on direction
+    if direction == 'LOCAL TO NETWK':
+        source = path_local
+        destination = path_netwk
+    elif direction == 'NETWK TO LOCAL':
+        source = path_netwk
+        destination = path_local
+    else:
+        print(dbh + ' Invalid direction: {}'.format(direction))
+        return False
+    
+    # Validate paths exist
+    if not os.path.exists(source):
+        print(dbh + ' Source path does not exist: {}'.format(source))
+        return False
+    
+    # Create destination if it doesn't exist
+    if not os.path.exists(destination):
+        try:
+            os.makedirs(destination, exist_ok=True)
+            print(dbh + ' Created destination directory: {}'.format(destination))
+        except Exception as e:
+            print(dbh + ' Failed to create destination: {}'.format(e))
+            return False
+
+    # Build command based on OS
+    if system == 'Windows':
+        # Use robocopy for Windows
+        # /MIR = Mirror (copy all, delete extras)
+        # /XA:SH = Exclude system and hidden files
+        # /XD = Exclude directories
+        # /XF = Exclude files
+        # /R:3 = Retry 3 times on failure
+        # /W:5 = Wait 5 seconds between retries
+        # /MT:8 = Use 8 threads for faster copying
+        # /NFL = No file list (reduce output)
+        # /NDL = No directory list
+        # /NP = No progress percentage
+        # /LOG = Log to file (optional)
+        
+        cmd = [
+            'robocopy',
+            source,
+            destination,
+            '/MIR',                    # Mirror directory tree
+            '/R:3',                    # Retry 3 times
+            '/W:5',                    # Wait 5 seconds between retries
+            '/MT:8',                   # Multi-threaded (8 threads)
+            '/XA:SH',                  # Exclude system and hidden files
+            '/XD',                     # Exclude these directories:
+            '.*',                      # Hidden directories (starting with .)
+            '__pycache__',
+            'node_modules',
+            '.git',
+            '.svn',
+            '.DS_Store',
+            'Thumbs.db',
+            '/XF',                     # Exclude these files:
+            '.*',                      # Hidden files (starting with .)
+            '*.tmp',
+            '*.temp',
+            '*.log',
+            '*.swp',
+            '*.swo',
+            '*~',
+            'desktop.ini',
+            '.DS_Store',
+            'Thumbs.db'
+        ]
+        
+        print(dbh + ' Executing robocopy: {} -> {}'.format(source, destination))
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            # Robocopy return codes: 0-7 are success, 8+ are errors
+            if result.returncode < 8:
+                print(dbh + ' Robocopy completed successfully (exit code: {})'.format(result.returncode))
+                return True
+            else:
+                print(dbh + ' Robocopy failed with exit code: {}'.format(result.returncode))
+                print(dbh + ' Error output: {}'.format(result.stderr))
+                return False
+        except Exception as e:
+            print(dbh + ' Robocopy command failed: {}'.format(e))
+            return False
+            
+    else:
+        # Use rsync for Linux, macOS, and WSL
+        # -a = archive mode (recursive, preserve permissions, times, etc.)
+        # -v = verbose
+        # -h = human-readable output
+        # --delete = delete files in dest that don't exist in source
+        # --exclude = exclude patterns
+        # --progress = show progress during transfer
+        
+        # Ensure paths end with / for rsync
+        if not source.endswith('/'):
+            source += '/'
+        if not destination.endswith('/'):
+            destination += '/'
+        
+        cmd = [
+            'rsync',
+            '-avh',                    # Archive, verbose, human-readable
+            '--delete',                # Delete extraneous files from dest
+            '--progress',              # Show progress
+            '--exclude=.*',            # Exclude hidden files/dirs (starting with .)
+            '--exclude=__pycache__',
+            '--exclude=node_modules',
+            '--exclude=*.pyc',
+            '--exclude=*.pyo',
+            '--exclude=*.tmp',
+            '--exclude=*.temp',
+            '--exclude=*.log',
+            '--exclude=*.swp',
+            '--exclude=*.swo',
+            '--exclude=*~',
+            '--exclude=.DS_Store',
+            '--exclude=Thumbs.db',
+            '--exclude=desktop.ini',
+            source,
+            destination
+        ]
+        
+        print(dbh + ' Executing rsync: {} -> {}'.format(source, destination))
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                print(dbh + ' Rsync completed successfully')
+                return True
+            else:
+                print(dbh + ' Rsync failed with exit code: {}'.format(result.returncode))
+                print(dbh + ' Error output: {}'.format(result.stderr))
+                return False
+        except FileNotFoundError:
+            print(dbh + ' rsync command not found. Please install rsync.')
+            return False
+        except Exception as e:
+            print(dbh + ' Rsync command failed: {}'.format(e))
+            return False
+
+# end of def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
 
 def vpr_job_base_is_valid(job_base: str):
     """

@@ -93,7 +93,8 @@
     background-color: #3a3a3a;
 }
 
-#nav-menu li.has-submenu > a::after {
+#nav-menu li.has-submenu > a::after,
+#sync-menu li.has-submenu > a::after {
     content: '▼';
     margin-left: 8px;
     font-size: 10px;
@@ -110,13 +111,29 @@
     background-color: #2a2a2a;
     border: 1px solid #555;
     border-radius: 4px;
-    min-width: 150px;
+    min-width: 120px;
     display: none;
     z-index: 1000;
     text-align: left;
 }
 
-/* Year menu - narrow width for 4-digit years, positioned below JOB SELECT, right-aligned */
+#sync-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background-color: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    min-width: 200px;
+    display: none;
+    z-index: 1000;
+    text-align: left;
+}
+
+/* Year menu - narrow width for 4-digit years, positioned below JOB NAV, right-aligned */
 #years-menu {
     min-width: 100px !important;
     left: auto !important;
@@ -131,12 +148,30 @@
     min-width: 150px;
 }
 
-#nav-menu li:hover > ul {
+#sync-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    min-width: 150px;
+    background-color: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    display: none;
+    z-index: 1000;
+    text-align: left;
+}
+
+#nav-menu li:hover > ul,
+#sync-menu li:hover > ul {
     display: block;
 }
 
 /* Force all menus closed when this class is applied */
-.menus-closed #nav-menu ul {
+.menus-closed #nav-menu ul,
+.menus-closed #sync-menu ul {
     display: none !important;
 }
 
@@ -145,7 +180,16 @@
     border-bottom: 1px solid #333;
 }
 
+#sync-menu li {
+    position: relative;
+    border-bottom: 1px solid #333;
+}
+
 #nav-menu ul li:last-child {
+    border-bottom: none;
+}
+
+#sync-menu li:last-child {
     border-bottom: none;
 }
 
@@ -160,11 +204,39 @@
     text-align: left;
 }
 
+#sync-menu li a {
+    display: block;
+    padding: 10px 18px;
+    font-size: 13px;
+    color: #f0f0f0;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    text-align: left;
+    min-width: 140px;
+}
+
+#sync-menu ul li a {
+    display: block;
+    padding: 10px 15px;
+    font-size: 13px;
+    color: #f0f0f0;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    text-align: left;
+}
+
 #nav-menu ul li a:hover {
     background-color: #3a3a3a;
 }
 
-#nav-menu ul li.has-submenu > a::after {
+#sync-menu li a:hover {
+    background-color: #3a3a3a;
+}
+
+#nav-menu ul li.has-submenu > a::after,
+#sync-menu li.has-submenu > a::after {
     content: '▶';
     float: right;
     font-size: 10px;
@@ -252,14 +324,21 @@
     <div class="dropdown-container">
         <div class="nav-menu-container horizontal-menu">
             <ul id="nav-menu" class="horizontal-nav">
+
                 <li id="project-select-root" class="has-submenu">
-                    <a>JOB SELECT</a>
+                    <a>JOB NAV</a>
                     <ul id="storage-menu">
                         <!-- Storage sources will be populated here -->
                     </ul>
                 </li>
+                <li id="sync-select-root" class="has-submenu">
+                    <a>JOB SYNC</a>
+                    <ul id="sync-menu">
+                        <!-- Sync directions will be populated here -->
+                    </ul>
+                </li>
                 <li class="nav-button">
-                    <a onclick="newProject()">NEW JOB</a>
+                    <a onclick="newProject()">JOB NEW</a>
                 </li>
                 <li class="nav-button">
                     <a onclick="research()">RESEARCH</a>
@@ -387,6 +466,44 @@
         </form>
     </div>
 
+    <!-- Sync Confirmation Panel -->
+    <div id="sync-confirmation" class="info-display" style="display: none; max-width: 700px; margin: 20px auto;">
+        <h3 style="color: #ff9800; margin-bottom: 20px; text-align: center;">Directory Synchronization</h3>
+        
+        <div style="padding: 15px; background-color: #1a1a1a; border-radius: 4px; margin-bottom: 20px;">
+            <div style="margin-bottom: 10px;">
+                <strong style="color: #aaa;">Sync Direction:</strong>
+                <span id="sync-direction-display" style="color: #ff9800; margin-left: 10px; font-weight: bold;">-</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong style="color: #aaa;">Job:</strong>
+                <span id="sync-job-display" style="color: #4CAF50; margin-left: 10px;">-</span>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <strong style="color: #aaa;">Location:</strong>
+                <span id="sync-location-display" style="color: #4CAF50; margin-left: 10px; font-family: monospace;">-</span>
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background-color: #2a2a0a; border-left: 4px solid #ff9800; border-radius: 4px;">
+                <strong style="color: #ff9800;">⚠ Warning:</strong>
+                <span style="color: #f0f0f0; margin-left: 10px;">This will synchronize files between local and network storage. Files may be overwritten or deleted.</span>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 15px; justify-content: center;">
+            <button type="button" id="btn-execute-sync" class="btn-primary" onclick="executeSynchronization()" style="padding: 10px 40px; background-color: #ff9800; min-width: 180px;">
+                Synchronize Now
+            </button>
+            <button type="button" class="btn-secondary" onclick="cancelSynchronization()" style="padding: 10px 40px; background-color: #555; color: white; border: none; border-radius: 4px; cursor: pointer; min-width: 120px;">
+                Cancel
+            </button>
+        </div>
+        
+        <!-- Sync Progress/Result -->
+        <div id="sync-result" style="display: none; margin-top: 20px; padding: 15px; border-radius: 4px;">
+            <span id="sync-result-message"></span>
+        </div>
+    </div>
+
     <!-- Action Buttons -->
     <div id="action-buttons" style="display: none; gap: 15px; margin-top: 20px; justify-content: center;">
         <button type="button" id="buttonEdit" class="btn-primary" onclick="jobEditOrSave()" style="padding: 10px 30px;">
@@ -399,7 +516,7 @@
 
     <!-- New Job Dashboard -->
     <div id="new-job-display" class="info-display" style="display: none; max-width: 600px; margin: 20px auto;">
-        <h3 style="color: #4a9eff; margin-bottom: 20px; text-align: center;">New Job Name</h3>
+        <h3 style="color: #4a9eff; margin-bottom: 20px; text-align: center;">New Job Dashboard</h3>
         
         <form id="newJobForm">
             <!-- Job Base -->
@@ -447,10 +564,13 @@
     <script>
         let years = {{ years|tojson }};
         let storageSources = {{ storage_sources|tojson }};
+        let syncDirections = {{ sync_directions|tojson }};
         let menuBuilt = false;
+        let syncMenuBuilt = false;
         let currentStorage = null;  // Track selected storage for API calls
+        let currentSyncData = null;  // Track current sync operation data
 
-        // Build storage sources menu on first hover of JOB SELECT button
+        // Build storage sources menu on first hover of JOB NAV button
         document.getElementById('project-select-root').addEventListener('mouseenter', async function() {
             if (menuBuilt) return;
             menuBuilt = true;
@@ -674,9 +794,279 @@
             }
         }, { once: true });
 
+        // Build sync menu on first hover of JOB SYNC button
+        document.getElementById('sync-select-root').addEventListener('mouseenter', async function() {
+            if (syncMenuBuilt) return;
+            syncMenuBuilt = true;
+            
+            const syncMenu = document.getElementById('sync-menu');
+            syncMenu.innerHTML = '<li class="nav-placeholder">Loading...</li>';
+            
+            try {
+                syncMenu.innerHTML = ''; // Clear placeholder
+                
+                // Build sync directions menu
+                for (const syncDirection of syncDirections) {
+                    const syncDirectionListItem = document.createElement('li');
+                    syncDirectionListItem.className = 'has-submenu';
+                    
+                    const syncDirectionAnchor = document.createElement('a');
+                    syncDirectionAnchor.textContent = syncDirection;
+                    syncDirectionListItem.appendChild(syncDirectionAnchor);
+                    
+                    const yearsUnoList = document.createElement('ul');
+                    syncDirectionListItem.appendChild(yearsUnoList);
+                    
+                    // Capture sync direction in closure
+                    const selectedSyncDirection = syncDirection;
+                    
+                    syncDirectionAnchor.addEventListener('mouseenter', function(e) {
+                        // Build years cascade
+                        if (yearsUnoList.children.length === 0) {
+                            for (const year of years) {
+                                const yearListItem = document.createElement('li');
+                                yearListItem.className = 'has-submenu';
+                                
+                                const yearAnchor = document.createElement('a');
+                                yearAnchor.textContent = year;
+                                yearListItem.appendChild(yearAnchor);
+                                
+                                const projectsUnoList = document.createElement('ul');
+                                yearListItem.appendChild(projectsUnoList);
+                                
+                                yearAnchor.addEventListener('mouseenter', function(e) {
+                                    // Fetch projects for this year
+                                    if (projectsUnoList.children.length === 0) {
+                                        fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`)
+                                            .then(response => response.json())
+                                            .then(projectsData => {
+                                                if (projectsData.projects && projectsData.projects.length === 0) {
+                                                    projectsUnoList.innerHTML = '<li class=\"nav-placeholder\">No projects found</li>';
+                                                } else if (projectsData.projects) {
+                                                    for (const project of projectsData.projects) {
+                                                        const projectListItem = document.createElement('li');
+                                                        projectListItem.className = 'has-submenu';
+                                                        
+                                                        const projectAnchor = document.createElement('a');
+                                                        projectAnchor.textContent = project.name;
+                                                        projectListItem.appendChild(projectAnchor);
+                                                        
+                                                        // Add click handler for project-level sync
+                                                        projectAnchor.addEventListener('click', (e) => {
+                                                            e.stopPropagation();
+                                                            // Show sync confirmation for project-level
+                                                            showSyncConfirmation(project.path, project.name, null, null, selectedSyncDirection);
+                                                        });
+                                                        
+                                                        const appsUnoList = document.createElement('ul');
+                                                        projectListItem.appendChild(appsUnoList);
+                                                        
+                                                        projectAnchor.addEventListener('mouseenter', function(e) {
+                                                            // Fetch apps for this project
+                                                            if (appsUnoList.children.length === 0) {
+                                                                fetch(`/api/apps_by_project?project=${encodeURIComponent(project.name)}`)
+                                                                    .then(response => response.json())
+                                                                    .then(appsData => {
+                                                                        if (appsData.apps && appsData.apps.length > 0) {
+                                                                            for (const app of appsData.apps) {
+                                                                                // Fetch subdirs for each app
+                                                                                fetch(`/api/subdirs_by_app?app=${encodeURIComponent(app)}`)
+                                                                                    .then(response => response.json())
+                                                                                    .then(subdirsData => {
+                                                                                        const appListItem = document.createElement('li');
+                                                                                        
+                                                                                        if (subdirsData.subdirs && subdirsData.subdirs.length > 0) {
+                                                                                            appListItem.className = 'has-submenu';
+                                                                                            const appAnchor = document.createElement('a');
+                                                                                            appAnchor.textContent = app;
+                                                                                            appAnchor.addEventListener('click', (e) => {
+                                                                                                e.stopPropagation();
+                                                                                                // Show sync confirmation for app-level
+                                                                                                showSyncConfirmation(project.path, project.name, app, null, selectedSyncDirection);
+                                                                                            });
+                                                                                            appListItem.appendChild(appAnchor);
+                                                                                            
+                                                                                            const subdirsUnoList = document.createElement('ul');
+                                                                                            
+                                                                                            for (const subdir of subdirsData.subdirs) {
+                                                                                                const subdirListItem = document.createElement('li');
+                                                                                                const subdirAnchor = document.createElement('a');
+                                                                                                subdirAnchor.textContent = subdir;
+                                                                                                subdirAnchor.addEventListener('click', (e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    // Show sync confirmation for subdir-level
+                                                                                                    showSyncConfirmation(project.path, project.name, app, subdir, selectedSyncDirection);
+                                                                                                });
+                                                                                                subdirListItem.appendChild(subdirAnchor);
+                                                                                                subdirsUnoList.appendChild(subdirListItem);
+                                                                                            }
+                                                                                            
+                                                                                            appListItem.appendChild(subdirsUnoList);
+                                                                                        } else {
+                                                                                            // No subdirs, make app clickable
+                                                                                            const appAnchor = document.createElement('a');
+                                                                                            appAnchor.textContent = app;
+                                                                                            appAnchor.addEventListener('click', (e) => {
+                                                                                                e.stopPropagation();
+                                                                                                showSyncConfirmation(project.path, project.name, app, null, selectedSyncDirection);
+                                                                                            });
+                                                                                            appListItem.appendChild(appAnchor);
+                                                                                        }
+                                                                                        
+                                                                                        appsUnoList.appendChild(appListItem);
+                                                                                    })
+                                                                                    .catch(error => console.error('Error fetching subdirs:', error));
+                                                                            }
+                                                                        } else {
+                                                                            appsUnoList.innerHTML = '<li class=\"nav-placeholder\">No apps found</li>';
+                                                                        }
+                                                                    })
+                                                                    .catch(error => {
+                                                                        appsUnoList.innerHTML = '<li class=\"nav-placeholder\">Error loading apps</li>';
+                                                                        console.error('Error fetching apps:', error);
+                                                                    });
+                                                            }
+                                                        });
+                                                        
+                                                        projectsUnoList.appendChild(projectListItem);
+                                                    }
+                                                }
+                                            })
+                                            .catch(error => {
+                                                projectsUnoList.innerHTML = '<li class=\"nav-placeholder\">Error loading projects</li>';
+                                                console.error('Error fetching projects:', error);
+                                            });
+                                    }
+                                });
+                                
+                                yearsUnoList.appendChild(yearListItem);
+                            }
+                        }
+                    });
+                    
+                    syncMenu.appendChild(syncDirectionListItem);
+                }
+            } catch (error) {
+                syncMenu.innerHTML = '<li class=\"nav-placeholder\">Error loading sync menu</li>';
+                showStatus('Error building sync menu: ' + error.message, 'error');
+            }
+        }, { once: true });
+
+        function showSyncConfirmation(jobPath, projectName, app, subdir, syncDirection) {
+            // Close all menus
+            closeAllMenus();
+            
+            // Hide all other dashboards
+            document.getElementById('info-display').style.display = 'none';
+            document.getElementById('new-job-display').style.display = 'none';
+            document.getElementById('action-buttons').style.display = 'none';
+            
+            // Store sync data
+            currentSyncData = {
+                job_path_job: jobPath,
+                project_name: projectName,
+                app: app,
+                subdir: subdir,
+                sync_direction: syncDirection
+            };
+            
+            // Update confirmation panel
+            document.getElementById('sync-direction-display').textContent = syncDirection;
+            document.getElementById('sync-job-display').textContent = projectName;
+            
+            let locationText = '-';
+            if (app) {
+                locationText = app;
+                if (subdir) {
+                    locationText += ' / ' + subdir;
+                }
+            } else {
+                locationText = 'Project Root';
+            }
+            document.getElementById('sync-location-display').textContent = locationText;
+            
+            // Hide result, show confirmation
+            document.getElementById('sync-result').style.display = 'none';
+            document.getElementById('sync-confirmation').style.display = 'block';
+            
+            // Scroll to confirmation panel
+            document.getElementById('sync-confirmation').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function cancelSynchronization() {
+            document.getElementById('sync-confirmation').style.display = 'none';
+            currentSyncData = null;
+        }
+
+        function executeSynchronization() {
+            if (!currentSyncData) {
+                showStatus('No sync operation selected', 'error');
+                return;
+            }
+            
+            // Disable button during sync
+            const btnExecute = document.getElementById('btn-execute-sync');
+            btnExecute.disabled = true;
+            btnExecute.textContent = 'Synchronizing...';
+            
+            // Show progress message
+            const resultDiv = document.getElementById('sync-result');
+            resultDiv.style.display = 'block';
+            resultDiv.style.backgroundColor = '#2a4a6a';
+            resultDiv.style.borderLeft = '4px solid #4CAF50';
+            document.getElementById('sync-result-message').textContent = 'Synchronization in progress...';
+            
+            // Call sync API
+            fetch('/api/sync_directory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    job_path_job: currentSyncData.job_path_job,
+                    app: currentSyncData.app,
+                    subdir: currentSyncData.subdir,
+                    sync_direction: currentSyncData.sync_direction
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                btnExecute.disabled = false;
+                btnExecute.textContent = 'Synchronize Now';
+                
+                if (data.success) {
+                    resultDiv.style.backgroundColor = '#1a3a1a';
+                    resultDiv.style.borderLeft = '4px solid #4CAF50';
+                    document.getElementById('sync-result-message').textContent = '✓ ' + data.message;
+                    showStatus(data.message, 'success');
+                    
+                    // Clear sync data and hide panel after delay
+                    setTimeout(() => {
+                        cancelSynchronization();
+                    }, 3000);
+                } else {
+                    resultDiv.style.backgroundColor = '#3a1a1a';
+                    resultDiv.style.borderLeft = '4px solid #f44336';
+                    document.getElementById('sync-result-message').textContent = '✗ ' + data.message;
+                    showStatus(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                btnExecute.disabled = false;
+                btnExecute.textContent = 'Synchronize Now';
+                
+                resultDiv.style.backgroundColor = '#3a1a1a';
+                resultDiv.style.borderLeft = '4px solid #f44336';
+                document.getElementById('sync-result-message').textContent = '✗ Error: ' + error.message;
+                showStatus('Error executing sync: ' + error.message, 'error');
+            });
+        }
+
         function openDirectory(jobPath, projectName, app, subdir, storage) {
             // Close all menus immediately
             closeAllMenus();
+            
+            // Hide all other dashboards
+            document.getElementById('new-job-display').style.display = 'none';
+            document.getElementById('sync-confirmation').style.display = 'none';
             
             // Use passed storage parameter (required)
             const storageSource = storage;
@@ -774,6 +1164,7 @@
             // Hide existing job dashboard
             document.getElementById('info-display').style.display = 'none';
             document.getElementById('action-buttons').style.display = 'none';
+            document.getElementById('sync-confirmation').style.display = 'none';
             
             // Clear and show new job dashboard
             document.getElementById('new_job_base').value = '';
@@ -811,6 +1202,10 @@
         let originalJobData = null;
         
         function populateJobForm(job) {
+            // Hide all other dashboards
+            document.getElementById('new-job-display').style.display = 'none';
+            document.getElementById('sync-confirmation').style.display = 'none';
+            
             // Store original job data for cancel functionality
             originalJobData = JSON.parse(JSON.stringify(job)); // Deep copy
             
