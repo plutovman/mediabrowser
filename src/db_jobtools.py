@@ -35,7 +35,6 @@ dict_apps = {
     'python': list_dirs_python,
 }
 
-
 list_db_jobs_columns = ['job_id',
                         'job_name', 
                         'job_alias',
@@ -123,6 +122,8 @@ def db_job_id_create_temp(list_id: list):
 
 # end of def db_job_id_create_temp(list_id: list):
 
+###############################################################################
+###############################################################################
 def db_id_create(db_sqlite_path: str, db_table: str, id_column: str):
 
     """
@@ -150,6 +151,8 @@ def db_id_create(db_sqlite_path: str, db_table: str, id_column: str):
 
 # end of def db_id_create(db_sqlite_path: str):
 
+###############################################################################
+###############################################################################
 def db_token_generator(token_length=12):
     """
     generate a random token of ascii characters and digits of length token_length
@@ -280,6 +283,58 @@ def db_jobs_legacy_migrate():
     else:
         print (dbh + f'No legacy jobs txt file found: {path_jobs_txt}.') 
 
+# end of db_jobs_legacy_migrate()
+
+###############################################################################
+###############################################################################
+def db_jobs_nav_create(db_path: str, db_table: str, nav_path: str, nav_file: str):
+
+    """
+    create navigation file for jobs if it doesn't exist
+    """
+
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    path_nav = os.path.join(nav_path, nav_file)
+    #if not os.path.exists(path_nav):
+
+    if True:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # 1. query db_table for all jobs
+        # 2. create nav_file and for each job, populate as follows:
+        #   # [job_name] created by [job_user_name] on [job_date_created]
+
+        #   alias   [job_alias] "cd [job_path_job]; source local.env"
+        #   set     [job_alias] = [job_path_job]
+
+        cursor.execute(f'SELECT job_name, job_alias, job_user_name, job_date_created, job_path_job FROM {db_table}')
+        rows = cursor.fetchall()
+        with open(path_nav, 'w') as f_nav:
+            f_nav.write('#!/bin/tcsh\n\n')
+            f_nav.write('# Navigation file for jobs\n\n')
+            for row in rows:
+                job_name = row[0]
+                job_alias = row[1]
+                job_user_name = row[2]
+                job_date_created = row[3]
+                job_path_job = row[4]
+                f_nav.write('\n')
+                f_nav.write(f'# {job_name} created by {job_user_name} on {job_date_created}\n')
+                f_nav.write(f'alias   {job_alias} "cd {job_path_job}; source local.env"\n')
+                f_nav.write(f'set     {job_alias} = {job_path_job}\n\n')
+                f_nav.write('\n')
+            f_nav.close()
+
+        conn.close()
+        print (dbh + f'Created navigation database table: {path_nav}')
+
+# end of def db_jobs_nav_create(db_path: str, db_table: str, nav_path: str, nav_file: str):
+
+###############################################################################
+###############################################################################
 def db_jobdirs_get(depot_current: str, job_year: str, job_name: str):
 
     func_name = inspect.stack()[0][3]
@@ -304,7 +359,8 @@ def db_jobdirs_get(depot_current: str, job_year: str, job_name: str):
     }
     return dict_jobdirs
 
-
+###############################################################################
+###############################################################################
 def db_sqlite_table_jobs_create(db_path: str, table_name: str):
 
     '''
@@ -346,5 +402,3 @@ def db_sqlite_table_jobs_create(db_path: str, table_name: str):
     conn.commit()
     #conn.close()
     return conn
-
-#db_jobs_legacy_migrate()

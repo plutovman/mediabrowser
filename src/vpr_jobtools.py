@@ -126,7 +126,6 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
         # -a = archive mode (recursive, preserve permissions, times, etc.)
         # -v = verbose
         # -h = human-readable output
-        # --delete = delete files in dest that don't exist in source
         # --exclude = exclude patterns
         # --progress = show progress during transfer
         
@@ -139,7 +138,6 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
         cmd = [
             'rsync',
             '-avh',                    # Archive, verbose, human-readable
-            '--delete',                # Delete extraneous files from dest
             '--progress',              # Show progress
             '--exclude=.*',            # Exclude hidden files/dirs (starting with .)
             '--exclude=__pycache__',
@@ -318,8 +316,92 @@ def vpr_job_create_directories(job_name: str, path_job: str, path_rnd: str):
     success = True
     return success
 
-
 # end of def vpr_job_create_directories(job_name: str, path_job: str, path_rnd: str):
+
+def vpr_job_edit_environment(job_name: str, path_job: str, path_job_env: str, job_year: str):
+    
+    import db_jobtools as dbj
+    import shutil
+
+    """
+    edit job environment variables in job_dict
+    """
+    #path_job_symbolic = job_dict['job_path_job']
+    #path_job: str, path_rnd: str, job_year: str#path_rnd_symbolic = job_dict['job_path_rnd']
+    #path_job_literal = path_job_symbolic.replace('$DEPOT_ALL', os.getenv('DEPOT_ALL'))
+    #path_rnd_literal = path_rnd_symbolic.replace('$DEPOT_ALL', os.getenv('DEPOT_ALL')) 
+
+    #path_job_generic = '/replace/with/dir'
+    #path_rnd_generic = '/replace/with/dir'
+
+    file_proj_env = 'local.env'
+
+    # ger path to current python file
+    #path_script = os.path.dirname(os.path.realpath(__file__))
+    #path_job_env: str,
+    #path_resources = os.path.join(path_script, 'resources')
+    #path_job_env_in = os.path.join(path_resources, file_proj_env)
+    path_job_env_out = os.path.join(path_job, file_proj_env)
+
+    if (os.path.exists(path_job_env) and os.path.exists(path_job)):
+        shutil.copy2(path_job_env, path_job_env_out)
+    else:
+        print ('[vpr_job_edit_environment] Missing path: {} or {}'.format(path_job_env, path_job))
+        return False
+
+    text_jobmisc = 'Last modified on 05/25/05'	
+    text_jobyear = 'JOB_YEAR generic'
+    text_jobname = 'JOB_NAME generic'
+    text_jobsdir = 'JOBS_DIR /replace/with/dir'
+    text_imgname = 'IMAGE_NAME generic'
+    text_jobdir = 'JOB_DIR /replace/with/dir'
+    text_vdrop = 'VDROP /replace/with/dir'
+    text_job_arch_seq = 'JOB_ARCH_SEQ /replace/with/dir'
+    text_job_arch_vid = 'JOB_ARCH_VID /replace/with/dir'
+    text_wf_img_dir = 'WF_IMG_DIR /replace/with/dir'
+    text_maya_proj = 'MAYA_PROJECT /default'
+    text_maya_scripts = 'path_maya_scripts = /default'
+    
+    list_lines = []
+    # read in job.env
+    with open (path_job_env_out) as filein:
+        list_lines = filein.readlines()
+    filein.close()
+    # modify lines
+    job_name_parts = vpr_file_parts_get(job_name)
+    job_base = job_name_parts[1]
+    job_shr = f'{job_base}_shr'
+    job_seq = f'{job_base}_seq'
+    job_vid = f'{job_base}_vid'
+    with open (path_job_env_out, 'w') as fileout:
+        for line in list_lines:
+            if text_jobyear in line:
+                line = f'setenv JOB_YEAR {job_year}\n'
+            elif text_jobname in line:
+                line = f'setenv JOB_NAME {job_name}\n'
+            elif text_jobsdir in line:
+                line = f'setenv JOBS_DIR $JOBS_LNX/{job_year}\n'
+            elif text_imgname in line:
+                line = f'setenv IMAGE_NAME $REND_LNX/{job_year}/{job_name}\n'
+            elif text_jobdir in line:
+                line = f'setenv JOB_DIR $JOBS_LNX/{job_year}/{job_name}\n'
+            elif text_vdrop in line:
+                line = f'setenv VDROP $DROP_ALL/{job_year}/{job_shr}\n'
+            elif text_job_arch_seq in line:
+                line = f'setenv JOB_ARCH_SEQ $ARCH_IMGSEQ/{job_year}/{job_seq}\n'
+            elif text_job_arch_vid in line:
+                line = f'setenv JOB_ARCH_VID $ARCH_VIDEOS/{job_year}/{job_vid}\n'
+            elif text_wf_img_dir in line:
+                line = f'setenv WF_IMG_DIR $REND_LNX/{job_year}/{job_name}\n'
+            elif text_maya_proj in line:
+                line = f'setenv MAYA_PROJECT $JOBS_LNX/{job_year}/{job_name}/maya\n'
+            elif text_maya_scripts in line:
+                line = f'set path_maya_scripts = $MAYA_SCRIPT_PATH/:$JOBS_LNX/{job_year}/{job_name}/maya/mel\n'
+            fileout.write(line)
+    fileout.close()
+    return True
+
+# end of def vpr_job_edit_environment(job_dict: dict[str|str], 
 
 
 def vpr_jobs_dummy_create():

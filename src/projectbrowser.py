@@ -45,9 +45,15 @@ path_proj_local = os.getenv('DUMMY_JOBS_LOCAL')
 path_rend_local = os.getenv('DUMMY_REND_LOCAL')
 
 path_db = os.getenv('DUMMY_DB')
-file_sqlite = 'jobs.sqlite3'
+if not path_db:
+    raise EnvironmentError("DUMMY_DB environment variable must be set")
+file_sqlite = 'db_projects.sqlite3'
+file_projects_aliases = 'db_projects.tcsh'
+file_project_env = 'project_env.tcsh'
+
 db_table_proj = 'projects'
 path_db_sqlite = os.path.join(path_db, 'sqlite', file_sqlite)
+path_db_aliases = os.path.join(path_db, 'tcsh', file_projects_aliases)
 
 # Logo and database table configuration
 path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
@@ -55,6 +61,8 @@ file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
 list_db_tables = ['media_proj', 'media_arch']
 
+path_resources = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+path_project_env_in = os.path.join(path_resources, file_project_env)
 storage_local = 'LOCAL'
 storage_netwk = 'NETWK'
 list_storage_src = [storage_local, storage_netwk]
@@ -357,6 +365,42 @@ def register_routes(flask_app):
         except Exception as e:
             return jsonify({'success': False, 'message': f'Error during sync: {str(e)}'}), 500
     
+    @flask_app.route('/api/get_sync_paths', methods=['POST'])
+    def api_get_sync_paths():
+        """API endpoint to get the actual local and network paths for sync preview"""
+        data = request.get_json()
+        job_path_job = data.get('job_path_job')
+        app = data.get('app')
+        subdir = data.get('subdir')
+        
+        if not job_path_job:
+            return jsonify({'success': False, 'message': 'job_path_job parameter required'}), 400
+        
+        # Replace $DEPOT_ALL with actual path
+        job_path_job = expand_depot_path(job_path_job)
+        
+        # Build full path to directory
+        if app is None:
+            target_path = job_path_job
+        elif subdir:
+            target_path = os.path.join(job_path_job, app, subdir)
+        else:
+            target_path = os.path.join(job_path_job, app)
+        
+        # Determine local and network paths
+        path_netwk = target_path
+        
+        if path_proj_netwk and path_proj_local:
+            path_local = target_path.replace(path_proj_netwk, path_proj_local)
+        else:
+            return jsonify({'success': False, 'message': 'Local/Network paths not configured'}), 500
+        
+        return jsonify({
+            'success': True,
+            'path_local': path_local,
+            'path_netwk': path_netwk
+        }), 200
+    
     @flask_app.route('/api/open_app_directory', methods=['POST'])
     def api_open_app_directory():
         """API endpoint to open a job app directory in the system file browser"""
@@ -650,7 +694,9 @@ def register_routes(flask_app):
             # Create directories if paths are configured
             if job_path_job and job_path_rnd:
                 try:
-                    vpr.vpr_job_create_directories(job_name, job_path_job, job_path_rnd)
+                    vpr.vpr_job_create_directories(job_name=job_name, 
+                                                   path_job=job_path_job, 
+                                                   path_rnd=job_path_rnd)
                 except Exception as dir_error:
                     # Job created in DB but directories failed - still return success
                     return jsonify({
@@ -658,7 +704,35 @@ def register_routes(flask_app):
                         'job_name': job_name,
                         'warning': f'Job created but directory creation failed: {str(dir_error)}'
                     }), 200
-            
+                
+                # edit job environment file
+                try:
+                    vpr.vpr_job_edit_environment(job_name=job_name, 
+                                                 path_job=job_path_job, 
+                                                 path_job_env=path_project_env_in, 
+                                                 job_year=job_year)
+                except Exception as env_error:
+                    # Job created in DB and directories created but environment file edit failed - still return success
+                    return jsonify({
+                        'success': True, 
+                        'job_name': job_name,
+                        'warning': f'Job created but environment file edit failed: {str(env_error)}'
+                    }), 200
+                
+                # create nav file
+                try:
+                    dbj.db_jobs_nav_create(db_path=path_db_sqlite,
+                                           db_table=db_table_proj,
+                                           nav_path=job_path_job,
+                                           nav_file=path_db_aliases)
+                except Exception as nav_error:
+                    # Job created in DB and directories created but nav file creation failed - still return success
+                    return jsonify({
+                        'success': True, 
+                        'job_name': job_name,
+                        'warning': f'Job created but nav file creation failed: {str(nav_error)}'
+                    }), 200
+                
             return jsonify({
                 'success': True,
                 'job_name': job_name,
