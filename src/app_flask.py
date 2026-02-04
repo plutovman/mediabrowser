@@ -16,7 +16,7 @@ import socket
 import webbrowser
 import os
 from threading import Timer
-from flask import Flask
+from flask import Flask, send_from_directory
 
 # ============================================================================
 # CONFIGURATION & GLOBALS
@@ -33,9 +33,27 @@ if not depot_local:
 # Get absolute path to templates directory
 template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
 
-app = Flask(__name__, static_folder=depot_local, template_folder=template_dir)
+app = Flask(__name__, 
+            static_folder=None,  # Disable automatic static route
+            template_folder=template_dir)
 app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
 app.config['TEMPLATES_AUTO_RELOAD'] = True  # Force template reloading
+
+# ============================================================================
+# COMMON RESOURCE ROUTES
+# ============================================================================
+
+@app.route('/resources/<path:filename>')
+def serve_resources(filename):
+    """Serve common resources (favicon, icons) for all modules"""
+    resources_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+    return send_from_directory(resources_dir, filename)
+
+# Manually create static route for depot media files
+@app.route('/static/<path:filename>')
+def static(filename):
+    """Serve media files from depot"""
+    return send_from_directory(depot_local, filename)
 
 # ============================================================================
 # PORT MANAGEMENT UTILITIES
@@ -107,6 +125,7 @@ def register_routes_projectbrowser():
 
 
 # Attempt to register routes on module load
+
 register_routes_mediabrowser()
 register_routes_projectbrowser()
 

@@ -19,6 +19,7 @@ Routes provided:
 import sqlite3
 import os
 import platform
+import subprocess
 import time
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
@@ -98,6 +99,37 @@ def expand_depot_path(path):
     if path and '$DEPOT_ALL' in path:
         return path.replace('$DEPOT_ALL', depot_local)
     return path
+
+def is_wsl():
+    """
+    Detect if running in Windows Subsystem for Linux (WSL).
+    
+    Returns:
+        bool: True if running in WSL, False otherwise
+    """
+    try:
+        with open('/proc/version', 'r') as f:
+            version_info = f.read().lower()
+            return 'microsoft' in version_info or 'wsl' in version_info
+    except:
+        return False
+
+def convert_path_for_wsl(linux_path):
+    """
+    Convert Linux path to Windows path using wslpath utility.
+    
+    Args:
+        linux_path (str): Linux-style path to convert
+        
+    Returns:
+        str: Windows-style path, or None if conversion fails
+    """
+    try:
+        result = subprocess.run(['wslpath', '-w', linux_path], 
+                              capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
 
 def git_get_info():
     """
@@ -180,7 +212,17 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_
         elif system == 'Windows':
             os.system(f'explorer "{full_path}"')
         elif system == 'Linux':
-            os.system(f'xdg-open "{full_path}"')
+            # Check if running in WSL
+            if is_wsl():
+                # Convert Linux path to Windows path for Explorer
+                windows_path = convert_path_for_wsl(full_path)
+                if windows_path:
+                    os.system(f'explorer.exe "{windows_path}"')
+                else:
+                    return {'success': False, 'message': f'Failed to convert path for WSL: {full_path}', 'path': full_path}
+            else:
+                # Native Linux
+                os.system(f'xdg-open "{full_path}"')
         else:
             return {'success': False, 'message': f'Unsupported OS: {system}', 'path': full_path}
         
@@ -302,7 +344,10 @@ def register_routes(flask_app):
     
     @flask_app.route('/api/sync_directory', methods=['POST'])
     def api_sync_directory():
-        """API endpoint to synchronize directories between local and network storage"""
+        """API endpoint to synchronize directories by launching terminal window"""
+        import platform
+        import shlex
+        
         data = request.get_json()
         job_path_job = data.get('job_path_job')
         app = data.get('app')  # Can be None for project-level sync
@@ -338,32 +383,201 @@ def register_routes(flask_app):
         else:
             return jsonify({'success': False, 'message': 'Local/Network paths not configured'}), 500
         
-        # Validate paths exist
+        # Determine source and destination based on direction
         if sync_direction == sync_local_to_netwk:
-            if not os.path.exists(path_local):
-                return jsonify({'success': False, 'message': f'Local path does not exist: {path_local}'}), 400
+            source = path_local
+            destination = path_netwk
         else:  # NETWK TO LOCAL
-            if not os.path.exists(path_netwk):
-                return jsonify({'success': False, 'message': f'Network path does not exist: {path_netwk}'}), 400
+            source = path_netwk
+            destination = path_local
         
-        # Call vpr_dir_synchronize
+        # Validate source path exists
+        if not os.path.exists(source):
+            return jsonify({'success': False, 'message': f'Source path does not exist: {source}'}), 400
+        
+        # Create destination if it doesn't exist
+        if not os.path.exists(destination):
+            try:
+                os.makedirs(destination, exist_ok=True)
+            except Exception as e:
+                return jsonify({'success': False, 'message': f'Failed to create destination: {e}'}), 500
+        
+        # Detect OS and launch appropriate terminal
+        system = platform.system()
+        
         try:
-            result = vpr.vpr_dir_synchronize(path_local, path_netwk, sync_direction)
-            
-            if result:
+            if system == 'Darwin':  # macOS
+                # Ensure paths end with / for rsync
+                src = source if source.endswith('/') else source + '/'
+                dst = destination if destination.endswith('/') else destination + '/'
+                
+                # Build rsync command
+                rsync_cmd = (
+                    f"rsync -avh --progress "
+                    f"--exclude='.*' --exclude='__pycache__' --exclude='node_modules' "
+                    f"--exclude='*.pyc' --exclude='*.pyo' --exclude='*.tmp' --exclude='*.temp' "
+                    f"--exclude='*.log' --exclude='*.swp' --exclude='*.swo' --exclude='*~' "
+                    f"--exclude='.DS_Store' --exclude='Thumbs.db' --exclude='desktop.ini' "
+                    f"'{src}' '{dst}'"
+                )
+                
+                # AppleScript to open Terminal with rsync command
+                terminal_script = f'''
+tell application "Terminal"
+    do script "echo 'Synchronizing: {sync_direction}'; echo 'Source: {source}'; echo 'Destination: {destination}'; echo ''; {rsync_cmd}; echo ''; echo 'Sync completed. Press any key to close...'; read -n 1"
+    activate
+end tell
+'''
+                
+                subprocess.Popen(['osascript', '-e', terminal_script])
+                
                 return jsonify({
                     'success': True,
-                    'message': f'Successfully synchronized {sync_direction}',
+                    'message': f'Sync started in Terminal window - {sync_direction}',
+                    'path_local': path_local,
+                    'path_netwk': path_netwk
+                }), 200
+                
+            elif system == 'Linux':
+                # Check if running in WSL
+                if is_wsl():
+                    # WSL: Use Windows robocopy via cmd.exe
+                    # Convert Linux paths to Windows paths using wslpath
+                    source_win = convert_path_for_wsl(source)
+                    destination_win = convert_path_for_wsl(destination)
+                    
+                    if not source_win or not destination_win:
+                        return jsonify({
+                            'success': False,
+                            'message': 'Failed to convert paths for WSL. Ensure wslpath is available.'
+                        }), 500
+                    
+                    # Build robocopy command with timestamp handling
+                    robocopy_cmd = (
+                        f'robocopy "{source_win}" "{destination_win}" /MIR /R:3 /W:5 /MT:8 '
+                        f'/DCOPY:DAT /COPY:DAT /TIMFIX '
+                        f'/XA:SH '
+                        f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
+                        f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
+                        f'& echo. & echo Sync completed. Press any key to close... & pause'
+                    )
+                    
+                    # Launch Windows Command Prompt from WSL
+                    subprocess.Popen(
+                        ['cmd.exe', '/c', 'start', 'cmd', '/k',
+                         f'echo Synchronizing: {sync_direction} & '
+                         f'echo Source: {source_win} & '
+                         f'echo Destination: {destination_win} & '
+                         f'echo. & '
+                         f'{robocopy_cmd}'],
+                        shell=False
+                    )
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': f'Sync started in Command Prompt window (WSL) - {sync_direction}',
+                        'path_local': path_local,
+                        'path_netwk': path_netwk
+                    }), 200
+                else:
+                    # Native Linux: Use rsync
+                    # Ensure paths end with / for rsync
+                    src = source if source.endswith('/') else source + '/'
+                    dst = destination if destination.endswith('/') else destination + '/'
+                    
+                    # Build rsync command
+                    rsync_cmd = (
+                        f"rsync -avh --progress "
+                        f"--exclude='.*' --exclude='__pycache__' --exclude='node_modules' "
+                        f"--exclude='*.pyc' --exclude='*.pyo' --exclude='*.tmp' --exclude='*.temp' "
+                        f"--exclude='*.log' --exclude='*.swp' --exclude='*.swo' --exclude='*~' "
+                        f"--exclude='.DS_Store' --exclude='Thumbs.db' --exclude='desktop.ini' "
+                        f"'{src}' '{dst}'"
+                    )
+                    
+                    bash_cmd = (
+                        f"echo 'Synchronizing: {sync_direction}'; "
+                        f"echo 'Source: {source}'; "
+                        f"echo 'Destination: {destination}'; "
+                        f"echo ''; "
+                        f"{rsync_cmd}; "
+                        f"echo ''; "
+                        f"echo 'Sync completed. Press Enter to close...'; "
+                        f"read"
+                    )
+                    
+                    # Try gnome-terminal first, fallback to xterm
+                    terminal_cmd = None
+                    try:
+                        subprocess.run(['which', 'gnome-terminal'], 
+                                     capture_output=True, check=True)
+                        terminal_cmd = ['gnome-terminal', '--', 'bash', '-c', bash_cmd]
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        try:
+                            subprocess.run(['which', 'xterm'], 
+                                         capture_output=True, check=True)
+                            terminal_cmd = ['xterm', '-hold', '-e', 'bash', '-c', bash_cmd]
+                        except (subprocess.CalledProcessError, FileNotFoundError):
+                            try:
+                                subprocess.run(['which', 'konsole'], 
+                                             capture_output=True, check=True)
+                                terminal_cmd = ['konsole', '--hold', '-e', 'bash', '-c', bash_cmd]
+                            except (subprocess.CalledProcessError, FileNotFoundError):
+                                pass
+                    
+                    if terminal_cmd:
+                        subprocess.Popen(terminal_cmd)
+                        return jsonify({
+                            'success': True,
+                            'message': f'Sync started in terminal window - {sync_direction}',
+                            'path_local': path_local,
+                            'path_netwk': path_netwk
+                        }), 200
+                    else:
+                        return jsonify({
+                            'success': False,
+                            'message': 'No terminal emulator found (tried gnome-terminal, xterm, konsole)'
+                        }), 500
+                    
+            elif system == 'Windows':
+                # Build robocopy command with timestamp handling to prevent 1980 date issue
+                robocopy_cmd = (
+                    f'robocopy "{source}" "{destination}" /MIR /R:3 /W:5 /MT:8 '
+                    f'/DCOPY:DAT /COPY:DAT /TIMFIX '  # Copy Data, Attributes, Timestamps and fix timestamps
+                    f'/XA:SH '
+                    f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
+                    f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
+                    f'& echo. & echo Sync completed. Press any key to close... & pause'
+                )
+                
+                # Launch Command Prompt with robocopy
+                subprocess.Popen(
+                    ['cmd', '/c', 'start', 'cmd', '/k', 
+                     f'echo Synchronizing: {sync_direction} & '
+                     f'echo Source: {source} & '
+                     f'echo Destination: {destination} & '
+                     f'echo. & '
+                     f'{robocopy_cmd}'],
+                    shell=True
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Sync started in Command Prompt window - {sync_direction}',
                     'path_local': path_local,
                     'path_netwk': path_netwk
                 }), 200
             else:
                 return jsonify({
                     'success': False,
-                    'message': 'Synchronization failed. Check server logs for details.'
+                    'message': f'Unsupported operating system: {system}'
                 }), 500
+                
         except Exception as e:
-            return jsonify({'success': False, 'message': f'Error during sync: {str(e)}'}), 500
+            return jsonify({
+                'success': False,
+                'message': f'Error launching terminal: {str(e)}'
+            }), 500
     
     @flask_app.route('/api/get_sync_paths', methods=['POST'])
     def api_get_sync_paths():
@@ -763,5 +977,5 @@ def register_routes(flask_app):
         except Exception as e:
             return jsonify({'success': False, 'message': str(e)}), 500
     
-    print("✓ Registered projectbrowser routes (production dashboard, job management API)")
+    print("[+] Registered projectbrowser routes (production dashboard, job management API)")
 

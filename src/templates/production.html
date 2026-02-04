@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% block title %}Project Central{% endblock %}
+{% block header_subtitle %}P R O J E C T  M A N A G E M E N T{% endblock %}
 
-{% block title %}PRODUCTION{% endblock %}
 
 {% block extra_styles %}
 :root {
@@ -210,46 +211,27 @@
     border-bottom: none;
 }
 
-#nav-menu ul li a {
-    display: block;
-    padding: 10px 15px;
-    font-size: 13px;
-    color: #f0f0f0;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    text-align: left;
-}
-
-#sync-menu li a {
-    display: block;
-    padding: 10px 18px;
-    font-size: 13px;
-    color: #f0f0f0;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    text-align: left;
-    min-width: 140px;
-}
-
+/* Consolidated menu link styles */
+#nav-menu ul li a,
 #sync-menu ul li a {
     display: block;
     padding: 10px 15px;
     font-size: 13px;
-    color: #f0f0f0;
+    color: var(--color-text);
     text-decoration: none;
     cursor: pointer;
     transition: background-color 0.2s;
     text-align: left;
 }
 
-#nav-menu ul li a:hover {
-    background-color: #3a3a3a;
+#sync-menu > li > a {
+    padding: 10px 18px;
+    min-width: 140px;
 }
 
+#nav-menu ul li a:hover,
 #sync-menu li a:hover {
-    background-color: #3a3a3a;
+    background-color: var(--color-background-hover);
 }
 
 #nav-menu ul li.has-submenu > a::after,
@@ -327,6 +309,8 @@
     color: #4CAF50;
 }
 {% endblock %}
+
+{% block cart_icon %}{% endblock %}
 
 {% block content %}
 
@@ -502,7 +486,7 @@
             </div>
             <!-- Combined Message Area: Warning/Progress/Result -->
             <div id="sync-message-area" style="margin-top: 15px; padding: 10px; background-color: #2a2a0a; border-left: 4px solid #ff9800; border-radius: 4px;">
-                <strong id="sync-message-icon" style="color: #ff9800;">⚠ Warning:</strong>
+                <strong id="sync-message-icon" style="color: #ff9800;">[!] Warning:</strong>
                 <span id="sync-message-text" style="color: #f0f0f0; margin-left: 10px;">This will synchronize files between local and network storage. Files may be overwritten but not deleted.</span>
             </div>
         </div>
@@ -583,6 +567,194 @@
         let currentStorage = null;  // Track selected storage for API calls
         let currentSyncData = null;  // Track current sync operation data
         let currentSyncController = null;  // Track AbortController for cancelling sync
+        
+        // ========== REUSABLE HELPER FUNCTIONS ==========
+        
+        /**
+         * Load job dashboard with project data and optionally open directory
+         * Consolidates repeated pattern of fetching job data
+         */
+        async function loadJobDashboard(projectName, projectPath, openDirParams = null) {
+            try {
+                const response = await fetch('/api/action_jobactive_dashboard_populate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_name: projectName, job_path_job: projectPath })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.job) {
+                    populateJobForm(data.job);
+                    
+                    // Show the job dashboard
+                    document.getElementById('info-display').style.display = 'block';
+                    
+                    // Update info-feedback with job path
+                    document.getElementById('info-feedback').textContent = data.job.job_path_job || projectPath || '-';
+                    
+                    // If directory opening was requested, do it after loading dashboard
+                    if (openDirParams) {
+                        const {app, subdir, storage} = openDirParams;
+                        openDirectory(projectPath, projectName, app, subdir, storage);
+                    }
+                    return data.job;
+                }
+                
+                showStatus('Error: ' + (data.message || 'Failed to load job data'), 'error');
+                return null;
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+                return null;
+            }
+        }
+        
+        /**
+         * Build projects submenu for a given year
+         * Reusable for both nav and sync menus
+         */
+        async function buildProjectsMenu(year, isSync = false, syncDirection = null, storage = null) {
+            const projectsUnoList = document.createElement('ul');
+            
+            try {
+                const response = await fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`);
+                const data = await response.json();
+                
+                if (!data.projects || data.projects.length === 0) {
+                    projectsUnoList.innerHTML = '<li class="nav-placeholder">No projects found</li>';
+                    return projectsUnoList;
+                }
+                
+                for (const project of data.projects) {
+                    const projectListItem = document.createElement('li');
+                    projectListItem.className = 'has-submenu';
+                    
+                    const projectAnchor = document.createElement('a');
+                    projectAnchor.textContent = project.name;
+                    projectListItem.appendChild(projectAnchor);
+                    
+                    // Add click handler
+                    if (isSync) {
+                        projectAnchor.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            showSyncConfirmation(project.path, project.name, null, null, syncDirection);
+                        });
+                    } else {
+                        projectAnchor.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            closeAllMenus();
+                            // Open directory at project level (app=null) and load dashboard
+                            loadJobDashboard(project.name, project.path, {app: null, subdir: null, storage: storage});
+                        });
+                    }
+                    
+                    // Lazy load apps on hover
+                    projectAnchor.addEventListener('mouseenter', async function() {
+                        if (projectListItem.querySelector('ul')) return;
+                        const appsMenu = await buildAppsMenu(project, isSync, syncDirection, storage);
+                        projectListItem.appendChild(appsMenu);
+                    });
+                    
+                    projectsUnoList.appendChild(projectListItem);
+                }
+            } catch (error) {
+                projectsUnoList.innerHTML = '<li class="nav-placeholder">Error loading projects</li>';
+                console.error('Error fetching projects:', error);
+            }
+            
+            return projectsUnoList;
+        }
+        
+        /**
+         * Build apps submenu for a given project
+         * Reusable for both nav and sync menus
+         */
+        async function buildAppsMenu(project, isSync = false, syncDirection = null, storage = null) {
+            const appsUnoList = document.createElement('ul');
+            
+            try {
+                const response = await fetch(`/api/apps_by_project?project=${encodeURIComponent(project.name)}`);
+                const data = await response.json();
+                
+                if (!data.apps || data.apps.length === 0) {
+                    appsUnoList.innerHTML = '<li class="nav-placeholder">No apps found</li>';
+                    return appsUnoList;
+                }
+                
+                for (const app of data.apps) {
+                    const subdirResponse = await fetch(`/api/subdirs_by_app?app=${encodeURIComponent(app)}`);
+                    const subdirData = await subdirResponse.json();
+                    
+                    const appListItem = document.createElement('li');
+                    const appAnchor = document.createElement('a');
+                    appAnchor.textContent = app;
+                    
+                    if (subdirData.subdirs && subdirData.subdirs.length > 0) {
+                        appListItem.className = 'has-submenu';
+                        
+                        // Add click handler
+                        if (isSync) {
+                            appAnchor.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                showSyncConfirmation(project.path, project.name, app, null, syncDirection);
+                            });
+                        } else {
+                            appAnchor.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                loadJobDashboard(project.name, project.path, {app, subdir: null, storage});
+                            });
+                        }
+                        
+                        // Build subdirs submenu
+                        const subdirsUnoList = document.createElement('ul');
+                        subdirData.subdirs.forEach(subdir => {
+                            const subdirListItem = document.createElement('li');
+                            const subdirAnchor = document.createElement('a');
+                            subdirAnchor.textContent = subdir;
+                            
+                            if (isSync) {
+                                subdirAnchor.addEventListener('click', (e) => {
+                                    e.stopPropagation();
+                                    showSyncConfirmation(project.path, project.name, app, subdir, syncDirection);
+                                });
+                            } else {
+                                subdirAnchor.addEventListener('click', (e) => {
+                                    e.stopPropagation();
+                                    loadJobDashboard(project.name, project.path, {app, subdir, storage});
+                                });
+                            }
+                            
+                            subdirListItem.appendChild(subdirAnchor);
+                            subdirsUnoList.appendChild(subdirListItem);
+                        });
+                        
+                        appListItem.appendChild(appAnchor);
+                        appListItem.appendChild(subdirsUnoList);
+                    } else {
+                        // No subdirs - simple link
+                        if (isSync) {
+                            appAnchor.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                showSyncConfirmation(project.path, project.name, app, null, syncDirection);
+                            });
+                        } else {
+                            appAnchor.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                loadJobDashboard(project.name, project.path, {app, subdir: null, storage});
+                            });
+                        }
+                        appListItem.appendChild(appAnchor);
+                    }
+                    
+                    appsUnoList.appendChild(appListItem);
+                }
+            } catch (error) {
+                appsUnoList.innerHTML = '<li class="nav-placeholder">Error loading apps</li>';
+                console.error('Error fetching apps:', error);
+            }
+            
+            return appsUnoList;
+        }
 
         // Build storage sources menu on first hover of JOB NAV button
         document.getElementById('project-select-root').addEventListener('mouseenter', async function() {
@@ -609,9 +781,8 @@
                         if (this.dataset.loaded) return;
                         this.dataset.loaded = 'true';
                         
-                        // Set current storage for API calls and capture in closure
-                        const selectedStorage = storage;  // Capture storage in this closure
-                        currentStorage = storage;
+                        currentStorage = storage;  // Track current storage
+                        const selectedStorage = storage;  // Capture in closure for nested handlers
                         
                         const yearsUnoList = document.createElement('ul');
                         
@@ -622,177 +793,13 @@
                             const yearAnchor = document.createElement('a');
                             yearAnchor.textContent = year;
                             yearListItem.appendChild(yearAnchor);
-                    
+                            
                             // Lazy load projects when year is hovered
-                            yearListItem.addEventListener('mouseenter', async function() {
-                                if (this.dataset.loaded) return;
-                                this.dataset.loaded = 'true';
-                                
-                                const projectsResponse = await fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`);
-                                const projectsData = await projectsResponse.json();
-                                
-                                if (projectsData.projects && projectsData.projects.length > 0) {
-                                    const projectsUnoList = document.createElement('ul');
-                                    
-                                    for (const project of projectsData.projects) {
-                                        const projectListItem = document.createElement('li');
-                                        projectListItem.className = 'has-submenu';
-                                        
-                                        const projectAnchor = document.createElement('a');
-                                        projectAnchor.textContent = project.name;
-                                        projectAnchor.addEventListener('click', (e) => {
-                                            e.stopPropagation();
-                                            // Close all menus immediately
-                                            closeAllMenus();
-                                            // Populate project selection info with DB data
-                                            fetch('/api/action_jobactive_dashboard_populate', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
-                                            })
-                                            .then(async (r) => {
-                                                const text = await r.text();
-                                                let data;
-                                                try {
-                                                    data = text ? JSON.parse(text) : {};
-                                                } catch (err) {
-                                                    document.getElementById('info-feedback').textContent = 'Error parsing response: ' + text;
-                                                    document.getElementById('info-display').style.display = 'block';
-                                                    return;
-                                                }
-
-                                                if (!r.ok) {
-                                                    document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || r.statusText || 'Request failed');
-                                                    document.getElementById('info-display').style.display = 'block';
-                                                    return;
-                                                }
-
-                                                if (!data.success) {
-                                                    document.getElementById('info-feedback').textContent = 'Error: ' + (data.message || 'Unknown');
-                                                    document.getElementById('info-display').style.display = 'block';
-                                                    return;
-                                                }
-
-                                                const job = data.job || {};
-                                                document.getElementById('info-project').textContent = job.job_name || project.name;
-                                                document.getElementById('info-app').textContent = '-';
-                                                document.getElementById('info-feedback').textContent = job.job_path_job || project.path || '-';
-
-                                                // Populate job dashboard form
-                                                populateJobForm(job);
-                                                document.getElementById('info-display').style.display = 'block';
-                                            })
-                                            .catch(err => {
-                                                document.getElementById('info-feedback').textContent = 'Error: ' + err.message;
-                                                document.getElementById('info-display').style.display = 'block';
-                                            });
-                                        });
-                                        projectListItem.appendChild(projectAnchor);
-                                        
-                                        // Lazy load apps when project is hovered
-                                        projectListItem.addEventListener('mouseenter', async function() {
-                                            if (this.dataset.loaded) return;
-                                            this.dataset.loaded = 'true';
-                                            
-                                            const appsResponse = await fetch(`/api/apps_by_project?project=${encodeURIComponent(project.name)}`);
-                                            const appsData = await appsResponse.json();
-                                            
-                                            if (appsData.apps && appsData.apps.length > 0) {
-                                                const appsUnoList = document.createElement('ul');
-                                                
-                                                for (const app of appsData.apps) {
-                                                    const subdirsResponse = await fetch(`/api/subdirs_by_app?app=${encodeURIComponent(app)}`);
-                                                    const subdirsData = await subdirsResponse.json();
-                                                    
-                                                    const appListItem = document.createElement('li');
-                                                    
-                                                    if (subdirsData.subdirs && subdirsData.subdirs.length > 0) {
-                                                        appListItem.className = 'has-submenu';
-                                                        const appAnchor = document.createElement('a');
-                                                        appAnchor.textContent = app;
-                                                        appAnchor.addEventListener('click', (e) => {
-                                                            e.stopPropagation();
-                                                            // Populate job dashboard first
-                                                            fetch('/api/action_jobactive_dashboard_populate', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
-                                                            })
-                                                            .then(response => response.json())
-                                                            .then(data => {
-                                                                if (data.success) {
-                                                                    populateJobForm(data.job);
-                                                                }
-                                                            })
-                                                            .catch(err => console.error('Error loading job data:', err));
-                                                            // Then open directory
-                                                            openDirectory(appsData.job_path_job, project.name, app, null, selectedStorage);
-                                                        });
-                                                        appListItem.appendChild(appAnchor);
-                                                        
-                                                        const subdirsUnoList = document.createElement('ul');
-                                                        subdirsData.subdirs.forEach(subdir => {
-                                                            const subdirListItem = document.createElement('li');
-                                                            const subdirAnchor = document.createElement('a');
-                                                            subdirAnchor.textContent = subdir;
-                                                            subdirAnchor.addEventListener('click', (e) => {
-                                                                e.stopPropagation();
-                                                                // Populate job dashboard first
-                                                                fetch('/api/action_jobactive_dashboard_populate', {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
-                                                                })
-                                                                .then(response => response.json())
-                                                                .then(data => {
-                                                                    if (data.success) {
-                                                                        populateJobForm(data.job);
-                                                                    }
-                                                                })
-                                                                .catch(err => console.error('Error loading job data:', err));
-                                                                // Then open directory
-                                                                openDirectory(appsData.job_path_job, project.name, app, subdir, selectedStorage);
-                                                            });
-                                                            subdirListItem.appendChild(subdirAnchor);
-                                                            subdirsUnoList.appendChild(subdirListItem);
-                                                        });
-                                                        appListItem.appendChild(subdirsUnoList);
-                                                    } else {
-                                                        const appAnchor = document.createElement('a');
-                                                        appAnchor.textContent = app;
-                                                        appAnchor.addEventListener('click', () => {
-                                                            // Populate job dashboard first
-                                                            fetch('/api/action_jobactive_dashboard_populate', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ job_name: project.name, job_path_job: project.path })
-                                                            })
-                                                            .then(response => response.json())
-                                                            .then(data => {
-                                                                if (data.success) {
-                                                                    populateJobForm(data.job);
-                                                                }
-                                                            })
-                                                            .catch(err => console.error('Error loading job data:', err));
-                                                            // Then open directory
-                                                            openDirectory(appsData.job_path_job, project.name, app, null, selectedStorage);
-                                                        });
-                                                        appListItem.appendChild(appAnchor);
-                                                    }
-                                                    
-                                                    appsUnoList.appendChild(appListItem);
-                                                }
-                                                
-                                                this.appendChild(appsUnoList);
-                                            }
-                                        }, { once: true });
-                                        
-                                        projectsUnoList.appendChild(projectListItem);
-                                    }
-                                    
-                                    this.appendChild(projectsUnoList);
-                                }
-                            }, { once: true });
+                            yearAnchor.addEventListener('mouseenter', async function() {
+                                if (yearListItem.querySelector('ul')) return;
+                                const projectsMenu = await buildProjectsMenu(year, false, null, selectedStorage);
+                                yearListItem.appendChild(projectsMenu);
+                            });
                             
                             yearsUnoList.appendChild(yearListItem);
                         }
@@ -808,7 +815,7 @@
             }
         }, { once: true });
 
-        // Build sync menu on first hover of JOB SYNC button
+        // Build sync menu on first hover of JOB SYNC button - now using reusable functions
         document.getElementById('sync-select-root').addEventListener('mouseenter', async function() {
             if (syncMenuBuilt) return;
             syncMenuBuilt = true;
@@ -817,7 +824,7 @@
             syncMenu.innerHTML = '<li class="nav-placeholder">Loading...</li>';
             
             try {
-                syncMenu.innerHTML = ''; // Clear placeholder
+                syncMenu.innerHTML = '';
                 
                 // Build sync directions menu
                 for (const syncDirection of syncDirections) {
@@ -831,137 +838,33 @@
                     const yearsUnoList = document.createElement('ul');
                     syncDirectionListItem.appendChild(yearsUnoList);
                     
-                    // Capture sync direction in closure
-                    const selectedSyncDirection = syncDirection;
-                    
-                    syncDirectionAnchor.addEventListener('mouseenter', function(e) {
-                        // Build years cascade
-                        if (yearsUnoList.children.length === 0) {
-                            for (const year of years) {
-                                const yearListItem = document.createElement('li');
-                                yearListItem.className = 'has-submenu';
-                                
-                                const yearAnchor = document.createElement('a');
-                                yearAnchor.textContent = year;
-                                yearListItem.appendChild(yearAnchor);
-                                
-                                const projectsUnoList = document.createElement('ul');
-                                yearListItem.appendChild(projectsUnoList);
-                                
-                                yearAnchor.addEventListener('mouseenter', function(e) {
-                                    // Fetch projects for this year
-                                    if (projectsUnoList.children.length === 0) {
-                                        fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`)
-                                            .then(response => response.json())
-                                            .then(projectsData => {
-                                                if (projectsData.projects && projectsData.projects.length === 0) {
-                                                    projectsUnoList.innerHTML = '<li class=\"nav-placeholder\">No projects found</li>';
-                                                } else if (projectsData.projects) {
-                                                    for (const project of projectsData.projects) {
-                                                        const projectListItem = document.createElement('li');
-                                                        projectListItem.className = 'has-submenu';
-                                                        
-                                                        const projectAnchor = document.createElement('a');
-                                                        projectAnchor.textContent = project.name;
-                                                        projectListItem.appendChild(projectAnchor);
-                                                        
-                                                        // Add click handler for project-level sync
-                                                        projectAnchor.addEventListener('click', (e) => {
-                                                            e.stopPropagation();
-                                                            // Show sync confirmation for project-level
-                                                            showSyncConfirmation(project.path, project.name, null, null, selectedSyncDirection);
-                                                        });
-                                                        
-                                                        const appsUnoList = document.createElement('ul');
-                                                        projectListItem.appendChild(appsUnoList);
-                                                        
-                                                        projectAnchor.addEventListener('mouseenter', function(e) {
-                                                            // Fetch apps for this project
-                                                            if (appsUnoList.children.length === 0) {
-                                                                fetch(`/api/apps_by_project?project=${encodeURIComponent(project.name)}`)
-                                                                    .then(response => response.json())
-                                                                    .then(appsData => {
-                                                                        if (appsData.apps && appsData.apps.length > 0) {
-                                                                            for (const app of appsData.apps) {
-                                                                                // Fetch subdirs for each app
-                                                                                fetch(`/api/subdirs_by_app?app=${encodeURIComponent(app)}`)
-                                                                                    .then(response => response.json())
-                                                                                    .then(subdirsData => {
-                                                                                        const appListItem = document.createElement('li');
-                                                                                        
-                                                                                        if (subdirsData.subdirs && subdirsData.subdirs.length > 0) {
-                                                                                            appListItem.className = 'has-submenu';
-                                                                                            const appAnchor = document.createElement('a');
-                                                                                            appAnchor.textContent = app;
-                                                                                            appAnchor.addEventListener('click', (e) => {
-                                                                                                e.stopPropagation();
-                                                                                                // Show sync confirmation for app-level
-                                                                                                showSyncConfirmation(project.path, project.name, app, null, selectedSyncDirection);
-                                                                                            });
-                                                                                            appListItem.appendChild(appAnchor);
-                                                                                            
-                                                                                            const subdirsUnoList = document.createElement('ul');
-                                                                                            
-                                                                                            for (const subdir of subdirsData.subdirs) {
-                                                                                                const subdirListItem = document.createElement('li');
-                                                                                                const subdirAnchor = document.createElement('a');
-                                                                                                subdirAnchor.textContent = subdir;
-                                                                                                subdirAnchor.addEventListener('click', (e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    // Show sync confirmation for subdir-level
-                                                                                                    showSyncConfirmation(project.path, project.name, app, subdir, selectedSyncDirection);
-                                                                                                });
-                                                                                                subdirListItem.appendChild(subdirAnchor);
-                                                                                                subdirsUnoList.appendChild(subdirListItem);
-                                                                                            }
-                                                                                            
-                                                                                            appListItem.appendChild(subdirsUnoList);
-                                                                                        } else {
-                                                                                            // No subdirs, make app clickable
-                                                                                            const appAnchor = document.createElement('a');
-                                                                                            appAnchor.textContent = app;
-                                                                                            appAnchor.addEventListener('click', (e) => {
-                                                                                                e.stopPropagation();
-                                                                                                showSyncConfirmation(project.path, project.name, app, null, selectedSyncDirection);
-                                                                                            });
-                                                                                            appListItem.appendChild(appAnchor);
-                                                                                        }
-                                                                                        
-                                                                                        appsUnoList.appendChild(appListItem);
-                                                                                    })
-                                                                                    .catch(error => console.error('Error fetching subdirs:', error));
-                                                                            }
-                                                                        } else {
-                                                                            appsUnoList.innerHTML = '<li class=\"nav-placeholder\">No apps found</li>';
-                                                                        }
-                                                                    })
-                                                                    .catch(error => {
-                                                                        appsUnoList.innerHTML = '<li class=\"nav-placeholder\">Error loading apps</li>';
-                                                                        console.error('Error fetching apps:', error);
-                                                                    });
-                                                            }
-                                                        });
-                                                        
-                                                        projectsUnoList.appendChild(projectListItem);
-                                                    }
-                                                }
-                                            })
-                                            .catch(error => {
-                                                projectsUnoList.innerHTML = '<li class=\"nav-placeholder\">Error loading projects</li>';
-                                                console.error('Error fetching projects:', error);
-                                            });
-                                    }
-                                });
-                                
-                                yearsUnoList.appendChild(yearListItem);
-                            }
+                    // Lazy load years cascade on hover
+                    syncDirectionAnchor.addEventListener('mouseenter', function() {
+                        if (yearsUnoList.children.length > 0) return;
+                        
+                        for (const year of years) {
+                            const yearListItem = document.createElement('li');
+                            yearListItem.className = 'has-submenu';
+                            
+                            const yearAnchor = document.createElement('a');
+                            yearAnchor.textContent = year;
+                            yearListItem.appendChild(yearAnchor);
+                            
+                            // Lazy load projects when year is hovered
+                            yearAnchor.addEventListener('mouseenter', async function() {
+                                if (yearListItem.querySelector('ul')) return;
+                                const projectsMenu = await buildProjectsMenu(year, true, syncDirection);
+                                yearListItem.appendChild(projectsMenu);
+                            });
+                            
+                            yearsUnoList.appendChild(yearListItem);
                         }
                     });
                     
                     syncMenu.appendChild(syncDirectionListItem);
                 }
             } catch (error) {
-                syncMenu.innerHTML = '<li class=\"nav-placeholder\">Error loading sync menu</li>';
+                syncMenu.innerHTML = '<li class="nav-placeholder">Error loading sync menu</li>';
                 showStatus('Error building sync menu: ' + error.message, 'error');
             }
         }, { once: true });
@@ -1042,7 +945,7 @@
             const messageArea = document.getElementById('sync-message-area');
             messageArea.style.backgroundColor = '#2a2a0a';
             messageArea.style.borderLeft = '4px solid #ff9800';
-            document.getElementById('sync-message-icon').innerHTML = '⚠ Warning:';
+            document.getElementById('sync-message-icon').innerHTML = '[!] Warning:';
             document.getElementById('sync-message-icon').style.color = '#ff9800';
             document.getElementById('sync-message-text').textContent = 'This will synchronize files between local and network storage.\nFiles in destination may be overwritten but not deleted.';
             
@@ -1069,7 +972,7 @@
             const messageArea = document.getElementById('sync-message-area');
             messageArea.style.backgroundColor = '#3a3a1a';
             messageArea.style.borderLeft = '4px solid #888';
-            document.getElementById('sync-message-icon').innerHTML = '✕ Cancelled:';
+            document.getElementById('sync-message-icon').innerHTML = '[x] Cancelled:';
             document.getElementById('sync-message-icon').style.color = '#888';
             document.getElementById('sync-message-text').textContent = 'Synchronization cancelled by user';
             
@@ -1097,7 +1000,7 @@
             const messageArea = document.getElementById('sync-message-area');
             messageArea.style.backgroundColor = '#2a4a6a';
             messageArea.style.borderLeft = '4px solid #4CAF50';
-            document.getElementById('sync-message-icon').innerHTML = '⟳';
+            document.getElementById('sync-message-icon').innerHTML = '[~]';
             document.getElementById('sync-message-icon').style.color = '#4CAF50';
             document.getElementById('sync-message-text').textContent = 'Synchronization in progress... Please wait.';
             
@@ -1125,7 +1028,7 @@
                     // Show success message
                     messageArea.style.backgroundColor = '#1a3a1a';
                     messageArea.style.borderLeft = '4px solid #4CAF50';
-                    document.getElementById('sync-message-icon').innerHTML = '✓ Success:';
+                    document.getElementById('sync-message-icon').innerHTML = '[+] Success:';
                     document.getElementById('sync-message-icon').style.color = '#4CAF50';
                     document.getElementById('sync-message-text').textContent = data.message;
                     

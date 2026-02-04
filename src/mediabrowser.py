@@ -352,13 +352,6 @@ def register_routes(app):
     # ========================================================================
     # ROUTES - STATIC RESOURCES
     # ========================================================================
-    
-    @app.route('/resources/<path:filename>')
-    def serve_resources(filename):
-        """Serve files from the resources directory (e.g., favicon)"""
-        resources_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
-        return send_from_directory(resources_dir, filename)
-    
     # ========================================================================
     # ROUTES - MAIN PAGES
     # ========================================================================
@@ -977,4 +970,4 @@ def register_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     
-    print("✓ Registered mediabrowser routes (search, archive, cart, API)")
+    print("[+] Registered mediabrowser routes (search, archive, cart, API)")
