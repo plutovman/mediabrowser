@@ -9,6 +9,8 @@ try:
 except ImportError:
     GIT_AVAILABLE = False
 
+###############################################################################
+###############################################################################
 def git_get_info(repo_path=None, repo_json_path=None):
     """
     Extracts the latest commit information from the Git repository.
@@ -73,6 +75,249 @@ def git_get_info(repo_path=None, repo_json_path=None):
     # No git and no JSON file available
     return None
 
+# end of def git_get_info(repo_path=None, repo_json_path=None):
+
+###############################################################################
+###############################################################################
+def get_user_info_current():
+    """
+    Get current user information in an OS-aware manner.
+    Works on macOS, Linux, WSL, and Windows.
+    
+    Returns:
+        dict: Dictionary containing 'user_id' and 'user_name'
+    """
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+    
+    system = platform.system()
+    user_id = 'unknown_user'
+    user_name = 'Unknown User'
+    
+    try:
+        if system in ['Linux', 'Darwin']:  # Linux or macOS
+            # Try environment variables first
+            user_id = os.getenv('USER') or os.getenv('LOGNAME')
+            
+            # Get full name from pwd module
+            try:
+                import pwd
+                pw_record = pwd.getpwuid(os.getuid())
+                if not user_id:
+                    user_id = pw_record.pw_name
+                # Extract full name from GECOS field
+                gecos = pw_record.pw_gecos
+                if gecos:
+                    user_name = gecos.split(',')[0].strip()
+                if not user_name or user_name == '':
+                    user_name = user_id.capitalize()
+            except (ImportError, KeyError, OSError):
+                # Fall back to username only
+                if user_id:
+                    user_name = user_id.capitalize()
+                    
+        elif system == 'Windows':
+            # Windows-specific user detection
+            user_id = os.getenv('USERNAME')
+            
+            # Try to get full name from Windows
+            try:
+                result = subprocess.run(
+                    ['wmic', 'useraccount', 'where', f'name="{user_id}"', 'get', 'fullname'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split('\n')
+                    if len(lines) > 1:
+                        full_name = lines[1].strip()
+                        if full_name:
+                            user_name = full_name
+            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                pass
+            
+            # Fallback: try net user command
+            if user_name == 'Unknown User' and user_id:
+                try:
+                    result = subprocess.run(
+                        ['net', 'user', user_id],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if result.returncode == 0:
+                        for line in result.stdout.split('\n'):
+                            if 'Full Name' in line:
+                                parts = line.split(None, 2)
+                                if len(parts) >= 3:
+                                    user_name = parts[2].strip()
+                                    break
+                except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                    pass
+            
+            # Final fallback for Windows
+            if user_name == 'Unknown User' and user_id:
+                user_name = user_id.replace('.', ' ').title()
+        
+        # Generic fallbacks
+        if not user_id:
+            user_id = os.getenv('USER') or os.getenv('USERNAME') or os.getenv('LOGNAME') or 'unknown_user'
+        
+        if user_name == 'Unknown User':
+            user_name = user_id.replace('_', ' ').replace('.', ' ').title()
+            
+    except Exception as e:
+        print(dbh + f' Error getting user info: {e}')
+    
+    return {
+        'user_id': user_id,
+        'user_name': user_name
+    }
+
+# end of def get_user_info_current():
+
+###############################################################################
+###############################################################################
+def get_user_info_from_file(path_file: str):
+    """
+    Get user ownership info from a specified file in an OS-aware manner.
+    Works on macOS, Linux, WSL, and Windows.
+    
+    Args:
+        path_file: Path to file to get ownership information from
+        
+    Returns:
+        dict: Dictionary containing 'user_id' and 'user_name'
+    """
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+    
+    system = platform.system()
+    user_id = 'unknown_user'
+    user_name = 'Unknown User'
+    
+    if not os.path.exists(path_file):
+        print(dbh + f' File does not exist: {path_file}')
+        return {'user_id': user_id, 'user_name': user_name}
+    
+    try:
+        stat_info = os.stat(path_file)
+        
+        if system in ['Linux', 'Darwin']:  # Linux or macOS
+            try:
+                import pwd
+                uid = stat_info.st_uid
+                pw_record = pwd.getpwuid(uid)
+                user_id = pw_record.pw_name
+                
+                # Extract full name from GECOS field
+                gecos = pw_record.pw_gecos
+                if gecos:
+                    user_name = gecos.split(',')[0].strip()
+                if not user_name or user_name == '':
+                    user_name = user_id.capitalize()
+                    
+            except (ImportError, KeyError, OSError) as e:
+                print(dbh + f' Error using pwd module: {e}')
+                # Try to get UID at least
+                try:
+                    uid = stat_info.st_uid
+                    user_id = str(uid)
+                    user_name = f'UID {uid}'
+                except Exception:
+                    pass
+                    
+        elif system == 'Windows':
+            # Windows file ownership detection
+            try:
+                import ctypes
+                from ctypes import wintypes
+                
+                # Windows API structures and functions
+                PSECURITY_DESCRIPTOR = ctypes.c_void_p
+                PSID = ctypes.c_void_p
+                
+                advapi32 = ctypes.WinDLL('advapi32', use_last_error=True)
+                
+                # Get file security info
+                security_descriptor = PSECURITY_DESCRIPTOR()
+                owner_sid = PSID()
+                
+                result = advapi32.GetNamedSecurityInfoW(
+                    path_file,
+                    1,  # SE_FILE_OBJECT
+                    1,  # OWNER_SECURITY_INFORMATION
+                    ctypes.byref(owner_sid),
+                    None, None, None,
+                    ctypes.byref(security_descriptor)
+                )
+                
+                if result == 0:  # Success
+                    # Convert SID to account name
+                    name_size = wintypes.DWORD(0)
+                    domain_size = wintypes.DWORD(0)
+                    sid_type = wintypes.DWORD()
+                    
+                    # Get required buffer sizes
+                    advapi32.LookupAccountSidW(
+                        None, owner_sid, None, ctypes.byref(name_size),
+                        None, ctypes.byref(domain_size), ctypes.byref(sid_type)
+                    )
+                    
+                    if name_size.value > 0:
+                        name_buffer = ctypes.create_unicode_buffer(name_size.value)
+                        domain_buffer = ctypes.create_unicode_buffer(domain_size.value)
+                        
+                        success = advapi32.LookupAccountSidW(
+                            None, owner_sid, name_buffer, ctypes.byref(name_size),
+                            domain_buffer, ctypes.byref(domain_size), ctypes.byref(sid_type)
+                        )
+                        
+                        if success:
+                            user_id = name_buffer.value
+                            # Try to get full name
+                            try:
+                                result = subprocess.run(
+                                    ['wmic', 'useraccount', 'where', f'name="{user_id}"', 'get', 'fullname'],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=5
+                                )
+                                if result.returncode == 0:
+                                    lines = result.stdout.strip().split('\n')
+                                    if len(lines) > 1:
+                                        full_name = lines[1].strip()
+                                        if full_name:
+                                            user_name = full_name
+                            except Exception:
+                                pass
+                            
+                            if user_name == 'Unknown User':
+                                user_name = user_id.replace('.', ' ').title()
+                    
+                    # Free security descriptor
+                    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+                    kernel32.LocalFree(security_descriptor)
+                    
+            except Exception as e:
+                print(dbh + f' Error getting Windows file owner: {e}')
+                # Fallback: use current user
+                user_id = os.getenv('USERNAME', 'unknown_user')
+                user_name = user_id.replace('.', ' ').title()
+        
+    except Exception as e:
+        print(dbh + f' Error getting user info from file {path_file}: {e}')
+    
+    return {
+        'user_id': user_id,
+        'user_name': user_name
+    }
+    
+# end of def get_user_info_from_file(path_file: str):
+
+###############################################################################
+###############################################################################
 def vpr_file_parts_get(file_name: str):
     """
     split file_name by '_' and return a list of parts
@@ -82,6 +327,8 @@ def vpr_file_parts_get(file_name: str):
 
 # end of def vpr_file_parts_get(file_name: str):
 
+###############################################################################
+###############################################################################
 def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
     """
     OS-aware directory synchronization using rsync (Linux/macOS/WSL) or robocopy (Windows).
@@ -247,6 +494,8 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
 
 # end of def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
 
+###############################################################################
+###############################################################################
 def vpr_job_base_is_valid(job_base: str):
     """
     verify the legality of job_base from a set of rules
@@ -297,6 +546,8 @@ def vpr_job_base_is_valid(job_base: str):
 
 # end of def vpr_job_base_verify(job_base: str):
 
+###############################################################################
+###############################################################################
 def vpr_job_rev_set(job_rev: str):
 
     """
@@ -318,6 +569,8 @@ def vpr_job_rev_set(job_rev: str):
 
     return job_rev_new
 
+###############################################################################
+###############################################################################
 def vpr_job_name_create(job_base: str, job_revision: str):
     """
     create job_name from year, job_base, and revision
@@ -342,6 +595,8 @@ def vpr_job_name_create(job_base: str, job_revision: str):
 
 # end of def vpr_job_name_create(job_base: str, revision: str):
 
+###############################################################################
+###############################################################################
 def vpr_job_create_directories(job_name: str, path_job: str, path_rnd: str):
     """
     Create job directories for given job_name under path_job and path_rnd.
@@ -389,6 +644,8 @@ def vpr_job_create_directories(job_name: str, path_job: str, path_rnd: str):
 
 # end of def vpr_job_create_directories(job_name: str, path_job: str, path_rnd: str):
 
+###############################################################################
+###############################################################################
 def vpr_job_edit_environment(job_name: str, path_job: str, path_job_env: str, job_year: str):
     
     import db_jobtools as dbj
@@ -474,7 +731,8 @@ def vpr_job_edit_environment(job_name: str, path_job: str, path_job_env: str, jo
 
 # end of def vpr_job_edit_environment(job_dict: dict[str|str], 
 
-
+###############################################################################
+###############################################################################
 def vpr_jobs_dummy_create():
 
     '''
@@ -571,10 +829,11 @@ def vpr_jobs_dummy_create():
 
     conn.close()
 
-    
 
 ###############################################################################
 ###############################################################################
-
+###############################################################################
+###############################################################################
+# TRANSITORY EXECUTION CODE
 
 #vpr_jobs_dummy_create()
