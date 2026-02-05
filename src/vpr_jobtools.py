@@ -1,6 +1,77 @@
 import os, platform, inspect, subprocess
 import db_jobtools as dbj 
 import datetime
+import json
+
+try:
+    import git
+    GIT_AVAILABLE = True
+except ImportError:
+    GIT_AVAILABLE = False
+
+def git_get_info(repo_path=None, repo_json_path=None):
+    """
+    Extracts the latest commit information from the Git repository.
+    Falls back to reading from JSON file if git module is unavailable.
+    
+    Args:
+        repo_path: Path to search for git repository (defaults to current directory)
+        repo_json_path: Path to JSON file for storing/reading commit info
+    
+    Returns:
+        dict: Dictionary containing commit hash, date, and message
+        Example: {'hash': 'abc123', 'date': '2026-01-01 10:30:00', 'message': 'Initial commit'}
+        Returns None if neither git nor JSON file is available
+    
+    Notes:
+        - In development: Uses git module and writes to repo_json_path
+        - In production (frozen app): Reads from repo_json_path
+    """
+    # Try to use git module if available
+    if GIT_AVAILABLE:
+        try:
+            # Get the repository root (current directory or parent directories)
+            if repo_path:
+                repo = git.Repo(repo_path, search_parent_directories=True)
+            else:
+                repo = git.Repo(search_parent_directories=True)
+            
+            # Get the latest commit
+            latest_commit = repo.head.commit
+            
+            # Extract commit information
+            commit_info = {
+                'hash': latest_commit.hexsha[:7],  # Short hash (first 7 characters)
+                'date': datetime.datetime.fromtimestamp(latest_commit.committed_date).strftime('%Y-%m-%d %H:%M:%S'),
+                'message': latest_commit.message.strip().split('\n')[0]  # First line of commit message
+            }
+            
+            # Write to JSON file if path provided
+            if repo_json_path:
+                try:
+                    os.makedirs(os.path.dirname(repo_json_path), exist_ok=True)
+                    with open(repo_json_path, 'w') as f:
+                        json.dump(commit_info, f, indent=2)
+                except (OSError, IOError) as e:
+                    print(f"Warning: Could not write git info to {repo_json_path}: {e}")
+            
+            return commit_info
+            
+        except (git.InvalidGitRepositoryError, git.GitCommandError) as e:
+            print(f"Git error: {e}")
+            # Fall through to JSON fallback
+    
+    # Fallback: Try to read from JSON file
+    if repo_json_path and os.path.exists(repo_json_path):
+        try:
+            with open(repo_json_path, 'r') as f:
+                commit_info = json.load(f)
+                return commit_info
+        except (OSError, IOError, json.JSONDecodeError) as e:
+            print(f"Error reading git info from {repo_json_path}: {e}")
+    
+    # No git and no JSON file available
+    return None
 
 def vpr_file_parts_get(file_name: str):
     """

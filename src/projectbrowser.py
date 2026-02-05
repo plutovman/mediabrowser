@@ -26,11 +26,7 @@ from datetime import datetime
 import db_jobtools as dbj
 import vpr_jobtools as vpr
 
-try:
-    import git
-    GIT_AVAILABLE = True
-except ImportError:
-    GIT_AVAILABLE = False
+# Git info is now handled by vpr_jobtools.git_get_info()
 
 # ============================================================================
 # CONFIGURATION & GLOBALS
@@ -51,6 +47,7 @@ if not path_db:
 file_sqlite = 'db_projects.sqlite3'
 file_projects_aliases = 'db_projects.tcsh'
 file_project_env = 'project_env.tcsh'
+file_git_info = 'repo_info.json'
 
 db_table_proj = 'projects'
 path_db_sqlite = os.path.join(path_db, 'sqlite', file_sqlite)
@@ -62,11 +59,20 @@ file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
 list_db_tables = ['media_proj', 'media_arch']
 
+# Git repository information (defined once at module level)
+path_repo = os.path.dirname(os.path.abspath(__file__))
+path_git_info = os.path.join(path_repo, file_git_info)
+git_info = vpr.git_get_info(repo_path=path_repo, repo_json_path=path_git_info)
+
 path_resources = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
 path_project_env_in = os.path.join(path_resources, file_project_env)
 storage_local = 'LOCAL'
 storage_netwk = 'NETWK'
 list_storage_src = [storage_local, storage_netwk]
+
+# Ensure list_storage_src always has at least one item
+if not list_storage_src:
+    list_storage_src = [storage_netwk]
 
 sync_local_to_netwk = 'LOCAL TO NETWK'
 sync_netwk_to_local = 'NETWK TO LOCAL'
@@ -129,37 +135,6 @@ def convert_path_for_wsl(linux_path):
                               capture_output=True, text=True, check=True)
         return result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-
-def git_get_info():
-    """
-    Extracts the latest commit information from the Git repository.
-    
-    Returns:
-        dict: Dictionary containing commit hash, date, and message
-        Example: {'hash': 'abc123', 'date': '2026-01-01 10:30:00', 'message': 'Initial commit'}
-        Returns None if Git is not available or repo not found
-    """
-    if not GIT_AVAILABLE:
-        return None
-    
-    try:
-        # Get the repository root (current directory or parent directories)
-        repo = git.Repo(search_parent_directories=True)
-        
-        # Get the latest commit
-        latest_commit = repo.head.commit
-        
-        # Extract commit information
-        commit_info = {
-            'hash': latest_commit.hexsha[:7],  # Short hash (first 7 characters)
-            'date': datetime.fromtimestamp(latest_commit.committed_date).strftime('%Y-%m-%d %H:%M:%S'),
-            'message': latest_commit.message.strip().split('\n')[0]  # First line of commit message
-        }
-        
-        return commit_info
-    except (git.InvalidGitRepositoryError, git.GitCommandError):
-        # Not a git repository or git command failed
         return None
 
 def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_source=None):
@@ -268,15 +243,15 @@ def register_routes(flask_app):
         # Logo relative path for template
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
         
-        # Get git commit info
-        git_info = git_get_info()
-        
         # Get all available years
         conn = db_get_connection()
         cursor = conn.cursor()
         cursor.execute(f'SELECT DISTINCT job_year FROM {db_table} ORDER BY job_year DESC')
         years = [row['job_year'] for row in cursor.fetchall()]
         conn.close()
+        
+        # Only show sync menu if we have more than one storage source
+        show_sync_menu = len(list_storage_src) > 1
         
         return render_template('production.html',
                               logo_path=logo_relative,
@@ -285,7 +260,8 @@ def register_routes(flask_app):
                               git_info=git_info,
                               years=years,
                               storage_sources=list_storage_src,
-                              sync_directions=list_sync_directions)
+                              sync_directions=list_sync_directions,
+                              show_sync_menu=show_sync_menu)
     
     # ========================================================================
     # ROUTES - API ENDPOINTS

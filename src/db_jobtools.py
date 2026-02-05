@@ -100,6 +100,38 @@ def db_job_dict():
 
 # end of def db_job_dict():
 
+def db_job_legacy_dict():
+
+    """
+    legacy job dict structure for txt file parsing
+    """
+    dict_job_charge ={'charge1': '',
+                     'charge2': '',
+                     'charge3': ''}
+    dict_job_dirs = {'adobe': list_dirs_adobe,
+                     'audio': [],
+                     'data' : [],
+                     'houdini': list_dirs_hou,
+                     'maya': list_dirs_maya,
+                     'microsoft': list_dirs_ms,
+                     'movies': list_dirs_movies,
+                     'nuke': list_dirs_nuke,
+                     'python': list_dirs_python
+                    }
+    dict_job = {
+        'job_alias' : '',
+        'job_user' : '',
+        'job_notes' : '',
+        'job_date_start' : '',
+        'job_date_due' : '',
+        'job_charge' : dict_job_charge,
+        'job_state' : job_mode_active,
+        'job_path_job' : '',
+        'job_path_rnd' : '',
+        'job_dirs' : dict_job_dirs,
+    }
+    return (dict_job)
+
 ###############################################################################
 ###############################################################################
 def db_job_id_create_temp(list_id: list):
@@ -284,6 +316,116 @@ def db_jobs_legacy_migrate():
         print (dbh + f'No legacy jobs txt file found: {path_jobs_txt}.') 
 
 # end of db_jobs_legacy_migrate()
+
+###############################################################################
+###############################################################################
+def db_jobs_sqlite_to_json(db_path_sqlite: str, db_table: str, db_path_json: str, json_file: str):
+
+    """
+    migrate sqlite3 table to json file
+    """
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    path_json = os.path.join(db_path_json, json_file)
+
+    conn = sqlite3.connect(db_path_sqlite)
+    cursor = conn.cursor()
+
+    cursor.execute(f'SELECT * FROM {db_table}')
+    rows = cursor.fetchall()
+
+    dict_data = {}
+    for row in rows:
+        dict_row = {}
+        for idx, col in enumerate(list_db_jobs_columns):
+            value = row[idx]
+            # Deserialize job_apps if it's stored as JSON string
+            if col == 'job_apps' and isinstance(value, str):
+                try:
+                    dict_row[col] = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    dict_row[col] = {}  # Default to empty dict if parsing fails
+            else:
+                dict_row[col] = value
+        job_name = dict_row['job_name']
+        dict_data[job_name] = dict_row
+
+    with open ( path_json, 'w') as f_json:
+        json.dump(dict_data, f_json, indent=4)
+    f_json.close()
+
+    conn.close()
+    print (dbh + f'Exported sqlite3 table {db_table} to json file: {path_json}')
+
+# end of def db_jobs_sqlite_to_json(db_path_sqlite: str, db_table: str, db_path_json: str, json_file: str):
+
+
+###############################################################################
+###############################################################################
+def db_jobs_jsonlegacy_to_sqlite(db_path_json: str, file_json: str, db_path_sqlite: str, db_table: str):
+
+    """
+    migrate legacy jobs json file to sqlite3 table
+    """
+
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    path_json = os.path.join(db_path_json, file_json)
+
+    dict_job = db_job_dict()
+    with open ( path_json, 'r') as f_json:
+        dict_jobs_legacy = json.load(f_json)
+    f_json.close()
+
+    conn = db_sqlite_table_jobs_create(db_path_sqlite, db_table)
+    cursor = conn.cursor()
+
+
+    dict_job = db_job_dict()
+    for job_name in dict_jobs_legacy.keys():
+
+        job_id = db_id_create(db_sqlite_path=db_path_sqlite, db_table=db_table, id_column='job_id')
+        
+        dict_job_legacy = dict_jobs_legacy[job_name]
+        dict_job['job_id'] = job_id
+        dict_job['job_name'] = job_name
+        dict_job['job_alias'] = dict_job_legacy['job_alias']
+        dict_job['job_user_id'] = dict_job_legacy['job_user']
+        dict_job['job_user_name'] = 'tbd'
+        dict_job['job_date_created'] = dict_job_legacy['job_date_start']
+        dict_job['job_date_due'] = dict_job_legacy['job_date_due']
+        dict_job['job_notes'] = dict_job_legacy['job_notes']
+        dict_job['job_state'] = dict_job_legacy['job_state']
+        dict_job['job_path_job'] = dict_job_legacy['job_path_job']
+        dict_job['job_path_rnd'] = dict_job_legacy['job_path_rnd']
+        
+        # Map legacy job_charge dict to individual charge fields
+        if 'job_charge' in dict_job_legacy and isinstance(dict_job_legacy['job_charge'], dict):
+            dict_job['job_charge1'] = dict_job_legacy['job_charge'].get('charge1', '')
+            dict_job['job_charge2'] = dict_job_legacy['job_charge'].get('charge2', '')
+            dict_job['job_charge3'] = dict_job_legacy['job_charge'].get('charge3', '')
+        
+        # Map legacy job_dirs to job_apps (serialize to JSON string for SQLite)
+        if 'job_dirs' in dict_job_legacy:
+            dict_job['job_apps'] = json.dumps(dict_job_legacy['job_dirs'])
+        else:
+            # If no job_dirs, serialize the default dict_job_apps to JSON string
+            dict_job['job_apps'] = json.dumps(dict_job['job_apps'])
+
+        # table insertion
+        placeholders = ', '.join(['?'] * len(list_db_jobs_columns))
+        columns = ', '.join(list_db_jobs_columns)
+        sql = f'INSERT INTO {db_table} ({columns}) VALUES ({placeholders})'
+        values = [dict_job[col] for col in list_db_jobs_columns]
+        cursor.execute(sql, values)
+
+    conn.commit()
+    conn.close()
+    print (dbh + f'Imported legacy jobs json file {path_json} to sqlite3 table: {db_table}')
+
+# end of def db_jobs_jsonlegacy_to_sqlite(db_path_json: str, file_json: str, db_path_sqlite: str, db_table: str):
 
 ###############################################################################
 ###############################################################################

@@ -327,17 +327,19 @@
             <ul id="nav-menu" class="horizontal-nav">
 
                 <li id="project-select-root" class="has-submenu">
-                    <a>JOB NAV</a>
+                    <a>JOB SET</a>
                     <ul id="storage-menu">
                         <!-- Storage sources will be populated here -->
                     </ul>
                 </li>
+                {% if show_sync_menu %}
                 <li id="sync-select-root" class="has-submenu">
                     <a>JOB SYNC</a>
                     <ul id="sync-menu">
                         <!-- Sync directions will be populated here -->
                     </ul>
                 </li>
+                {% endif %}
                 <li class="nav-button">
                     <a onclick="newProject()">JOB NEW</a>
                 </li>
@@ -571,10 +573,10 @@
         // ========== REUSABLE HELPER FUNCTIONS ==========
         
         /**
-         * Load job dashboard with project data and optionally open directory
+         * Load job dashboard with project data and set appropriate feedback message
          * Consolidates repeated pattern of fetching job data
          */
-        async function loadJobDashboard(projectName, projectPath, openDirParams = null) {
+        async function loadJobDashboard(projectName, projectPath, clickParams = null) {
             try {
                 const response = await fetch('/api/action_jobactive_dashboard_populate', {
                     method: 'POST',
@@ -590,14 +592,26 @@
                     // Show the job dashboard
                     document.getElementById('info-display').style.display = 'block';
                     
-                    // Update info-feedback with job path
-                    document.getElementById('info-feedback').textContent = data.job.job_path_job || projectPath || '-';
-                    
-                    // If directory opening was requested, do it after loading dashboard
-                    if (openDirParams) {
-                        const {app, subdir, storage} = openDirParams;
-                        openDirectory(projectPath, projectName, app, subdir, storage);
+                    // Update info-feedback based on what was clicked
+                    if (clickParams) {
+                        const {app, subdir, storage} = clickParams;
+                        
+                        if (!app) {
+                            // Project level click - show "Job Set To:"
+                            document.getElementById('info-feedback').textContent = 'Job Set To: ' + (data.job.job_path_job || projectPath);
+                        } else {
+                            // App or subdir click - show "Job Src:" and open directory
+                            const displayPath = subdir ? `${projectPath}/${app}/${subdir}` : `${projectPath}/${app}`;
+                            document.getElementById('info-feedback').textContent = 'Job Src: ' + displayPath;
+                            
+                            // Open directory for app/subdir clicks
+                            openDirectory(projectPath, projectName, app, subdir, storage);
+                        }
+                    } else {
+                        // Fallback
+                        document.getElementById('info-feedback').textContent = data.job.job_path_job || projectPath || '-';
                     }
+                    
                     return data.job;
                 }
                 
@@ -816,7 +830,9 @@
         }, { once: true });
 
         // Build sync menu on first hover of JOB SYNC button - now using reusable functions
-        document.getElementById('sync-select-root').addEventListener('mouseenter', async function() {
+        const syncSelectRoot = document.getElementById('sync-select-root');
+        if (syncSelectRoot) {
+            syncSelectRoot.addEventListener('mouseenter', async function() {
             if (syncMenuBuilt) return;
             syncMenuBuilt = true;
             
@@ -868,6 +884,7 @@
                 showStatus('Error building sync menu: ' + error.message, 'error');
             }
         }, { once: true });
+        }
 
         function showSyncConfirmation(jobPath, projectName, app, subdir, syncDirection) {
             // Close all menus
@@ -1076,51 +1093,15 @@
             // Use passed storage parameter (required)
             const storageSource = storage;
             
-            if (!jobPath || (!app && projectName)) {
-                // Opening project level directory
-                document.getElementById('info-project').textContent = projectName;
-                document.getElementById('info-app').textContent = '-';
-                document.getElementById('info-feedback').textContent = jobPath;
-                document.getElementById('info-display').style.display = 'block';
-                
-                // Call API to open project directory
-                fetch('/api/open_app_directory', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        job_path_job: jobPath,
-                        app: null,
-                        subdir: null,
-                        storage_src: storageSource
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (!data.success) {
-                        document.getElementById('info-feedback').textContent = 'Error: ' + data.message;
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('info-feedback').textContent = 'Error: ' + error.message;
-                });
-                return;
-            }
-            
+            // This function is now only called for app/subdir clicks (not project-level)
             if (!jobPath || !app) {
-                document.getElementById('info-feedback').textContent = 'Error: Cannot open directory - missing path information';
-                document.getElementById('info-display').style.display = 'block';
+                console.error('openDirectory called without required parameters');
                 return;
             }
             
-            // Build path with unexpanded environment variable for compact display
-            const displayPath = subdir ? `${jobPath}/${app}/${subdir}` : `${jobPath}/${app}`;
-            
-            // Update info display
+            // Update info display fields
             document.getElementById('info-project').textContent = projectName;
             document.getElementById('info-app').textContent = subdir ? `${app}/${subdir}` : app;
-            document.getElementById('info-feedback').textContent = displayPath;
             document.getElementById('info-display').style.display = 'block';
             
             // Call API to open directory immediately
@@ -1138,13 +1119,15 @@
             })
             .then(response => response.json())
             .then(data => {
-                // Optionally update feedback with success/error, or keep showing path
+                // Only show error if directory opening failed
                 if (!data.success) {
-                    document.getElementById('info-feedback').textContent = 'Error: ' + data.message;
+                    const currentFeedback = document.getElementById('info-feedback').textContent;
+                    document.getElementById('info-feedback').textContent = currentFeedback + ' [Error: ' + data.message + ']';
                 }
             })
             .catch(error => {
-                document.getElementById('info-feedback').textContent = 'Error: ' + error.message;
+                const currentFeedback = document.getElementById('info-feedback').textContent;
+                document.getElementById('info-feedback').textContent = currentFeedback + ' [Error: ' + error.message + ']';
             });
         }
 

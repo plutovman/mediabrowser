@@ -31,11 +31,9 @@ from flask import render_template, request, url_for, abort, session, redirect, s
 from PIL import Image
 
 import db_jobtools as dbj
-try:
-    import git
-    GIT_AVAILABLE = True
-except ImportError:
-    GIT_AVAILABLE = False
+import vpr_jobtools as vpr
+
+# Git info is now handled by vpr_jobtools.git_get_info()
 
 # ============================================================================
 # CONFIGURATION & GLOBALS
@@ -52,6 +50,12 @@ path_base_archive = os.path.join(path_base_media, 'archive')
 path_db_media = os.path.join(depot_local, 'assetdepot', 'media', 'dummy', 'db')
 file_media_sqlite = 'media_dummy.sqlite'
 path_db_media = os.path.join(path_db_media, file_media_sqlite)
+
+# Git repository information (defined once at module level)
+file_git_info = 'repo_info.json'
+path_repo = os.path.dirname(os.path.abspath(__file__))
+path_git_info = os.path.join(path_repo, file_git_info)
+git_info = vpr.git_get_info(repo_path=path_repo, repo_json_path=path_git_info)
 
 # Pagination settings
 CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
@@ -82,6 +86,7 @@ dict_thumbs = {
 # Logo configuration
 file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
+
 
 # ============================================================================
 # HELPER FUNCTIONS - CART MANAGEMENT
@@ -271,25 +276,6 @@ def category_get_dict(category: str, top_n: int, db_table: str = None) -> dict:
     category_dict = {row[category]: row['count'] for row in results}
     return category_dict
 
-def git_get_info():
-    """Extract the latest commit information from the Git repository"""
-    if not GIT_AVAILABLE:
-        return None
-    
-    try:
-        repo = git.Repo(search_parent_directories=True)
-        latest_commit = repo.head.commit
-        
-        commit_info = {
-            'hash': latest_commit.hexsha[:7],
-            'date': datetime.fromtimestamp(latest_commit.committed_date).strftime('%Y-%m-%d %H:%M:%S'),
-            'message': latest_commit.message.strip().split('\n')[0]
-        }
-        
-        return commit_info
-    except (git.InvalidGitRepositoryError, git.GitCommandError):
-        return None
-
 def extract_media_metadata(file_path):
     """Extract resolution and duration metadata from video files using OpenCV"""
     
@@ -373,7 +359,6 @@ def register_routes(app):
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
         top_subjects = category_get_dict('subject', CNT_TOP_TOPICS, db_table)
         top_genres = category_get_dict('genre', CNT_TOP_TOPICS, db_table)
-        git_info = git_get_info()
     
         return render_template('index.html', random_image=random_image, logo_path=logo_relative,
                               top_subjects=top_subjects, top_genres=top_genres,
@@ -467,7 +452,6 @@ def register_routes(app):
             abort(404)
         
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
-        git_info = git_get_info()
     
         return render_template(
             'search.html',
@@ -525,7 +509,6 @@ def register_routes(app):
         current_item = queue[current_index] if queue and current_index < len(queue) else None
         
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
-        git_info = git_get_info()
         
         return render_template('archive.html',
                               queue=queue,
@@ -571,11 +554,15 @@ def register_routes(app):
         
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
         back_url = session.get('last_search_url', url_for('page_search'))
-        git_info = git_get_info()
         
-        return render_template('cart.html', media=media_list, logo_path=logo_relative, 
-                              back_url=back_url, git_info=git_info, db_table=db_table, 
-                              db_tables=list_db_tables, genres=list_genres)
+        return render_template('cart.html',
+                               media=media_list,
+                               logo_path=logo_relative,
+                               back_url=back_url,
+                               git_info=git_info,
+                               db_table=db_table,
+                               db_tables=list_db_tables,
+                               genres=list_genres)
     
     @app.route('/clear_cart')
     def cart_clear():
