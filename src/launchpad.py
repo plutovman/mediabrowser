@@ -7,7 +7,7 @@ import socket
 #import multiprocessing
 import customtkinter as ctk
 from PIL import Image, ImageTk
-import app_flask as fb  # Import shared Flask app
+import app_flask as flsk  # Import shared Flask app
 
 
 ctk.set_appearance_mode("dark")
@@ -15,26 +15,6 @@ ctk.set_default_color_theme("dark-blue")
 
 logo_file = 'foxlito.png'
 logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources', logo_file)
-
-###############################################################################
-###############################################################################
-def open_browser(url):
-    
-    """Open a URL in the default web browser, with WSL support"""
-    
-    try:
-        # Check if running in WSL (Windows Subsystem for Linux)
-        is_wsl = 'microsoft' in os.uname().release.lower() or 'wsl' in os.uname().release.lower()
-        
-        if is_wsl:
-            # Use Windows command to open browser from WSL
-            import subprocess
-            subprocess.run(['cmd.exe', '/c', 'start', url], check=True)
-        else:
-            # Use standard webbrowser module for native environments
-            webbrowser.open(url)
-    except Exception as e:
-        print(f"Error opening browser: {e}")
 
 ###############################################################################
 ###############################################################################
@@ -268,10 +248,10 @@ class LaunchpadApp(ctk.CTk):
         """Run Flask server in thread"""
         try:
             # Configure Flask app from app_flask module
-            fb.app.config['SERVER_NAME'] = None  # Allow dynamic host/port
+            flsk.app.config['SERVER_NAME'] = None  # Allow dynamic host/port
             
             # Run Flask server
-            fb.app.run(
+            flsk.app.run(
                 host=self.flask_host,
                 port=self.flask_port,
                 debug=False,  # Must be False for threaded operation
@@ -320,7 +300,7 @@ class LaunchpadApp(ctk.CTk):
 
         if self.server_ready:
             url = f"{self.flask_url}/index"
-            open_browser(url)
+            flsk.browser_open(url)
             self.status_update("Opened Search in browser", "green")
             self.time_countdown_reset()
         else:
@@ -330,7 +310,7 @@ class LaunchpadApp(ctk.CTk):
         """Open browser to archive page"""
         if self.server_ready:
             url = f"{self.flask_url}/archive"
-            open_browser(url)
+            flsk.browser_open(url)
             self.status_update("Opened Archive in browser", "green")
             self.time_countdown_reset()
         else:
@@ -340,7 +320,7 @@ class LaunchpadApp(ctk.CTk):
         """Open browser to archive page"""
         if self.server_ready:
             url = f"{self.flask_url}/production"
-            open_browser(url)
+            flsk.browser_open(url)
             self.status_update("Opened Production in browser", "green")
             self.time_countdown_reset()
         else:

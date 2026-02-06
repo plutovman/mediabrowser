@@ -11,14 +11,14 @@ except ImportError:
 
 ###############################################################################
 ###############################################################################
-def git_get_info(repo_path=None, repo_json_path=None):
+def git_get_info(path_repo=None, path_json=None):
     """
     Extracts the latest commit information from the Git repository.
     Falls back to reading from JSON file if git module is unavailable.
     
     Args:
-        repo_path: Path to search for git repository (defaults to current directory)
-        repo_json_path: Path to JSON file for storing/reading commit info
+        path_repo: Path to search for git repository (defaults to current directory)
+        path_json: Path to JSON file for storing/reading commit info
     
     Returns:
         dict: Dictionary containing commit hash, date, and message
@@ -26,15 +26,15 @@ def git_get_info(repo_path=None, repo_json_path=None):
         Returns None if neither git nor JSON file is available
     
     Notes:
-        - In development: Uses git module and writes to repo_json_path
-        - In production (frozen app): Reads from repo_json_path
+        - In development: Uses git module and writes to path_json
+        - In production (frozen app): Reads from path_json
     """
     # Try to use git module if available
     if GIT_AVAILABLE:
         try:
             # Get the repository root (current directory or parent directories)
-            if repo_path:
-                repo = git.Repo(repo_path, search_parent_directories=True)
+            if path_repo:
+                repo = git.Repo(path_repo, search_parent_directories=True)
             else:
                 repo = git.Repo(search_parent_directories=True)
             
@@ -49,13 +49,13 @@ def git_get_info(repo_path=None, repo_json_path=None):
             }
             
             # Write to JSON file if path provided
-            if repo_json_path:
+            if path_json:
                 try:
-                    os.makedirs(os.path.dirname(repo_json_path), exist_ok=True)
-                    with open(repo_json_path, 'w') as f:
+                    os.makedirs(os.path.dirname(path_json), exist_ok=True)
+                    with open(path_json, 'w') as f:
                         json.dump(commit_info, f, indent=2)
                 except (OSError, IOError) as e:
-                    print(f"Warning: Could not write git info to {repo_json_path}: {e}")
+                    print(f"Warning: Could not write git info to {path_json}: {e}")
             
             return commit_info
             
@@ -64,18 +64,18 @@ def git_get_info(repo_path=None, repo_json_path=None):
             # Fall through to JSON fallback
     
     # Fallback: Try to read from JSON file
-    if repo_json_path and os.path.exists(repo_json_path):
+    if path_json and os.path.exists(path_json):
         try:
-            with open(repo_json_path, 'r') as f:
+            with open(path_json, 'r') as f:
                 commit_info = json.load(f)
                 return commit_info
         except (OSError, IOError, json.JSONDecodeError) as e:
-            print(f"Error reading git info from {repo_json_path}: {e}")
+            print(f"Error reading git info from {path_json}: {e}")
     
     # No git and no JSON file available
     return None
 
-# end of def git_get_info(repo_path=None, repo_json_path=None):
+# end of def git_get_info(path_repo=None, path_json=None):
 
 ###############################################################################
 ###############################################################################

@@ -183,4 +183,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    main(debug=args.debug, host=args.host, port=args.port, browser_open_on_start=not args.no_browser)
+    # Convert --no-browser flag to positive browser_open flag
+    should_open_browser = not args.no_browser
+    
+    main(debug=args.debug, host=args.host, port=args.port, browser_open_on_start=should_open_browser)
