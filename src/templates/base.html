@@ -193,6 +193,9 @@
         /* Form group styles (shared across archive/production) */
         .form-group {
             margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
         }
         
         .form-group label {
@@ -200,12 +203,14 @@
             margin-bottom: 5px;
             color: #aaa;
             font-size: 0.9em;
+            flex-shrink: 0;
         }
         
         .form-group input,
         .form-group select,
         .form-group textarea {
             width: 100%;
+            max-width: 100%;
             padding: 8px;
             border: 1px solid #444;
             border-radius: 4px;
@@ -213,13 +218,36 @@
             color: #f0f0f0;
             font-family: inherit;
             box-sizing: border-box;
+            min-width: 0;
         }
         
+        /* Explicitly style editable fields (cross-browser compatibility) */
+        .form-group input:not(:disabled):not(:read-only),
+        .form-group select:not(:disabled),
+        .form-group textarea:not(:disabled):not(:read-only) {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            border-color: #444;
+        }
+        
+        /* Focus state for editable fields */
+        .form-group input:not(:disabled):not(:read-only):focus,
+        .form-group select:not(:disabled):focus,
+        .form-group textarea:not(:disabled):not(:read-only):focus {
+            background-color: #1a1a1a;
+            border-color: #4a9eff;
+            outline: none;
+        }
+        
+        /* Readonly and disabled fields */
         .form-group input:disabled,
         .form-group input:read-only,
-        .form-group textarea:disabled {
+        .form-group textarea:disabled,
+        .form-group textarea:read-only,
+        .form-group select:disabled {
             background-color: #2a2a2a;
             color: #888;
+            cursor: not-allowed;
         }
         
         .form-group textarea {

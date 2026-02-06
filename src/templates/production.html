@@ -371,7 +371,7 @@
         
         <form id="jobForm">
             <!-- Row 1: Job Name, Job Alias, Job State, Job Year -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
                     <label>Job Name</label>
                     <input type="text" id="job_name" name="job_name" readonly>
@@ -391,7 +391,7 @@
             </div>
             
             <!-- Row 2: Job User ID, Job User Name, Job Date Created -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
                     <label>Created: userId</label>
                     <input type="text" id="job_user_id" name="job_user_id" readonly>
@@ -407,7 +407,7 @@
             </div>
             
             <!-- Row 3: Edit User ID, Edit User Name, Edit Date -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
                     <label>Edited: userId</label>
                     <input type="text" id="job_edit_user_id" name="job_edit_user_id" readonly>
@@ -423,7 +423,7 @@
             </div>
             
             <!-- Row 4: Paths -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
                     <label>Job Path</label>
                     <input type="text" id="job_path_job" name="job_path_job" readonly>
@@ -435,7 +435,7 @@
             </div>
             
             <!-- Row 5: Charges and Date Due -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
                     <label>Job Charge 1</label>
                     <input type="text" id="job_charge1" name="job_charge1">

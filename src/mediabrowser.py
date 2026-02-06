@@ -62,6 +62,9 @@ CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
 CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
 CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud
 
+# Archive settings
+MAX_ARCHIVE_FILES = 10  # Maximum files per archive upload batch
+
 # Database tables
 db_table_proj = 'media_proj'
 db_table_arch = 'media_arch'
@@ -734,6 +737,13 @@ def register_routes(app):
             
             if not uploaded_files:
                 return jsonify({'success': False, 'error': 'No files uploaded'})
+            
+            # Check file limit
+            if len(uploaded_files) > MAX_ARCHIVE_FILES:
+                return jsonify({
+                    'success': False,
+                    'error': f'Too many files. Maximum {MAX_ARCHIVE_FILES} files per batch. You selected {len(uploaded_files)} files.'
+                })
             
             os.makedirs(path_base_archive, exist_ok=True)
             
