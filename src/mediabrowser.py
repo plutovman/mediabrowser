@@ -33,7 +33,6 @@ from PIL import Image
 import db_jobtools as dbj
 import vpr_jobtools as vpr
 
-# Git info is now handled by vpr_jobtools.git_get_info()
 
 # ============================================================================
 # CONFIGURATION & GLOBALS
@@ -55,7 +54,7 @@ path_db_media = os.path.join(path_db_media, file_media_sqlite)
 file_git_info = 'repo_info.json'
 path_repo = os.path.dirname(os.path.abspath(__file__))
 path_git_info = os.path.join(path_repo, file_git_info)
-git_info = vpr.git_get_info(repo_path=path_repo, repo_json_path=path_git_info)
+git_info = vpr.git_get_info(path_repo=path_repo, path_json=path_git_info)
 
 # Pagination settings
 CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view

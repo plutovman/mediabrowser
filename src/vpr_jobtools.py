@@ -79,10 +79,13 @@ def git_get_info(path_repo=None, path_json=None):
 
 ###############################################################################
 ###############################################################################
-def get_user_info_current():
+def get_user_info_current(user_id=None):
     """
     Get current user information in an OS-aware manner.
     Works on macOS, Linux, WSL, and Windows.
+    
+    Args:
+        user_id (str, optional): User ID to look up. If not provided, detects current user.
     
     Returns:
         dict: Dictionary containing 'user_id' and 'user_name'
@@ -91,19 +94,21 @@ def get_user_info_current():
     dbh = '[{}]'.format(func_name)
     
     system = platform.system()
-    user_id = 'unknown_user'
     user_name = 'Unknown User'
     
     try:
         if system in ['Linux', 'Darwin']:  # Linux or macOS
-            # Try environment variables first
-            user_id = os.getenv('USER') or os.getenv('LOGNAME')
+            # If user_id not provided, try environment variables first
+            if user_id is None:
+                user_id = os.getenv('USER') or os.getenv('LOGNAME')
             
             # Get full name from pwd module
             try:
                 import pwd
-                pw_record = pwd.getpwuid(os.getuid())
-                if not user_id:
+                if user_id:
+                    pw_record = pwd.getpwnam(user_id)
+                else:
+                    pw_record = pwd.getpwuid(os.getuid())
                     user_id = pw_record.pw_name
                 # Extract full name from GECOS field
                 gecos = pw_record.pw_gecos
@@ -118,24 +123,26 @@ def get_user_info_current():
                     
         elif system == 'Windows':
             # Windows-specific user detection
-            user_id = os.getenv('USERNAME')
+            if user_id is None:
+                user_id = os.getenv('USERNAME')
             
             # Try to get full name from Windows
-            try:
-                result = subprocess.run(
-                    ['wmic', 'useraccount', 'where', f'name="{user_id}"', 'get', 'fullname'],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                if result.returncode == 0:
-                    lines = result.stdout.strip().split('\n')
-                    if len(lines) > 1:
-                        full_name = lines[1].strip()
-                        if full_name:
-                            user_name = full_name
-            except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-                pass
+            if user_id:
+                try:
+                    result = subprocess.run(
+                        ['wmic', 'useraccount', 'where', f'name="{user_id}"', 'get', 'fullname'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if result.returncode == 0:
+                        lines = result.stdout.strip().split('\n')
+                        if len(lines) > 1:
+                            full_name = lines[1].strip()
+                            if full_name:
+                                user_name = full_name
+                except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                    pass
             
             # Fallback: try net user command
             if user_name == 'Unknown User' and user_id:
@@ -169,6 +176,8 @@ def get_user_info_current():
             
     except Exception as e:
         print(dbh + f' Error getting user info: {e}')
+        if not user_id:
+            user_id = 'unknown_user'
     
     return {
         'user_id': user_id,

@@ -62,7 +62,7 @@ list_db_tables = ['media_proj', 'media_arch']
 # Git repository information (defined once at module level)
 path_repo = os.path.dirname(os.path.abspath(__file__))
 path_git_info = os.path.join(path_repo, file_git_info)
-git_info = vpr.git_get_info(repo_path=path_repo, repo_json_path=path_git_info)
+git_info = vpr.git_get_info(path_repo=path_repo, path_json=path_git_info)
 
 path_resources = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
 path_project_env_in = os.path.join(path_resources, file_project_env)
@@ -719,20 +719,20 @@ end tell
                 conn.close()
                 return jsonify({'success': False, 'message': 'Job not found'}), 404
             
+            # Fetch updated job data to return to frontend
+            cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
+            row = cursor.fetchone()
+            updated_job = dict(row) if row else None
+            
             conn.close()
-            return jsonify({'success': True, 'message': 'Job updated successfully'}), 200
+            return jsonify({
+                'success': True, 
+                'message': 'Job updated successfully',
+                'job': updated_job
+            }), 200
         except Exception as e:
-            return jsonify({'success': False, 'message': str(e)}), 500
-    
-    @flask_app.route('/api/job_name_validate', methods=['POST'])
-    def api_job_name_validate():
-        """Validate job base and generate job_name and job_alias"""
-        data = request.get_json() or {}
-        job_base = data.get('job_base', '').strip()
-        
-        if not job_base:
-            return jsonify({'valid': False, 'reason': 'Job base cannot be empty'}), 200
-        
+            conn.close()
+            return jsonify({'success': True, 'message': 'Job updated successfully'
         # Validate job_base using vpr_jobtools
         is_valid, reason = vpr.vpr_job_base_is_valid(job_base)
         
