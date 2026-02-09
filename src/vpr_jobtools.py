@@ -567,11 +567,27 @@ def vpr_job_rev_set(job_rev: str):
     dbh = '[{}]'.format(func_name)
 
     # take job_rev and increment to next letter
-    # Increment revision letter
+    # Increment revision letter with support for a-z, a1-z1, a2-z2, etc.
     if job_rev == '':
         job_rev_new = 'a'
     elif job_rev.isalpha() and job_rev.islower():
-        job_rev_new = chr(ord(job_rev) + 1) if job_rev != 'z' else 'a'
+        # Single letter (a-z)
+        if job_rev != 'z':
+            job_rev_new = chr(ord(job_rev) + 1)
+        else:
+            # z -> a1
+            job_rev_new = 'a1'
+    elif len(job_rev) >= 2 and job_rev[0].isalpha() and job_rev[0].islower() and job_rev[1:].isdigit():
+        # Format: letter + number (e.g., a1, z2)
+        letter = job_rev[0]
+        number = int(job_rev[1:])
+        
+        if letter != 'z':
+            # Increment letter, keep number
+            job_rev_new = chr(ord(letter) + 1) + str(number)
+        else:
+            # z -> a with incremented number (e.g., z1 -> a2, z2 -> a3)
+            job_rev_new = 'a' + str(number + 1)
     else:
         print (dbh + 'Invalid job_rev: {}'.format(job_rev))
         return None
