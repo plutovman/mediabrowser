@@ -100,6 +100,44 @@ def db_job_dict():
 
 # end of def db_job_dict():
 
+###############################################################################
+###############################################################################
+def db_tags_verify(tag_string: str) -> str:
+    """
+    Verify and clean tag string by removing duplicates while preserving order.
+    Tags must be comma-separated to support multi-word tags.
+    Case-insensitive duplicate detection.
+    
+    Args:
+        tag_string: Comma-separated string of tags (supports multi-word tags)
+        
+    Returns:
+        Cleaned tag string with duplicates removed, consistently formatted as 'tag1, tag2, tag3'
+        
+    Examples:
+        'animation, lighting, animation, Lighting' -> 'animation, lighting'
+        'character animation, background lighting' -> 'character animation, background lighting'
+        'animation,lighting,compositing' -> 'animation, lighting, compositing'
+        ',animation,,lighting,' -> 'animation, lighting'
+    """
+    if not tag_string:
+        return ''
+    
+    # Split by comma only (preserves spaces within multi-word tags)
+    tags = [tag.strip() for tag in tag_string.split(',') if tag.strip()]
+    
+    # Remove duplicates (case-insensitive) while preserving order
+    seen = set()
+    unique_tags = []
+    for tag in tags:
+        tag_lower = tag.lower()
+        if tag_lower not in seen:
+            seen.add(tag_lower)
+            unique_tags.append(tag)
+    
+    # Always return comma-space separated string for consistency
+    return ', '.join(unique_tags)
+
 def db_job_legacy_dict():
 
     """
@@ -527,7 +565,7 @@ def db_sqlite_table_jobs_create(db_path: str, table_name: str):
             job_edit_user_name TEXT NOT NULL,
             job_edit_date TEXT NOT NULL,
             job_notes TEXT NOT NULL,
-            job_tags TEXT NOT NULL,
+            job_tags VARCHAR(500) NOT NULL,
             job_date_created TEXT NOT NULL,
             job_date_due TEXT NOT NULL,
             job_charge1 TEXT NOT NULL,

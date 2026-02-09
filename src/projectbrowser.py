@@ -704,8 +704,14 @@ end tell
         values = []
         for field in list_columns_editable:
             if field in data:
+                value = data[field]
+                
+                # Special handling for job_tags: remove duplicates
+                if field == 'job_tags':
+                    value = dbj.db_tags_verify(value)
+                
                 set_clauses.append(f"{field} = ?")
-                values.append(data[field])
+                values.append(value)
         
         # Add edit tracking fields (always updated on edit)
         set_clauses.append("job_edit_date = ?")
