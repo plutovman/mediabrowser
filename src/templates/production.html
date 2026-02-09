@@ -315,6 +315,7 @@ input[type="date"] {
     font-family: inherit;
     font-size: 14px;
     color: #f0f0f0;
+    cursor: pointer;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
@@ -327,10 +328,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 input[type="date"]::-webkit-datetime-edit {
     color: #f0f0f0;
+    cursor: pointer;
+}
+
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    cursor: pointer;
+}
+
+input[type="date"]::-webkit-datetime-edit-text {
+    cursor: pointer;
+}
+
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+    cursor: pointer;
 }
 
 input[type="date"]:disabled {
     color: #888;
+    cursor: not-allowed;
 }
 
 input[type="date"]:disabled::-webkit-calendar-picker-indicator {
@@ -339,6 +356,7 @@ input[type="date"]:disabled::-webkit-calendar-picker-indicator {
 
 input[type="date"]:disabled::-webkit-datetime-edit {
     color: #888;
+    cursor: not-allowed;
 }
 {% endblock %}
 
