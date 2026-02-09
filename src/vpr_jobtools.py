@@ -356,8 +356,9 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_t
         - Ignores hidden files/directories (starting with '.')
         - Ignores common temporary and system files
         - Uses archive mode to preserve permissions and timestamps
-        - Deletes files in destination that don't exist in source
+        - Does NOT delete files in destination (preserves existing files)
         - Includes timestamp handling to prevent 1980 date issue (Windows)
+        - To enable mirroring/deletion, see comments in code
     """
 
     func_name = inspect.stack()[0][3]
@@ -393,8 +394,9 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_t
 
     # Build command based on OS
     if system == 'Windows':
-        # Use robocopy for Windows
-        # /MIR = Mirror (copy all, delete extras)
+        # Define common robocopy parameters
+        # /E = Copy subdirectories including empty ones
+        # /PURGE = Delete files in destination that don't exist in source (DISABLED - uncomment to enable mirroring)
         # /DCOPY:DAT = Copy Data, Attributes, Timestamps for directories
         # /COPY:DAT = Copy Data, Attributes, Timestamps for files
         # /TIMFIX = Fix file times on all files (prevents 1980 date issue)
@@ -405,14 +407,23 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_t
         # /W:5 = Wait 5 seconds between retries
         # /MT:8 = Use 8 threads for faster copying
         
+        # Common flags and exclusions as lists
+        robocopy_flags_list = ['/E', '/R:3', '/W:5', '/MT:8', '/DCOPY:DAT', '/COPY:DAT', '/TIMFIX', '/XA:SH']
+        exclude_dirs_list = ['.*', '__pycache__', 'node_modules', '.git', '.svn']
+        exclude_files_list = ['.*', '*.tmp', '*.temp', '*.log', '*.swp', '*.swo', '*~', 'desktop.ini', '.DS_Store', 'Thumbs.db']
+        
         if show_term:
             # Build command string for terminal window
+            # Note: Using /E without /PURGE to preserve files in destination
+            # To enable mirroring (delete files in dest not in source), change /E to /MIR
+            flags_str = ' '.join(robocopy_flags_list)
+            exclude_dirs_str = ' '.join([f'"{d}"' for d in exclude_dirs_list])
+            exclude_files_str = ' '.join([f'"{f}"' for f in exclude_files_list])
+            
             robocopy_cmd = (
-                f'robocopy "{source}" "{destination}" /MIR /R:3 /W:5 /MT:8 '
-                f'/DCOPY:DAT /COPY:DAT /TIMFIX '
-                f'/XA:SH '
-                f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
-                f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
+                f'robocopy "{source}" "{destination}" {flags_str} '
+                f'/XD {exclude_dirs_str} '
+                f'/XF {exclude_files_str} '
                 f'& echo. & echo Sync completed. Press any key to close... & pause'
             )
             
@@ -434,38 +445,9 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_t
                 return False
         else:
             # Run synchronously with subprocess.run
-            cmd = [
-                'robocopy',
-                source,
-                destination,
-                '/MIR',                    # Mirror directory tree
-                '/R:3',                    # Retry 3 times
-                '/W:5',                    # Wait 5 seconds between retries
-                '/MT:8',                   # Multi-threaded (8 threads)
-                '/DCOPY:DAT',              # Copy Data, Attributes, Timestamps for directories
-                '/COPY:DAT',               # Copy Data, Attributes, Timestamps for files
-                '/TIMFIX',                 # Fix file times (prevents 1980 date issue)
-                '/XA:SH',                  # Exclude system and hidden files
-                '/XD',                     # Exclude these directories:
-                '.*',                      # Hidden directories (starting with .)
-                '__pycache__',
-                'node_modules',
-                '.git',
-                '.svn',
-                '.DS_Store',
-                'Thumbs.db',
-                '/XF',                     # Exclude these files:
-                '.*',                      # Hidden files (starting with .)
-                '*.tmp',
-                '*.temp',
-                '*.log',
-                '*.swp',
-                '*.swo',
-                '*~',
-                'desktop.ini',
-                '.DS_Store',
-                'Thumbs.db'
-            ]
+            # Note: Using /E to copy all subdirectories without deleting destination files
+            # To enable mirroring (delete files in dest not in source), replace '/E' with '/MIR'
+            cmd = ['robocopy', source, destination] + robocopy_flags_list + ['/XD'] + exclude_dirs_list + ['/XF'] + exclude_files_list
             
             print(dbh + ' Executing robocopy: {} -> {}'.format(source, destination))
             try:
@@ -490,20 +472,25 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_t
         # --exclude = exclude patterns
         # --progress = show progress during transfer
         
+        # Define common rsync exclusions
+        rsync_exclude_patterns = [
+            '.*', '__pycache__', 'node_modules',
+            '*.pyc', '*.pyo', '*.tmp', '*.temp',
+            '*.log', '*.swp', '*.swo', '*~',
+            '.DS_Store', 'Thumbs.db', 'desktop.ini'
+        ]
+        # For command string (show_term=True)
+        rsync_excludes = ' '.join([f"--exclude='{pattern}'" for pattern in rsync_exclude_patterns])
+        
         # Ensure paths end with / for rsync
         src = source if source.endswith('/') else source + '/'
         dst = destination if destination.endswith('/') else destination + '/'
         
         if show_term:
             # Build rsync command string for terminal window
-            rsync_cmd = (
-                f"rsync -avh --progress "
-                f"--exclude='.*' --exclude='__pycache__' --exclude='node_modules' "
-                f"--exclude='*.pyc' --exclude='*.pyo' --exclude='*.tmp' --exclude='*.temp' "
-                f"--exclude='*.log' --exclude='*.swp' --exclude='*.swo' --exclude='*~' "
-                f"--exclude='.DS_Store' --exclude='Thumbs.db' --exclude='desktop.ini' "
-                f"--delete '{src}' '{dst}'"
-            )
+            # Note: --delete flag removed to preserve files in destination
+            # To enable mirroring (delete files in dest not in source), add --delete after --progress
+            rsync_cmd = f"rsync -avh --progress {rsync_excludes} '{src}' '{dst}'"
             
             if system == 'Darwin':
                 # macOS: Use AppleScript to open Terminal
@@ -533,6 +520,8 @@ end tell
                 
                 if is_wsl_env:
                     # WSL: Use Windows Command Prompt with wslpath
+                    # Reuse common robocopy flags from Windows section (defined above)
+                    
                     try:
                         # Convert Linux paths to Windows paths
                         result_src = subprocess.run(['wslpath', '-w', source], 
@@ -542,13 +531,17 @@ end tell
                         source_win = result_src.stdout.strip()
                         destination_win = result_dst.stdout.strip()
                         
-                        # Build robocopy command for WSL
+                        # Build robocopy command for WSL using same structure as Windows
+                        # Note: Using /E without /PURGE to preserve files in destination
+                        # To enable mirroring (delete files in dest not in source), change /E to /MIR
+                        flags_str = ' '.join(robocopy_flags_list)
+                        exclude_dirs_str = ' '.join([f'"{d}"' for d in exclude_dirs_list])
+                        exclude_files_str = ' '.join([f'"{f}"' for f in exclude_files_list])
+                        
                         robocopy_cmd = (
-                            f'robocopy "{source_win}" "{destination_win}" /MIR /R:3 /W:5 /MT:8 '
-                            f'/DCOPY:DAT /COPY:DAT /TIMFIX '
-                            f'/XA:SH '
-                            f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
-                            f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
+                            f'robocopy "{source_win}" "{destination_win}" {flags_str} '
+                            f'/XD {exclude_dirs_str} '
+                            f'/XF {exclude_files_str} '
                             f'& echo. & echo Sync completed. Press any key to close... & pause'
                         )
                         
@@ -603,28 +596,19 @@ end tell
                         return False
         else:
             # Run synchronously with subprocess.run
+            # Note: --delete flag removed to preserve files in destination
+            # To enable mirroring (delete files in dest not in source), uncomment the '--delete' line below
             cmd = [
                 'rsync',
                 '-avh',                    # Archive, verbose, human-readable
                 '--progress',              # Show progress
-                '--delete',                # Delete files in dest that don't exist in source
-                '--exclude=.*',            # Exclude hidden files/dirs (starting with .)
-                '--exclude=__pycache__',
-                '--exclude=node_modules',
-                '--exclude=*.pyc',
-                '--exclude=*.pyo',
-                '--exclude=*.tmp',
-                '--exclude=*.temp',
-                '--exclude=*.log',
-                '--exclude=*.swp',
-                '--exclude=*.swo',
-                '--exclude=*~',
-                '--exclude=.DS_Store',
-                '--exclude=Thumbs.db',
-                '--exclude=desktop.ini',
-                src,
-                dst
+                # '--delete',              # DISABLED: Uncomment to delete files in dest that don't exist in source
             ]
+            # Add exclude patterns from common list
+            for pattern in rsync_exclude_patterns:
+                cmd.append(f'--exclude={pattern}')
+            # Add source and destination
+            cmd.extend([src, dst])
             
             print(dbh + ' Executing rsync: {} -> {}'.format(source, destination))
             try:
