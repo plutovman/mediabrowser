@@ -338,14 +338,16 @@ def vpr_file_parts_get(file_name: str):
 
 ###############################################################################
 ###############################################################################
-def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
+def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_term: bool = False):
     """
     OS-aware directory synchronization using rsync (Linux/macOS/WSL) or robocopy (Windows).
     
     Args:
         path_local: Local directory path
         path_netwk: Network directory path
-        direction: 'LOCAL TO NETWK' or 'NETWK TO LOCAL'
+        direction: dbj.sync_local_to_netwk or dbj.sync_netwk_to_local
+        show_term: If True, opens terminal window and runs async with Popen. 
+                  If False, runs synchronously with subprocess.run (default)
     
     Returns:
         bool: True if synchronization succeeded, False otherwise
@@ -355,6 +357,7 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
         - Ignores common temporary and system files
         - Uses archive mode to preserve permissions and timestamps
         - Deletes files in destination that don't exist in source
+        - Includes timestamp handling to prevent 1980 date issue (Windows)
     """
 
     func_name = inspect.stack()[0][3]
@@ -364,10 +367,10 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
     system = platform.system()
     
     # Determine source and destination based on direction
-    if direction == 'LOCAL TO NETWK':
+    if direction == dbj.sync_local_to_netwk:
         source = path_local
         destination = path_netwk
-    elif direction == 'NETWK TO LOCAL':
+    elif direction == dbj.sync_netwk_to_local:
         source = path_netwk
         destination = path_local
     else:
@@ -392,61 +395,92 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
     if system == 'Windows':
         # Use robocopy for Windows
         # /MIR = Mirror (copy all, delete extras)
+        # /DCOPY:DAT = Copy Data, Attributes, Timestamps for directories
+        # /COPY:DAT = Copy Data, Attributes, Timestamps for files
+        # /TIMFIX = Fix file times on all files (prevents 1980 date issue)
         # /XA:SH = Exclude system and hidden files
         # /XD = Exclude directories
         # /XF = Exclude files
         # /R:3 = Retry 3 times on failure
         # /W:5 = Wait 5 seconds between retries
         # /MT:8 = Use 8 threads for faster copying
-        # /NFL = No file list (reduce output)
-        # /NDL = No directory list
-        # /NP = No progress percentage
-        # /LOG = Log to file (optional)
         
-        cmd = [
-            'robocopy',
-            source,
-            destination,
-            '/MIR',                    # Mirror directory tree
-            '/R:3',                    # Retry 3 times
-            '/W:5',                    # Wait 5 seconds between retries
-            '/MT:8',                   # Multi-threaded (8 threads)
-            '/XA:SH',                  # Exclude system and hidden files
-            '/XD',                     # Exclude these directories:
-            '.*',                      # Hidden directories (starting with .)
-            '__pycache__',
-            'node_modules',
-            '.git',
-            '.svn',
-            '.DS_Store',
-            'Thumbs.db',
-            '/XF',                     # Exclude these files:
-            '.*',                      # Hidden files (starting with .)
-            '*.tmp',
-            '*.temp',
-            '*.log',
-            '*.swp',
-            '*.swo',
-            '*~',
-            'desktop.ini',
-            '.DS_Store',
-            'Thumbs.db'
-        ]
-        
-        print(dbh + ' Executing robocopy: {} -> {}'.format(source, destination))
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            # Robocopy return codes: 0-7 are success, 8+ are errors
-            if result.returncode < 8:
-                print(dbh + ' Robocopy completed successfully (exit code: {})'.format(result.returncode))
+        if show_term:
+            # Build command string for terminal window
+            robocopy_cmd = (
+                f'robocopy "{source}" "{destination}" /MIR /R:3 /W:5 /MT:8 '
+                f'/DCOPY:DAT /COPY:DAT /TIMFIX '
+                f'/XA:SH '
+                f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
+                f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
+                f'& echo. & echo Sync completed. Press any key to close... & pause'
+            )
+            
+            # Launch Command Prompt window
+            print(dbh + ' Launching Command Prompt window for robocopy: {} -> {}'.format(source, destination))
+            try:
+                subprocess.Popen(
+                    ['cmd', '/c', 'start', 'cmd', '/k',
+                     f'echo Synchronizing: {direction} & '
+                     f'echo Source: {source} & '
+                     f'echo Destination: {destination} & '
+                     f'echo. & '
+                     f'{robocopy_cmd}'],
+                    shell=True
+                )
                 return True
-            else:
-                print(dbh + ' Robocopy failed with exit code: {}'.format(result.returncode))
-                print(dbh + ' Error output: {}'.format(result.stderr))
+            except Exception as e:
+                print(dbh + ' Failed to launch Command Prompt: {}'.format(e))
                 return False
-        except Exception as e:
-            print(dbh + ' Robocopy command failed: {}'.format(e))
-            return False
+        else:
+            # Run synchronously with subprocess.run
+            cmd = [
+                'robocopy',
+                source,
+                destination,
+                '/MIR',                    # Mirror directory tree
+                '/R:3',                    # Retry 3 times
+                '/W:5',                    # Wait 5 seconds between retries
+                '/MT:8',                   # Multi-threaded (8 threads)
+                '/DCOPY:DAT',              # Copy Data, Attributes, Timestamps for directories
+                '/COPY:DAT',               # Copy Data, Attributes, Timestamps for files
+                '/TIMFIX',                 # Fix file times (prevents 1980 date issue)
+                '/XA:SH',                  # Exclude system and hidden files
+                '/XD',                     # Exclude these directories:
+                '.*',                      # Hidden directories (starting with .)
+                '__pycache__',
+                'node_modules',
+                '.git',
+                '.svn',
+                '.DS_Store',
+                'Thumbs.db',
+                '/XF',                     # Exclude these files:
+                '.*',                      # Hidden files (starting with .)
+                '*.tmp',
+                '*.temp',
+                '*.log',
+                '*.swp',
+                '*.swo',
+                '*~',
+                'desktop.ini',
+                '.DS_Store',
+                'Thumbs.db'
+            ]
+            
+            print(dbh + ' Executing robocopy: {} -> {}'.format(source, destination))
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                # Robocopy return codes: 0-7 are success, 8+ are errors
+                if result.returncode < 8:
+                    print(dbh + ' Robocopy completed successfully (exit code: {})'.format(result.returncode))
+                    return True
+                else:
+                    print(dbh + ' Robocopy failed with exit code: {}'.format(result.returncode))
+                    print(dbh + ' Error output: {}'.format(result.stderr))
+                    return False
+            except Exception as e:
+                print(dbh + ' Robocopy command failed: {}'.format(e))
+                return False
             
     else:
         # Use rsync for Linux, macOS, and WSL
@@ -457,51 +491,159 @@ def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
         # --progress = show progress during transfer
         
         # Ensure paths end with / for rsync
-        if not source.endswith('/'):
-            source += '/'
-        if not destination.endswith('/'):
-            destination += '/'
+        src = source if source.endswith('/') else source + '/'
+        dst = destination if destination.endswith('/') else destination + '/'
         
-        cmd = [
-            'rsync',
-            '-avh',                    # Archive, verbose, human-readable
-            '--progress',              # Show progress
-            '--exclude=.*',            # Exclude hidden files/dirs (starting with .)
-            '--exclude=__pycache__',
-            '--exclude=node_modules',
-            '--exclude=*.pyc',
-            '--exclude=*.pyo',
-            '--exclude=*.tmp',
-            '--exclude=*.temp',
-            '--exclude=*.log',
-            '--exclude=*.swp',
-            '--exclude=*.swo',
-            '--exclude=*~',
-            '--exclude=.DS_Store',
-            '--exclude=Thumbs.db',
-            '--exclude=desktop.ini',
-            source,
-            destination
-        ]
-        
-        print(dbh + ' Executing rsync: {} -> {}'.format(source, destination))
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                print(dbh + ' Rsync completed successfully')
-                return True
-            else:
-                print(dbh + ' Rsync failed with exit code: {}'.format(result.returncode))
-                print(dbh + ' Error output: {}'.format(result.stderr))
+        if show_term:
+            # Build rsync command string for terminal window
+            rsync_cmd = (
+                f"rsync -avh --progress "
+                f"--exclude='.*' --exclude='__pycache__' --exclude='node_modules' "
+                f"--exclude='*.pyc' --exclude='*.pyo' --exclude='*.tmp' --exclude='*.temp' "
+                f"--exclude='*.log' --exclude='*.swp' --exclude='*.swo' --exclude='*~' "
+                f"--exclude='.DS_Store' --exclude='Thumbs.db' --exclude='desktop.ini' "
+                f"--delete '{src}' '{dst}'"
+            )
+            
+            if system == 'Darwin':
+                # macOS: Use AppleScript to open Terminal
+                terminal_script = f'''
+tell application "Terminal"
+    do script "echo 'Synchronizing: {direction}'; echo 'Source: {source}'; echo 'Destination: {destination}'; echo ''; {rsync_cmd}; echo ''; echo 'Sync completed. Press any key to close...'; read -n 1"
+    activate
+end tell
+'''
+                print(dbh + ' Launching Terminal window for rsync: {} -> {}'.format(source, destination))
+                try:
+                    subprocess.Popen(['osascript', '-e', terminal_script])
+                    return True
+                except Exception as e:
+                    print(dbh + ' Failed to launch Terminal: {}'.format(e))
+                    return False
+                    
+            elif system == 'Linux':
+                # Check if running in WSL
+                is_wsl_env = False
+                try:
+                    with open('/proc/version', 'r') as f:
+                        version_info = f.read().lower()
+                        is_wsl_env = 'microsoft' in version_info or 'wsl' in version_info
+                except:
+                    pass
+                
+                if is_wsl_env:
+                    # WSL: Use Windows Command Prompt with wslpath
+                    try:
+                        # Convert Linux paths to Windows paths
+                        result_src = subprocess.run(['wslpath', '-w', source], 
+                                                   capture_output=True, text=True, check=True)
+                        result_dst = subprocess.run(['wslpath', '-w', destination], 
+                                                   capture_output=True, text=True, check=True)
+                        source_win = result_src.stdout.strip()
+                        destination_win = result_dst.stdout.strip()
+                        
+                        # Build robocopy command for WSL
+                        robocopy_cmd = (
+                            f'robocopy "{source_win}" "{destination_win}" /MIR /R:3 /W:5 /MT:8 '
+                            f'/DCOPY:DAT /COPY:DAT /TIMFIX '
+                            f'/XA:SH '
+                            f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
+                            f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
+                            f'& echo. & echo Sync completed. Press any key to close... & pause'
+                        )
+                        
+                        print(dbh + ' Launching Command Prompt window (WSL) for robocopy: {} -> {}'.format(source, destination))
+                        subprocess.Popen(
+                            ['cmd.exe', '/c', 'start', 'cmd', '/k',
+                             f'echo Synchronizing: {direction} & '
+                             f'echo Source: {source_win} & '
+                             f'echo Destination: {destination_win} & '
+                             f'echo. & '
+                             f'{robocopy_cmd}'],
+                            shell=False
+                        )
+                        return True
+                    except Exception as e:
+                        print(dbh + ' Failed to launch Command Prompt (WSL): {}'.format(e))
+                        return False
+                else:
+                    # Native Linux: Use terminal emulator
+                    terminal_cmd = None
+                    
+                    # Try common Linux terminal emulators
+                    if subprocess.run(['which', 'gnome-terminal'], capture_output=True).returncode == 0:
+                        terminal_cmd = [
+                            'gnome-terminal', '--',
+                            'bash', '-c',
+                            f"echo 'Synchronizing: {direction}'; echo 'Source: {source}'; echo 'Destination: {destination}'; echo ''; {rsync_cmd}; echo ''; echo 'Sync completed. Press any key to close...'; read -n 1"
+                        ]
+                    elif subprocess.run(['which', 'xterm'], capture_output=True).returncode == 0:
+                        terminal_cmd = [
+                            'xterm', '-hold', '-e',
+                            'bash', '-c',
+                            f"echo 'Synchronizing: {direction}'; echo 'Source: {source}'; echo 'Destination: {destination}'; echo ''; {rsync_cmd}; echo ''; echo 'Sync completed. Press any key to close...'; read -n 1"
+                        ]
+                    elif subprocess.run(['which', 'konsole'], capture_output=True).returncode == 0:
+                        terminal_cmd = [
+                            'konsole', '--hold', '-e',
+                            'bash', '-c',
+                            f"echo 'Synchronizing: {direction}'; echo 'Source: {source}'; echo 'Destination: {destination}'; echo ''; {rsync_cmd}; echo ''; echo 'Sync completed. Press any key to close...'; read -n 1"
+                        ]
+                    
+                    if terminal_cmd:
+                        print(dbh + ' Launching terminal window for rsync: {} -> {}'.format(source, destination))
+                        try:
+                            subprocess.Popen(terminal_cmd)
+                            return True
+                        except Exception as e:
+                            print(dbh + ' Failed to launch terminal: {}'.format(e))
+                            return False
+                    else:
+                        print(dbh + ' No terminal emulator found (tried gnome-terminal, xterm, konsole)')
+                        return False
+        else:
+            # Run synchronously with subprocess.run
+            cmd = [
+                'rsync',
+                '-avh',                    # Archive, verbose, human-readable
+                '--progress',              # Show progress
+                '--delete',                # Delete files in dest that don't exist in source
+                '--exclude=.*',            # Exclude hidden files/dirs (starting with .)
+                '--exclude=__pycache__',
+                '--exclude=node_modules',
+                '--exclude=*.pyc',
+                '--exclude=*.pyo',
+                '--exclude=*.tmp',
+                '--exclude=*.temp',
+                '--exclude=*.log',
+                '--exclude=*.swp',
+                '--exclude=*.swo',
+                '--exclude=*~',
+                '--exclude=.DS_Store',
+                '--exclude=Thumbs.db',
+                '--exclude=desktop.ini',
+                src,
+                dst
+            ]
+            
+            print(dbh + ' Executing rsync: {} -> {}'.format(source, destination))
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode == 0:
+                    print(dbh + ' Rsync completed successfully')
+                    return True
+                else:
+                    print(dbh + ' Rsync failed with exit code: {}'.format(result.returncode))
+                    print(dbh + ' Error output: {}'.format(result.stderr))
+                    return False
+            except FileNotFoundError:
+                print(dbh + ' rsync command not found. Please install rsync.')
                 return False
-        except FileNotFoundError:
-            print(dbh + ' rsync command not found. Please install rsync.')
-            return False
-        except Exception as e:
-            print(dbh + ' Rsync command failed: {}'.format(e))
-            return False
+            except Exception as e:
+                print(dbh + ' Rsync command failed: {}'.format(e))
+                return False
 
-# end of def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str):
+# end of def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_term: bool = False):
 
 ###############################################################################
 ###############################################################################

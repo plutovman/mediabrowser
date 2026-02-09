@@ -74,10 +74,6 @@ list_storage_src = [storage_local, storage_netwk]
 if not list_storage_src:
     list_storage_src = [storage_netwk]
 
-sync_local_to_netwk = 'LOCAL TO NETWK'
-sync_netwk_to_local = 'NETWK TO LOCAL'
-list_sync_directions = [sync_local_to_netwk, sync_netwk_to_local]
-
 # View configuration
 CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
 CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
@@ -260,7 +256,7 @@ def register_routes(flask_app):
                               git_info=git_info,
                               years=years,
                               storage_sources=list_storage_src,
-                              sync_directions=list_sync_directions,
+                              sync_directions=dbj.list_sync_directions,
                               show_sync_menu=show_sync_menu)
     
     # ========================================================================
@@ -334,7 +330,7 @@ def register_routes(flask_app):
         if not job_path_job:
             return jsonify({'success': False, 'message': 'job_path_job parameter required'}), 400
         
-        if not sync_direction or sync_direction not in list_sync_directions:
+        if not sync_direction or sync_direction not in dbj.list_sync_directions:
             return jsonify({'success': False, 'message': 'Invalid sync_direction'}), 400
         
         # Replace $DEPOT_ALL with actual path
@@ -360,7 +356,7 @@ def register_routes(flask_app):
             return jsonify({'success': False, 'message': 'Local/Network paths not configured'}), 500
         
         # Determine source and destination based on direction
-        if sync_direction == sync_local_to_netwk:
+        if sync_direction == dbj.sync_local_to_netwk:
             source = path_local
             destination = path_netwk
         else:  # NETWK TO LOCAL
@@ -417,44 +413,26 @@ end tell
             elif system == 'Linux':
                 # Check if running in WSL
                 if is_wsl():
-                    # WSL: Use Windows robocopy via cmd.exe
-                    # Convert Linux paths to Windows paths using wslpath
-                    source_win = convert_path_for_wsl(source)
-                    destination_win = convert_path_for_wsl(destination)
+                    # WSL: Use vpr_dir_synchronize utility
+                    success = vpr.vpr_dir_synchronize(
+                        path_local=path_local,
+                        path_netwk=path_netwk,
+                        direction=sync_direction,
+                        show_term=True
+                    )
                     
-                    if not source_win or not destination_win:
+                    if success:
+                        return jsonify({
+                            'success': True,
+                            'message': f'Sync started in terminal window (WSL) - {sync_direction}',
+                            'path_local': path_local,
+                            'path_netwk': path_netwk
+                        }), 200
+                    else:
                         return jsonify({
                             'success': False,
-                            'message': 'Failed to convert paths for WSL. Ensure wslpath is available.'
+                            'message': f'Sync failed to start (WSL) - {sync_direction}. Check console for details.'
                         }), 500
-                    
-                    # Build robocopy command with timestamp handling
-                    robocopy_cmd = (
-                        f'robocopy "{source_win}" "{destination_win}" /MIR /R:3 /W:5 /MT:8 '
-                        f'/DCOPY:DAT /COPY:DAT /TIMFIX '
-                        f'/XA:SH '
-                        f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
-                        f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
-                        f'& echo. & echo Sync completed. Press any key to close... & pause'
-                    )
-                    
-                    # Launch Windows Command Prompt from WSL
-                    subprocess.Popen(
-                        ['cmd.exe', '/c', 'start', 'cmd', '/k',
-                         f'echo Synchronizing: {sync_direction} & '
-                         f'echo Source: {source_win} & '
-                         f'echo Destination: {destination_win} & '
-                         f'echo. & '
-                         f'{robocopy_cmd}'],
-                        shell=False
-                    )
-                    
-                    return jsonify({
-                        'success': True,
-                        'message': f'Sync started in Command Prompt window (WSL) - {sync_direction}',
-                        'path_local': path_local,
-                        'path_netwk': path_netwk
-                    }), 200
                 else:
                     # Native Linux: Use rsync
                     # Ensure paths end with / for rsync
@@ -516,33 +494,26 @@ end tell
                         }), 500
                     
             elif system == 'Windows':
-                # Build robocopy command with timestamp handling to prevent 1980 date issue
-                robocopy_cmd = (
-                    f'robocopy "{source}" "{destination}" /MIR /R:3 /W:5 /MT:8 '
-                    f'/DCOPY:DAT /COPY:DAT /TIMFIX '  # Copy Data, Attributes, Timestamps and fix timestamps
-                    f'/XA:SH '
-                    f'/XD ".*" "__pycache__" "node_modules" ".git" ".svn" '
-                    f'/XF ".*" "*.tmp" "*.temp" "*.log" "*.swp" "*.swo" "*~" "desktop.ini" ".DS_Store" "Thumbs.db" '
-                    f'& echo. & echo Sync completed. Press any key to close... & pause'
+                # Use vpr_dir_synchronize utility
+                success = vpr.vpr_dir_synchronize(
+                    path_local=path_local,
+                    path_netwk=path_netwk,
+                    direction=sync_direction,
+                    show_term=True
                 )
                 
-                # Launch Command Prompt with robocopy
-                subprocess.Popen(
-                    ['cmd', '/c', 'start', 'cmd', '/k', 
-                     f'echo Synchronizing: {sync_direction} & '
-                     f'echo Source: {source} & '
-                     f'echo Destination: {destination} & '
-                     f'echo. & '
-                     f'{robocopy_cmd}'],
-                    shell=True
-                )
-                
-                return jsonify({
-                    'success': True,
-                    'message': f'Sync started in Command Prompt window - {sync_direction}',
-                    'path_local': path_local,
-                    'path_netwk': path_netwk
-                }), 200
+                if success:
+                    return jsonify({
+                        'success': True,
+                        'message': f'Sync started in Command Prompt window - {sync_direction}',
+                        'path_local': path_local,
+                        'path_netwk': path_netwk
+                    }), 200
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': f'Sync failed to start - {sync_direction}. Check console for details.'
+                    }), 500
             else:
                 return jsonify({
                     'success': False,

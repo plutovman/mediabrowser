@@ -23,6 +23,10 @@ list_dirs_movies = ['src', 'out']
 list_dirs_nuke = []
 list_dirs_python = []
 
+sync_local_to_netwk = 'LOCAL TO NETWK'
+sync_netwk_to_local = 'NETWK TO LOCAL'
+list_sync_directions = [sync_local_to_netwk, sync_netwk_to_local]
+
 dict_apps = {
     'adobe': list_dirs_adobe,
     'audio': list_dirs_audio,
