@@ -695,6 +695,10 @@ end tell
             'job_date_due', 'job_charge1', 'job_charge2', 'job_charge3', 'job_tags', 'job_notes'
         ]
         
+        # Automatically set edit tracking fields
+        user_info = vpr.get_user_info_current()
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        
         # Build UPDATE query dynamically
         set_clauses = []
         values = []
@@ -702,6 +706,14 @@ end tell
             if field in data:
                 set_clauses.append(f"{field} = ?")
                 values.append(data[field])
+        
+        # Add edit tracking fields (always updated on edit)
+        set_clauses.append("job_edit_date = ?")
+        values.append(current_date)
+        set_clauses.append("job_edit_user_id = ?")
+        values.append(user_info['user_id'])
+        set_clauses.append("job_edit_user_name = ?")
+        values.append(user_info['user_name'])
         
         if not set_clauses:
             return jsonify({'success': False, 'message': 'No fields to update'}), 400
@@ -719,7 +731,11 @@ end tell
                 conn.close()
                 return jsonify({'success': False, 'message': 'Job not found'}), 404
             
-            # Fetch updated job data to return to frontend
+            conn.close()  # Close connection to flush changes
+            
+            # Reopen connection to ensure SELECT sees committed data (important for Windows)
+            conn = db_get_connection()
+            cursor = conn.cursor()
             cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
             row = cursor.fetchone()
             updated_job = dict(row) if row else None
@@ -731,8 +747,17 @@ end tell
                 'job': updated_job
             }), 200
         except Exception as e:
-            conn.close()
-            return jsonify({'success': True, 'message': 'Job updated successfully'
+            return jsonify({'success': False, 'message': str(e)}), 500
+    
+    @flask_app.route('/api/job_name_validate', methods=['POST'])
+    def api_job_name_validate():
+        """Validate job base and generate job_name and job_alias"""
+        data = request.get_json() or {}
+        job_base = data.get('job_base', '').strip()
+        
+        if not job_base:
+            return jsonify({'valid': False, 'reason': 'Job base cannot be empty'}), 200
+        
         # Validate job_base using vpr_jobtools
         is_valid, reason = vpr.vpr_job_base_is_valid(job_base)
         

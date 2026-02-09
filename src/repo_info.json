@@ -1,5 +1,5 @@
 {
-  "hash": "112d2bc",
-  "date": "2026-02-06 08:24:33",
-  "message": "misc refactors"
+  "hash": "3924bf7",
+  "date": "2026-02-08 13:20:18",
+  "message": "updated get_user_info_current() to accept optional user_id field"
 }

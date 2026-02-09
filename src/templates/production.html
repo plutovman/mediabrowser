@@ -1281,6 +1281,30 @@
                     if (data.success) {
                         showStatus('Job data saved successfully', 'success');
                         
+                        // Update all fields with returned data (including edit tracking)
+                        if (data.job) {
+                            console.log('Job data received:', data.job);
+                            console.log('Edit date field:', document.getElementById('job_edit_date'));
+                            console.log('Edit user id field:', document.getElementById('job_edit_user_id'));
+                            console.log('Edit user name field:', document.getElementById('job_edit_user_name'));
+                            console.log('Setting job_edit_date to:', data.job.job_edit_date);
+                            // Update editable fields that were saved
+                            editableFields.forEach(fieldId => {
+                                const field = document.getElementById(fieldId);
+                                if (field && data.job[fieldId] !== undefined) {
+                                    field.value = data.job[fieldId] || '';
+                                }
+                            });
+                            
+                            // Update edit tracking fields (these are readonly)
+                            document.getElementById('job_edit_date').value = data.job.job_edit_date || '';
+                            document.getElementById('job_edit_user_id').value = data.job.job_edit_user_id || '';
+                            document.getElementById('job_edit_user_name').value = data.job.job_edit_user_name || '';
+                            
+                            // Update originalJobData so changes persist
+                            originalJobData = data.job;
+                        }
+                        
                         // Disable fields again and switch back to edit mode
                         editableFields.forEach(fieldId => {
                             const field = document.getElementById(fieldId);
