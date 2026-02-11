@@ -247,6 +247,11 @@ class LaunchpadApp(ctk.CTk):
     def flask_run_server(self):
         """Run Flask server in thread"""
         try:
+            # Initialize database indexes for optimal performance
+            print("\n" + "="*60)
+            flsk.ensure_all_indexes()
+            print("="*60 + "\n")
+            
             # Configure Flask app from app_flask module
             flsk.app.config['SERVER_NAME'] = None  # Allow dynamic host/port
             
