@@ -1,0 +1,7 @@
+<!-- In cart.html or search.html -->
+<td>
+    {{ item.file_id }}
+    {% if item.is_synced %}
+        <span title="This item exists in both proj and arch tables. Edits will sync.">🔗</span>
+    {% endif %}
+</td>
