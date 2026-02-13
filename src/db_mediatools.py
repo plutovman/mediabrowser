@@ -251,8 +251,9 @@ def db_media_copy_patha_to_pathb(patha: str, pathb: str, file_name: str, file_ex
         file_ext = os.path.splitext(file_name)[1].lstrip('.').lower()
         
         # Build full paths
+        file_name_dst = file_name.replace(' ', '_')  # replace spaces with underscores
         path_src = os.path.join(patha, file_name)
-        path_dst = os.path.join(pathb, file_name)
+        path_dst = os.path.join(pathb, file_name_dst)
         
         # 1. Verify source path exists and is readable
         if not os.path.exists(path_src):
@@ -277,18 +278,41 @@ def db_media_copy_patha_to_pathb(patha: str, pathb: str, file_name: str, file_ex
         # 3. Copy the file
         try:
             import shutil
-            shutil.copy2(path_src, path_dst)  # copy2 preserves metadata
-            result['success'] = True
+            
+            # Special handling for video formats that need conversion to MP4
+            formats_to_convert = ['wmv', 'mov', 'avi', 'mkv', 'flv', 'webm']
+            
+            if file_ext in formats_to_convert:
+                # Build MP4 output path
+                file_name_base = os.path.splitext(file_name_dst)[0]
+                file_name_mp4 = f"{file_name_base}.mp4"
+                path_dst_mp4 = os.path.join(pathb, file_name_mp4)
+                
+                # Convert to MP4 using dedicated function
+                conversion_success = db_media_video_to_mp4(path_src, file_ext, path_dst_mp4)
+                
+                if conversion_success:
+                    # Update paths for thumbnail generation
+                    path_dst = path_dst_mp4
+                    file_ext = 'mp4'
+                    result['success'] = True
+                else:
+                    result['error'] = f"Failed to convert {file_ext.upper()} to MP4"
+                    return result
+            else:
+                # Standard copy for all other file types (including native mp4)
+                shutil.copy2(path_src, path_dst)  # copy2 preserves metadata
+                result['success'] = True
         except (IOError, OSError, shutil.Error) as e:
             result['error'] = f"Failed to copy file: {e}"
             return result
         
         # 4. Post-processing for specific file types
         # For video files (mp4), create a thumbnail image at 25% progress
-        if file_ext in ['mp4', 'mov', 'avi', 'mkv']:
+        if file_ext in ['mp4']:
             try:
                 # Build thumbnail path (same name but .png extension)
-                file_name_base = os.path.splitext(file_name)[0]
+                file_name_base = os.path.splitext(file_name_dst)[0]
                 thumb_name = f"{file_name_base}.png"
                 path_thumb = os.path.join(pathb, thumb_name)
                 
@@ -359,4 +383,79 @@ def db_media_thumbnail_capture_video(path_video: str, path_thumb: str, time_sec:
         raise RuntimeError(f"Failed to capture thumbnail from video: {path_video}")
 
     cap.release()
+
+
+def db_media_video_to_mp4(path_src: str, file_ext: str, path_dst_mp4: str) -> bool:
+    """
+    Convert various video formats to MP4 using ffmpeg.
     
+    Supports: mov, avi, mkv, wmv, flv, webm
+    
+    Args:
+        path_src: Source video file path
+        file_ext: Source file extension (without dot)
+        path_dst_mp4: Destination MP4 file path
+    
+    Returns:
+        bool: True if conversion succeeded, False otherwise
+    """
+    
+    # Validate source file exists
+    if not os.path.exists(path_src):
+        print(f"ERROR: Source video not found: {path_src}")
+        return False
+    
+    # List of supported formats for conversion
+    supported_formats = ['mov', 'avi', 'mkv', 'wmv', 'flv', 'webm']
+    
+    if file_ext.lower() not in supported_formats:
+        print(f"ERROR: Unsupported format for conversion: {file_ext}")
+        return False
+    
+    try:
+        import subprocess
+        
+        # Build ffmpeg command with format-specific optimizations
+        cmd = [
+            'ffmpeg',
+            '-i', path_src,              # Input file
+            '-c:v', 'libx264',           # Video codec: H.264
+            '-crf', '23',                # Quality (0=lossless, 51=worst, 23=default/good)
+            '-preset', 'medium',         # Encoding speed vs compression efficiency
+            '-c:a', 'aac',               # Audio codec: AAC
+            '-b:a', '128k',              # Audio bitrate
+            '-movflags', '+faststart',   # Enable streaming/web playback
+            '-y',                        # Overwrite output file without prompting
+            path_dst_mp4
+        ]
+        
+        # Execute ffmpeg conversion
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        # Verify output file was created
+        if os.path.exists(path_dst_mp4):
+            file_size = os.path.getsize(path_dst_mp4) / (1024 * 1024)  # MB
+            print(f"  Converted {file_ext.upper()} to MP4: {os.path.basename(path_dst_mp4)} ({file_size:.2f} MB)")
+            return True
+        else:
+            print(f"ERROR: Conversion completed but output file not found: {path_dst_mp4}")
+            return False
+            
+    except subprocess.CalledProcessError as e:
+        print(f"ERROR: FFmpeg conversion failed for {path_src}")
+        print(f"  stderr: {e.stderr}")
+        return False
+        
+    except FileNotFoundError:
+        print("ERROR: FFmpeg not found. Install with: brew install ffmpeg")
+        return False
+        
+    except Exception as e:
+        print(f"ERROR: Unexpected error during conversion: {e}")
+        return False    
+
