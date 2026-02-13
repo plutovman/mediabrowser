@@ -930,12 +930,16 @@
                 setTimeout(() => {
                     // Only clear if the current message still has the same type AND no processing message exists
                     const currentMsg = container.querySelector('.status-message');
-                    //const stillProcessing = sessionStorage.getItem('processingMessage');
-                    //if stillProcessing{
-                    //    return; // Don't clear if processing message is active
-                    if (currentMsg && currentMsg.classList.contains(`status-${type}`) {
-                        connst processingMsg = 'Uploading...Please wait.';
-                        container.innerHTML = `<div class="status-message status-processing">${processingMsg}</div>`;
+                    const stillProcessing = sessionStorage.getItem('processingMessage');
+                    
+                    // Don't clear if processing message is active
+                    if (stillProcessing) {
+                        return;
+                    }
+                    
+                    // Clear the status message if it's still the same type
+                    if (currentMsg && currentMsg.classList.contains(`status-${type}`)) {
+                        container.innerHTML = '';
                     }
                 }, 10000);
             }

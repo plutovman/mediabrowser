@@ -4,8 +4,8 @@ depot_local = os.getenv('DEPOT_ALL')
 #path_base_photo = os.path.join(depot_local, 'assetdepot', 'photo', 'people', 'ig')
 path_base_photo = os.path.join(depot_local, 'assetdepot', 'photo')
 path_db_photo = os.path.join(path_base_photo, 'db') 
-file_media_sqlite = 'db_media.sqlite3'
-path_db_media = os.path.join(path_db_photo, file_media_sqlite)
+file_sqlite_media = 'db_media.sqlite3'
+path_db_media = os.path.join(path_db_photo, file_sqlite_media)
 
 # Connect to the database (or create it if it doesn't exist)
 conn = sqlite3.connect(path_db_media)

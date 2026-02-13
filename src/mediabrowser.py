@@ -47,8 +47,8 @@ path_base_thumbs = os.path.join(path_base_media, 'dummy', 'thumbnails')
 path_base_archive = os.path.join(path_base_media, 'archive')
 
 path_db_media = os.path.join(depot_local, 'assetdepot', 'media', 'dummy', 'db')
-file_media_sqlite = 'media_dummy.sqlite'
-path_db_media = os.path.join(path_db_media, file_media_sqlite)
+file_sqlite_media = 'media_dummy.sqlite'
+path_db_media = os.path.join(path_db_media, file_sqlite_media)
 
 # Git repository information (defined once at module level)
 file_git_info = 'repo_info.json'

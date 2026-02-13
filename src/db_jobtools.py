@@ -586,3 +586,6 @@ def db_sqlite_table_jobs_create(db_path: str, table_name: str):
     conn.commit()
     #conn.close()
     return conn
+
+# end of def db_sqlite_table_jobs_create(db_path: str, table_name: str):
+
