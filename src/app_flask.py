@@ -222,14 +222,12 @@ def ensure_all_indexes():
         
         # Common filter fields used in project queries
         project_indexes = [
-            ('idx_year', 'year'),
-            ('idx_job_status', 'job_status'),
-            ('idx_job_type', 'job_type'),
-            ('idx_client', 'client'),
+            ('idx_job_name', 'job_name'),
+            ('idx_job_alias', 'job_alias'),
+            ('idx_job_year', 'job_year'),
             ('idx_job_id', 'job_id'),
             # Composite indexes for dashboard queries
-            ('idx_year_status', 'year, job_status'),
-            ('idx_status_type', 'job_status, job_type'),
+            ('idx_year_alias', 'job_year, job_alias'),
         ]
         
         if os.path.exists(projects_db_path):
