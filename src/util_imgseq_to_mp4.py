@@ -14,8 +14,9 @@ from datetime import date, datetime
 
 DEFAULT_FPS = 24
 DEFAULT_TITLE_SECONDS = 5
-FRAME_PATTERN = re.compile(r"^img\.(\d{4,5})\.png$")
+FRAME_PATTERN = re.compile(r"^(?P<base>.+)\.(?P<frame>\d{4,5})\.png$")
 SLATE_OUTPUT = True
+LOGO_SCALE = 0.25
 
 
 def fail(message: str, exit_code: int = 1) -> None:
@@ -58,18 +59,39 @@ def validate_source(path_src: str, wf_img_dir: str) -> str:
     return path_src_abs
 
 
-def find_sequence_frames(path_src: str) -> list[int]:
+def find_sequence_frames(path_src: str) -> tuple[str, int, list[int]]:
     frame_numbers: list[int] = []
+    base_name: str | None = None
+    frame_width: int | None = None
     for file_name in os.listdir(path_src):
         match = FRAME_PATTERN.match(file_name)
         if match:
-            frame_numbers.append(int(match.group(1)))
+            base = match.group("base")
+            frame_text = match.group("frame")
+            if base_name is None:
+                base_name = base
+                frame_width = len(frame_text)
+            elif base != base_name:
+                fail(
+                    "Multiple base names detected in sequence directory\n"
+                    f"  base A: {base_name}\n"
+                    f"  base B: {base}\n"
+                    f"  source: {path_src}"
+                )
+            elif frame_width != len(frame_text):
+                fail(
+                    "Mixed frame padding widths detected in sequence directory\n"
+                    f"  base: {base_name}\n"
+                    f"  widths: {frame_width} and {len(frame_text)}\n"
+                    f"  source: {path_src}"
+                )
+            frame_numbers.append(int(frame_text))
 
-    if not frame_numbers:
-        fail(f"No frames matching img_%04d.png found in: {path_src}")
+    if not frame_numbers or base_name is None or frame_width is None:
+        fail(f"No frames matching [anytext].####.png found in: {path_src}")
 
     frame_numbers.sort()
-    return frame_numbers
+    return base_name, frame_width, frame_numbers
 
 
 def summarize_missing(values: list[int]) -> str:
@@ -87,13 +109,13 @@ def summarize_missing(values: list[int]) -> str:
     return ", ".join(ranges)
 
 
-def validate_contiguous_frames(frame_numbers: list[int], path_src: str) -> tuple[int, int]:
+def validate_contiguous_frames(frame_numbers: list[int], path_src: str, base_name: str, frame_width: int) -> tuple[int, int]:
     start = frame_numbers[0]
     end = frame_numbers[-1]
     frame_set = set(frame_numbers)
     missing = [number for number in range(start, end + 1) if number not in frame_set]
     if missing:
-        sample = ", ".join(f"img_{number:04d}.png" for number in missing[:20])
+        sample = ", ".join(f"{base_name}.{number:0{frame_width}d}.png" for number in missing[:20])
         missing_ranges = summarize_missing(missing)
         fail(
             "Missing frames detected in sequence:\n"
@@ -146,6 +168,7 @@ def build_slate_filter(
     movie_date: str,
     copyright_text: str,
     font_file: str | None,
+    logo_scale: float,
 ) -> str:
     title_esc = ffmpeg_escape(movie_title)
     proj_esc = ffmpeg_escape(f"PROJECT: {project_name}")
@@ -161,7 +184,8 @@ def build_slate_filter(
         "drawtext=" + font_opt + "fontcolor=white:fontsize=34:text='" + scene_esc + "':x=(w-text_w)/2:y=h*0.56,"
         "drawtext=" + font_opt + "fontcolor=white:fontsize=34:text='" + date_esc + "':x=(w-text_w)/2:y=h*0.63,"
         "drawtext=" + font_opt + "fontcolor=white:fontsize=28:text='" + copy_esc + "':x=(w-text_w)/2:y=h*0.83[sbase];"
-        "[sbase][1:v]overlay=x=W-w-80:y=70"
+        "[1:v]scale=iw*" + str(logo_scale) + ":ih*" + str(logo_scale) + "[logo];"
+        "[sbase][logo]overlay=x=W-w-80:y=70"
     )
 
 
@@ -176,8 +200,15 @@ def run_cmd(cmd: list[str], step_name: str) -> None:
         )
 
 
-def make_sequence_video(path_src: str, fps: int, frame_start: int, path_out: str) -> None:
-    input_pattern = os.path.join(path_src, "img_%04d.png")
+def make_sequence_video(
+    path_src: str,
+    fps: int,
+    frame_start: int,
+    base_name: str,
+    frame_width: int,
+    path_out: str,
+) -> None:
+    input_pattern = os.path.join(path_src, f"{base_name}.%0{frame_width}d.png")
     cmd = [
         "ffmpeg",
         "-y",
@@ -215,6 +246,7 @@ def make_slate_video(
         movie_date=movie_date,
         copyright_text=copyright_text,
         font_file=font_file,
+        logo_scale=LOGO_SCALE,
     )
 
     cmd = [
@@ -291,9 +323,24 @@ def main() -> None:
     font_file = os.path.abspath(args.font_file) if args.font_file else None
     if font_file and not os.path.isfile(font_file):
         fail(f"Font file not found: {font_file}")
+    if font_file is None:
+        default_fonts = [
+            "/Library/Fonts/Arial.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Helvetica.ttf",
+        ]
+        font_file = next((path for path in default_fonts if os.path.isfile(path)), None)
+        if font_file is None:
+            fail("No font filename provided and no default font file found. Use --font-file.")
 
-    frame_numbers = find_sequence_frames(path_src)
-    frame_start, frame_end = validate_contiguous_frames(frame_numbers, path_src)
+    base_name, frame_width, frame_numbers = find_sequence_frames(path_src)
+    frame_start, frame_end = validate_contiguous_frames(
+        frame_numbers,
+        path_src,
+        base_name=base_name,
+        frame_width=frame_width,
+    )
     print(f"Found sequence: {len(frame_numbers)} frames ({frame_start:04d}-{frame_end:04d})")
 
     project_name, scene_name, movie_stem = derive_names(
@@ -311,7 +358,14 @@ def main() -> None:
 
     if not SLATE_OUTPUT:
         print("Encoding image sequence...")
-        make_sequence_video(path_src=path_src, fps=DEFAULT_FPS, frame_start=frame_start, path_out=path_dst)
+        make_sequence_video(
+            path_src=path_src,
+            fps=DEFAULT_FPS,
+            frame_start=frame_start,
+            base_name=base_name,
+            frame_width=frame_width,
+            path_out=path_dst,
+        )
         print("\nDone")
         print(f"  Source : {path_src}")
         print(f"  Output : {path_dst}")
@@ -338,7 +392,14 @@ def main() -> None:
         )
 
         print("Encoding image sequence...")
-        make_sequence_video(path_src=path_src, fps=DEFAULT_FPS, frame_start=frame_start, path_out=path_seq)
+        make_sequence_video(
+            path_src=path_src,
+            fps=DEFAULT_FPS,
+            frame_start=frame_start,
+            base_name=base_name,
+            frame_width=frame_width,
+            path_out=path_seq,
+        )
 
         print("Concatenating slate + sequence...")
         concat_videos(
