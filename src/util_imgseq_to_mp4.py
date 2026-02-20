@@ -26,7 +26,25 @@ def fail(message: str, exit_code: int = 1) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Convert img_%04d.png sequence to MP4 with title slate"
+        description="Convert img_%04d.png sequence to MP4 with title slate",
+        epilog=(
+            "Examples:\n"
+            "  %(prog)s\n"
+            "  %(prog)s --path-src /path/to/frames\n"
+            "  %(prog)s --movie-title 'My Scene' --font-file /Library/Fonts/Arial.ttf\n\n"
+            f"Defaults:\n"
+            f"  path-src: current working directory\n"
+            f"  movie-title: 'scene description'\n"
+            f"  font-file: auto-detected from system fonts\n"
+            f"  FPS: {DEFAULT_FPS}\n"
+            f"  Title duration: {DEFAULT_TITLE_SECONDS}s\n"
+            f"  Slate output: {'enabled' if SLATE_OUTPUT else 'disabled'}\n"
+            f"  Logo scale: {LOGO_SCALE}\n\n"
+            "Required environment variables:\n"
+            "  JOB_DIR: Project job directory\n"
+            "  WF_IMG_DIR: Workflow image directory\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--path-src",
