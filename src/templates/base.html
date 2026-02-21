@@ -43,6 +43,23 @@
             text-decoration: none;
         }
 
+        /* Global link colors */
+        a {
+            color: #4da6ff;  /* Unvisited links - bright blue */
+        }
+
+        a:visited {
+            color: #a8d8ff;  /* Visited links - lighter blue for visibility on dark background */
+        }
+
+        a:hover {
+            color: #6bb6ff;  /* Hover state - slightly brighter */
+        }
+
+        a:active {
+            color: #3a96ef;  /* Active state - slightly darker */
+        }
+
         h2 {
             color: #ffffff;
             text-align: center;
@@ -325,11 +342,12 @@
         {% endif %}
     </footer>
 
-    <!-- Modal for full-size image/video (common to all pages) -->
+    <!-- Modal for full-size image/video/audio (common to all pages) -->
     <div id="imageModal" class="modal">
         <span class="close">&times;</span>
         <img class="modal-content" id="modalImg" style="display:none;">
         <video class="modal-content" id="modalVideo" controls style="display:none;"></video>
+        <audio class="modal-content" id="modalAudio" controls style="display:none;"></audio>
     </div>
 
     <!-- Common modal and interaction scripts -->
@@ -337,6 +355,7 @@
         const modal = document.getElementById('imageModal');
         const modalImg = document.getElementById('modalImg');
         const modalVideo = document.getElementById('modalVideo');
+        const modalAudio = document.getElementById('modalAudio');
         const closeBtn = document.getElementsByClassName('close')[0];
 
         function closeModal() {
@@ -347,6 +366,10 @@
             modalVideo.removeAttribute('src');
             modalVideo.load();
             modalVideo.style.display = "none";
+            modalAudio.pause();
+            modalAudio.removeAttribute('src');
+            modalAudio.load();
+            modalAudio.style.display = "none";
         }
 
         document.querySelectorAll('[data-open-image]').forEach(img => {
@@ -367,9 +390,23 @@
                 modalVideo.preload = 'metadata';
                 modalVideo.style.display = "block";
                 modalImg.style.display = "none";
+                modalAudio.style.display = "none";
                 modal.style.display = "flex";
                 modalVideo.currentTime = 0;
                 modalVideo.play();
+            });
+        });
+
+        document.querySelectorAll('[data-open-audio]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                modalAudio.src = this.dataset.openAudio;
+                modalAudio.preload = 'metadata';
+                modalAudio.style.display = "block";
+                modalImg.style.display = "none";
+                modalVideo.style.display = "none";
+                modal.style.display = "flex";
+                modalAudio.currentTime = 0;
+                modalAudio.play();
             });
         });
 

@@ -70,7 +70,7 @@ db_table_arch = 'media_arch'
 list_db_tables = [db_table_proj, db_table_arch]
 
 # File types and genres
-list_file_types = ['mp4', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
+list_file_types = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 list_genres = [f"genre_{i:03d}" for i in range(100)]
 
 # Thumbnail mappings
@@ -215,6 +215,11 @@ def enrich_media_paths(item):
         if not ext_is_matched:
             thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs["other"])
             ext_is_matched = True
+    # logic for audio files (wav, mp3, etc.)
+    elif item_dict.get('file_type', '').lower() in ['wav', 'mp3', 'aac', 'flac']:
+        ext_is_viewable = True
+        thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs.get(item_dict.get('file_type', '').lower(), dict_thumbs["other"]))
+        ext_is_matched = True
     # for 'jpg', 'jpeg', 'png' files, use the image itself as thumbnail
     elif item_dict.get('file_type', '').lower() in ['jpg', 'jpeg', 'png']:
         ext_is_matched = True

@@ -111,6 +111,13 @@ table {
                             <button type="button" class="play-button"
                                     data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
                                     data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
+                            {% elif media_item['file_type'] in ['wav', 'mp3', 'aac', 'flac'] %}
+                            <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                                 alt="{{ media_item['file_name'] }}"
+                                 class="thumbnail"
+                                 data-open-audio="{{ url_for('static', filename=media_item['relative_path']) }}">
+                            <button type="button" class="play-button"
+                                    data-open-audio="{{ url_for('static', filename=media_item['relative_path']) }}">♪</button>
                             {% else %}
                             <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                                  alt="{{ media_item['file_name'] }}"
@@ -156,6 +163,13 @@ table {
                     <button type="button" class="play-button"
                            data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
                            data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
+                    {% elif media_item['file_type'] in ['wav', 'mp3', 'aac', 'flac'] %}
+                    <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
+                        alt="{{ media_item['file_name'] }}"
+                        style="max-width: 100%; height: auto; display: block;" class="thumbnail"
+                        data-open-audio="{{ url_for('static', filename=media_item['relative_path']) }}">
+                    <button type="button" class="play-button"
+                           data-open-audio="{{ url_for('static', filename=media_item['relative_path']) }}">♪</button>
                     {% else %}
                     <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                         alt="{{ media_item['file_name'] }}"

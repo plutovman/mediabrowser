@@ -40,6 +40,15 @@ app = Flask(__name__,
 app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
 app.config['TEMPLATES_AUTO_RELOAD'] = True  # Force template reloading
 
+# Global reference to launchpad app for HTTP activity tracking
+launchpad_app_ref = None
+
+@app.before_request
+def track_http_activity():
+    """Reset launchpad countdown timer on any HTTP request"""
+    if launchpad_app_ref is not None and hasattr(launchpad_app_ref, 'time_countdown_reset'):
+        launchpad_app_ref.time_countdown_reset()
+
 # ============================================================================
 # COMMON RESOURCE ROUTES
 # ============================================================================

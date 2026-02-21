@@ -247,6 +247,9 @@ class LaunchpadApp(ctk.CTk):
     def flask_run_server(self):
         """Run Flask server in thread"""
         try:
+            # Set launchpad app reference for HTTP activity tracking
+            flsk.launchpad_app_ref = self
+            
             # Initialize database indexes for optimal performance
             print("\n" + "="*60)
             flsk.ensure_all_indexes()
