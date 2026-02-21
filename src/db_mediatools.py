@@ -459,3 +459,59 @@ def db_media_video_to_mp4(path_src: str, file_ext: str, path_dst_mp4: str) -> bo
         print(f"ERROR: Unexpected error during conversion: {e}")
         return False    
 
+def db_media_video_info(file_path: str):
+    """
+    Retrieve MP4 video metadata via mutagen.mp4
+    We want to get title, date, comment, description and encoder info
+    return a dictionary with {'status': [suddess/fail], 'data': {metadata dict}}
+    """
+    from mutagen.mp4 import MP4
+    
+    result = {
+        'status': 'fail',
+        'data': {},
+        'error': None
+    }
+    
+    try:
+        # Verify file exists
+        if not os.path.exists(file_path):
+            result['error'] = f"File not found: {file_path}"
+            return result
+        
+        # Load MP4 file with mutagen
+        video = MP4(file_path)
+        
+        # Extract metadata tags
+        metadata = {}
+        
+        # Title
+        if '\xa9nam' in video.tags:
+            metadata['title'] = video.tags['\xa9nam'][0]
+        
+        # Date
+        if '\xa9day' in video.tags:
+            metadata['date'] = video.tags['\xa9day'][0]
+        
+        # Comment
+        if '\xa9cmt' in video.tags:
+            metadata['comment'] = video.tags['\xa9cmt'][0]
+        
+        # Description
+        if 'desc' in video.tags:
+            metadata['description'] = video.tags['desc'][0]
+        elif '\xa9des' in video.tags:
+            metadata['description'] = video.tags['\xa9des'][0]
+        
+        # Encoder
+        if '\xa9too' in video.tags:
+            metadata['encoder'] = video.tags['\xa9too'][0]
+        
+        result['data'] = metadata
+        result['status'] = 'success'
+        
+    except Exception as e:
+        result['error'] = f"Error reading MP4 metadata: {str(e)}"
+        result['status'] = 'fail'
+    
+    return result

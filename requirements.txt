@@ -6,3 +6,4 @@ python-vlc
 GitPython
 Pillow
 PyInstaller
+mutagen

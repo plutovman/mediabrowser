@@ -306,10 +306,72 @@ def extract_media_metadata(file_path):
                         metadata['file_duration'] = f"{minutes:02d}:{seconds:02d}"
                 
                 cap.release()
+            # use dbm.db_media_video_info() to extract optional metadata
+            extra_info = dbj.db_media_video_info(file_path)
+            if isinstance(extra_info, dict):
+                title = extra_info.get('data', {}).get('title')
+                if title is not None:
+                    title_str = str(title).strip()
+                    if title_str:
+                        metadata['subject'] = title_str
+            
+                  
     except Exception as e:
         print(f"Error extracting video metadata: {e}")
 
     return metadata
+
+def generate_video_thumbnail(video_path, time_percent=0.0):
+    """
+    Generate a thumbnail for a video file at the specified percentage of duration.
+    
+    Args:
+        video_path: Absolute path to the video file
+        time_percent: Percentage (0.0-1.0) of video duration to capture the frame (default: 0.0 for first frame)
+        
+    Returns:
+        str: Path to the generated thumbnail, or None if generation failed
+    """
+    try:
+        if not os.path.exists(video_path):
+            print(f"Video file not found: {video_path}")
+            return None
+        
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Could not open video file: {video_path}")
+            return None
+        
+        # Calculate time in seconds from percentage of video duration
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        time_seconds = 0
+        if fps > 0 and frame_count > 0:
+            video_duration = frame_count / fps
+            time_seconds = video_duration * time_percent
+        
+        # Set position to calculated time
+        cap.set(cv2.CAP_PROP_POS_MSEC, time_seconds * 1000)
+        ret, frame = cap.read()
+        cap.release()
+        
+        if not ret:
+            print(f"Could not capture frame from video: {video_path}")
+            return None
+        
+        # Generate thumbnail path - same name as video but with .jpg extension
+        base_name = os.path.splitext(video_path)[0]
+        thumb_path = f"{base_name}.jpg"
+        
+        # Save the thumbnail
+        cv2.imwrite(thumb_path, frame)
+        print(f"Generated thumbnail: {thumb_path}")
+        
+        return thumb_path
+    except Exception as e:
+        print(f"Error generating video thumbnail: {e}")
+        return None
 
 # ============================================================================
 # ROUTE REGISTRATION FUNCTION
@@ -776,6 +838,10 @@ def register_routes(app):
                         counter += 1
                 
                 file.save(dest_path)
+                
+                # Generate thumbnail automatically for video files at 25% mark
+                if file_ext in ['mp4', 'mov', 'avi', 'mkv']:
+                    generate_video_thumbnail(dest_path, time_percent=0.25)
                 
                 # Convert to relative path with $DEPOT_ALL prefix
                 dest_path_rel = dest_path.replace(depot_local, '$DEPOT_ALL').replace('\\', '/')

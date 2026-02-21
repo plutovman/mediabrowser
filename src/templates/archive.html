@@ -610,7 +610,10 @@
                 document.getElementById('file_duration').value = metadata.file_duration || '';
                 
                 // Load user-editable fields from cache (they should be empty for new files)
-                document.getElementById('subject').value = processedFiles[fileId].subject || '';
+                const cachedSubject = (processedFiles[fileId].subject || '').trim();
+                const metadataSubject = (metadata.subject || '').trim();
+                const subjectValue = cachedSubject || metadataSubject || '';
+                document.getElementById('subject').value = subjectValue;
                 document.getElementById('genre').value = processedFiles[fileId].genre || '';
                 document.getElementById('setting').value = processedFiles[fileId].setting || '';
                 document.getElementById('category').value = processedFiles[fileId].category || '';
@@ -624,6 +627,9 @@
                 processedFiles[fileId].file_resolution = metadata.file_resolution || '';
                 processedFiles[fileId].file_format = metadata.file_format || '';
                 processedFiles[fileId].file_duration = metadata.file_duration || '';
+                if (!cachedSubject && metadataSubject) {
+                    processedFiles[fileId].subject = metadataSubject;
+                }
                 
                 // Save to session
                 await fetch('/api/archive/save_processed', {
