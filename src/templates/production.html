@@ -423,19 +423,19 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             <!-- Row 1: Job Name, Job Alias, Job State, Job Year -->
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
-                    <label>Job Name</label>
+                    <label for="job_name">Job Name</label>
                     <input type="text" id="job_name" name="job_name" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Job Alias</label>
+                    <label for="job_alias">Job Alias</label>
                     <input type="text" id="job_alias" name="job_alias" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Job State</label>
+                    <label for="job_state">Job State</label>
                     <input type="text" id="job_state" name="job_state" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Job Year</label>
+                    <label for="job_year">Job Year</label>
                     <input type="text" id="job_year" name="job_year" readonly>
                 </div>
             </div>
@@ -443,15 +443,15 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             <!-- Row 2: Job User ID, Job User Name, Job Date Created -->
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
-                    <label>Created: userId</label>
+                    <label for="job_user_id">Created: userId</label>
                     <input type="text" id="job_user_id" name="job_user_id" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Created: userName</label>
+                    <label for="job_user_name">Created: userName</label>
                     <input type="text" id="job_user_name" name="job_user_name" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Created Date</label>
+                    <label for="job_date_created">Created Date</label>
                     <input type="text" id="job_date_created" name="job_date_created" readonly>
                 </div>
             </div>
@@ -459,15 +459,15 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             <!-- Row 3: Edit User ID, Edit User Name, Edit Date -->
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
-                    <label>Edited: userId</label>
+                    <label for="job_edit_user_id">Edited: userId</label>
                     <input type="text" id="job_edit_user_id" name="job_edit_user_id" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Edited: userName</label>
+                    <label for="job_edit_user_name">Edited: userName</label>
                     <input type="text" id="job_edit_user_name" name="job_edit_user_name" readonly>
                 </div>
                 <div class="form-group">
-                    <label>Edited: Date</label>
+                    <label for="job_edit_date">Edited: Date</label>
                     <input type="text" id="job_edit_date" name="job_edit_date" readonly>
                 </div>
             </div>
@@ -475,11 +475,11 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             <!-- Row 4: Paths -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
-                    <label>Job Path</label>
+                    <label for="job_path_job">Job Path</label>
                     <input type="text" id="job_path_job" name="job_path_job" readonly>
                 </div>
                 <div class="form-group">
-                    <label>R&D Path</label>
+                    <label for="job_path_rnd">R&D Path</label>
                     <input type="text" id="job_path_rnd" name="job_path_rnd" readonly>
                 </div>
             </div>
@@ -487,32 +487,32 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             <!-- Row 5: Charges and Date Due -->
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; min-width: 0;">
                 <div class="form-group">
-                    <label>Job Charge 1</label>
+                    <label for="job_charge1">Job Charge 1</label>
                     <input type="text" id="job_charge1" name="job_charge1">
                 </div>
                 <div class="form-group">
-                    <label>Job Charge 2</label>
+                    <label for="job_charge2">Job Charge 2</label>
                     <input type="text" id="job_charge2" name="job_charge2">
                 </div>
                 <div class="form-group">
-                    <label>Job Charge 3</label>
+                    <label for="job_charge3">Job Charge 3</label>
                     <input type="text" id="job_charge3" name="job_charge3">
                 </div>
                 <div class="form-group">
-                    <label>Date Due</label>
+                    <label for="job_date_due">Date Due</label>
                     <input type="date" id="job_date_due" name="job_date_due">
                 </div>
             </div>
 
             <!-- Row 6: Notes -->
             <div class="form-group">
-                <label>Job Notes</label>
+                <label for="job_notes">Job Notes</label>
                 <textarea id="job_notes" name="job_notes" rows="4" style="min-height: 80px;"></textarea>
             </div>
             
             <!-- Row 7: Tags -->
             <div class="form-group">
-                <label>Job Tags</label>
+                <label for="job_tags">Job Tags</label>
                 <input type="text" id="job_tags" name="job_tags">
             </div>
             
@@ -570,7 +570,7 @@ input[type="date"]:disabled::-webkit-datetime-edit {
         <form id="newJobForm">
             <!-- Job Base -->
             <div class="form-group">
-                <label>Job Base <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <label for="new_job_base">Job Base <span style="color: #aaa; font-size: 0.9em;"></span></label>
                 <input type="text" id="new_job_base" name="job_base" placeholder="Create a descriptive, easy-to-type job name made up of letters, numbers, and underscores." oninput="validateJobBase()">
             </div>
 
@@ -581,19 +581,19 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             
             <!-- Job Name  -->
             <div class="form-group">
-                <label>Job Name <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <label for="new_job_name">Job Name <span style="color: #aaa; font-size: 0.9em;"></span></label>
                 <input type="text" id="new_job_name" name="job_name" readonly>
             </div>
             
             <!-- Job Alias  -->
             <div class="form-group">
-                <label>Job Alias <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <label for="new_job_alias">Job Alias <span style="color: #aaa; font-size: 0.9em;"></span></label>
                 <input type="text" id="new_job_alias" name="job_alias" readonly>
             </div>
             
             <!-- Job Path  -->
             <div class="form-group">
-                <label>Job Path <span style="color: #aaa; font-size: 0.9em;"></span></label>
+                <label for="new_job_path">Job Path <span style="color: #aaa; font-size: 0.9em;"></span></label>
                 <input type="text" id="new_job_path" name="job_path" readonly>
             </div>
             

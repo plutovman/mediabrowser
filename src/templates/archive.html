@@ -256,37 +256,37 @@
                 <form id="metadataForm">
                     <!-- Read-only fields -->
                     <div class="form-group">
-                        <label>File ID</label>
+                        <label for="file_id">File ID</label>
                         <input type="text" id="file_id" name="file_id" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label>File Name</label>
+                        <label for="file_name">File Name</label>
                         <input type="text" id="file_name" name="file_name" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label>File Path</label>
+                        <label for="file_path">File Path</label>
                         <input type="text" id="file_path" name="file_path" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label>File Type</label>
+                        <label for="file_type">File Type</label>
                         <input type="text" id="file_type" name="file_type" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label>File Resolution</label>
+                        <label for="file_resolution">File Resolution</label>
                         <input type="text" id="file_resolution" name="file_resolution" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label>File Format</label>
+                        <label for="file_format">File Format</label>
                         <input type="text" id="file_format" name="file_format" readonly>
                     </div>
                     
                     <div class="form-group">
-                        <label>File Duration (seconds)</label>
+                        <label for="file_duration">File Duration (seconds)</label>
                         <input type="text" id="file_duration" name="file_duration" readonly>
                     </div>
                     
@@ -294,17 +294,17 @@
                     
                     <!-- Editable fields -->
                     <div class="form-group">
-                        <label>Source *</label>
+                        <label for="source">Source *</label>
                         <input type="text" id="source" name="source" required placeholder="e.g., ig, apod, metart">
                     </div>
                     
                     <div class="form-group">
-                        <label>Source ID *</label>
+                        <label for="source_id">Source ID *</label>
                         <input type="text" id="source_id" name="source_id" required placeholder="e.g., ig_user">
                     </div>
                     
                     <div class="form-group">
-                        <label>Genre *</label>
+                        <label for="genre">Genre *</label>
                         <select id="genre" name="genre" required>
                             <option value="">-- Select Genre --</option>
                             {% for g in genres %}
@@ -314,32 +314,32 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>Subject *</label>
+                        <label for="subject">Subject *</label>
                         <input type="text" id="subject" name="subject" required placeholder="e.g., landscape, portrait, technology">
                     </div>
                     
                     <div class="form-group">
-                        <label>Category *</label>
+                        <label for="category">Category *</label>
                         <input type="text" id="category" name="category" required placeholder="e.g., nature, urban, abstract">
                     </div>
                     
                     <div class="form-group">
-                        <label>Setting *</label>
+                        <label for="setting">Setting *</label>
                         <input type="text" id="setting" name="setting" required placeholder="e.g., outdoor, studio, urban">
                     </div>
                     
                     <div class="form-group">
-                        <label>Lighting *</label>
+                        <label for="lighting">Lighting *</label>
                         <input type="text" id="lighting" name="lighting" required placeholder="e.g., natural, studio, low-key">
                     </div>
                     
                     <div class="form-group">
-                        <label>Tags (comma-separated) *</label>
+                        <label for="tags">Tags (comma-separated) *</label>
                         <textarea id="tags" name="tags" required placeholder="sunset, ocean, peaceful"></textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label>Captions *</label>
+                        <label for="captions">Captions *</label>
                         <textarea id="captions" name="captions" required placeholder="Detailed description of the media"></textarea>
                     </div>
                 </form>
