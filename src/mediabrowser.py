@@ -134,12 +134,13 @@ def db_get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def db_tables_sync_field(source_table: str, file_id: str, field: str, value: str):
+def db_tables_sync_field(conn, source_table: str, file_id: str, field: str, value: str):
     """
     Sync a change made to one table to the other table if the file_id exists there.
     If file_id is in both tables and field is same, update both.
     
     Args:
+        conn: Active database connection to use
         source_table: The table where the change originated
         file_id: File ID to sync
         field: Field name to update
@@ -152,19 +153,20 @@ def db_tables_sync_field(source_table: str, file_id: str, field: str, value: str
     target_table = db_table_proj if source_table == db_table_arch else db_table_arch
     
     try:
-        conn = db_get_connection()
-        
         # Check if file_id exists in the target table
         check_sql = f'SELECT file_id FROM {target_table} WHERE file_id = ?'
         cursor = conn.execute(check_sql, (file_id,))
         
-        if cursor.fetchone():
+        result = cursor.fetchone()
+        if result:
             # File exists in target table, update it with the same change
+            print(f"[SYNC] Syncing {field}='{value}' for file_id={file_id} from {source_table} to {target_table}")
             update_sql = f'UPDATE {target_table} SET {field} = ? WHERE file_id = ?'
             conn.execute(update_sql, (value, file_id))
-            conn.commit()
+            # Note: Do not commit here - let the caller handle commit
+        else:
+            print(f"[SYNC] file_id={file_id} not found in {target_table}, skipping sync")
         
-        conn.close()
     except Exception as e:
         print(f"Error syncing change across tables: {e}")
 
@@ -774,7 +776,7 @@ def register_routes(app):
                 
                 # Sync change to other table if file_id exists there
                 if cursor.rowcount > 0:
-                    db_tables_sync_field(db_table, file_id, field, value)
+                    db_tables_sync_field(conn, db_table, file_id, field, value)
             
             conn.commit()
             conn.close()
