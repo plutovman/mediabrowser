@@ -134,6 +134,40 @@ def db_get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def db_tables_sync_field(source_table: str, file_id: str, field: str, value: str):
+    """
+    Sync a change made to one table to the other table if the file_id exists there.
+    If file_id is in both tables and field is same, update both.
+    
+    Args:
+        source_table: The table where the change originated
+        file_id: File ID to sync
+        field: Field name to update
+        value: New value for the field
+    """
+    if source_table not in list_db_tables or len(list_db_tables) < 2:
+        return  # Can't sync if source table invalid or only one table exists
+    
+    # Determine the other table
+    target_table = db_table_proj if source_table == db_table_arch else db_table_arch
+    
+    try:
+        conn = db_get_connection()
+        
+        # Check if file_id exists in the target table
+        check_sql = f'SELECT file_id FROM {target_table} WHERE file_id = ?'
+        cursor = conn.execute(check_sql, (file_id,))
+        
+        if cursor.fetchone():
+            # File exists in target table, update it with the same change
+            update_sql = f'UPDATE {target_table} SET {field} = ? WHERE file_id = ?'
+            conn.execute(update_sql, (value, file_id))
+            conn.commit()
+        
+        conn.close()
+    except Exception as e:
+        print(f"Error syncing change across tables: {e}")
+
 def db_item_add_from_dict(item_dict: dict, db_table: str = None):
     """
     Adds a new media item to the database from a dictionary.
@@ -737,6 +771,10 @@ def register_routes(app):
                 sql = f'UPDATE {db_table} SET {field} = ? WHERE file_id = ?'
                 cursor = conn.execute(sql, (value, file_id))
                 updated_count += cursor.rowcount
+                
+                # Sync change to other table if file_id exists there
+                if cursor.rowcount > 0:
+                    db_tables_sync_field(db_table, file_id, field, value)
             
             conn.commit()
             conn.close()
