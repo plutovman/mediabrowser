@@ -73,6 +73,8 @@ list_db_tables = [db_table_proj, db_table_arch]
 list_file_types = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 list_genres = [f"genre_{i:03d}" for i in range(100)]
 
+list_fields_required = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions']
+
 # Thumbnail mappings
 dict_thumbs = {
     "afx": "adobe_afx.png",
@@ -627,6 +629,7 @@ def register_routes(app):
                               path_base_media=path_base_media,
                               db_table=db_table,
                               db_tables=list_db_tables,
+                              list_fields_required=list_fields_required,
                               processed_files=session.get('processed_files', {}),
                               git_info=git_info)
     

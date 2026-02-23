@@ -394,7 +394,9 @@
             return null;
         }
         
-        const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
+        //const requiredFields = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions'];
+        const requiredFields = {{ list_fields_required|tojson }};
+
         // Function to check if all required fields are filled
         function validateRequiredFields() {
             const saveButton = document.getElementById('saveButton');

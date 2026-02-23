@@ -6,7 +6,7 @@
 {% block extra_styles %}
 :root {
     --col-checkbox: 20px;
-    --col-media: 300px;
+    --col-media: 150px;
     --col-id: 150px;
     --col-subject: 120px;
     --col-genre: 120px;
@@ -17,8 +17,7 @@
 }
 
 table {
-    min-width: 1300px;
-    table-layout: fixed;
+    width: auto;
 }
 
 {% endblock %}
@@ -56,7 +55,7 @@ table {
 
     <!-- View mode selector -->
     <div style="text-align: center; margin: 20px 0;">
-        <label>View Mode:</label>
+        <span>View Mode:</span>
         <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, db_table=db_table, page=1, view='table') }}" style="margin: 0 10px;">Table</a>
         <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, db_table=db_table, page=1, view='grid') }}" style="margin: 0 10px; font-weight: bold;">Grid</a>
     </div>
@@ -83,15 +82,15 @@ table {
         <table>
             <thead>
                 <tr>
-                    <th style="width: var(--col-checkbox);"><button type="button" id="toggleAll" style="padding: 5px 5px; cursor: pointer;">&#10003;</button></th>
-                    <th style="width: var(--col-media);">Media</th>
-                    <th style="width: var(--col-id);">ID</th>
-                    <th style="width: var(--col-subject);">Subject</th>
-                    <th style="width: var(--col-genre);">Genre</th>
-                    <th style="width: var(--col-setting);">Setting</th>
-                    <th style="width: var(--col-captions);">Captions</th>
-                    <th style="width: var(--col-tags);">Tags</th>
-                    <th style="width: var(--col-filepath);">File Path</th>
+                    <th style="width: var(--col-checkbox); min-width: var(--col-checkbox); max-width: var(--col-checkbox);"><button type="button" id="toggleAll" style="padding: 5px 5px; cursor: pointer;">&#10003;</button></th>
+                    <th style="width: var(--col-media); min-width: var(--col-media); max-width: var(--col-media);">Media</th>
+                    <th style="width: var(--col-id); min-width: var(--col-id); max-width: var(--col-id);">ID</th>
+                    <th style="width: var(--col-subject); min-width: var(--col-subject); max-width: var(--col-subject);">Subject</th>
+                    <th style="width: var(--col-genre); min-width: var(--col-genre); max-width: var(--col-genre);">Genre</th>
+                    <th style="width: var(--col-setting); min-width: var(--col-setting); max-width: var(--col-setting);">Setting</th>
+                    <th style="width: var(--col-captions); min-width: var(--col-captions); max-width: var(--col-captions);">Captions</th>
+                    <th style="width: var(--col-tags); min-width: var(--col-tags); max-width: var(--col-tags);">Tags</th>
+                    <th style="width: var(--col-filepath); min-width: var(--col-filepath); max-width: var(--col-filepath);">File Path</th>
                 </tr>
             </thead>
             <tbody>
@@ -99,7 +98,7 @@ table {
                 {% for media_item in media %}
                 <tr>
                     <td style="text-align: center;"><input type="checkbox" name="selected" value="{{ media_item['file_id'] }}"></td>
-                    <td style="text-align: center; width: var(--col-media);">
+                    <td style="text-align: center;">
                         <div class="media-card">
                             {% if media_item['ext_is_viewable'] %}
                             {% if media_item['file_type'] == 'mp4' %}
@@ -135,14 +134,13 @@ table {
                         </div>
                         <p style="text-align: center; margin: 5px 0 0 0; font-size: 12px; word-break: break-all;">{{ media_item['file_name'] }}</p>
                     </td>
-                    <!--specify width for each td -->
-                    <td style="width: var(--col-id);">{{ media_item['file_id'] }}</td>
-                    <td style="width: var(--col-subject);">{{ media_item['subject'] }}</td>
-                    <td style="width: var(--col-genre);">{{ media_item['genre'] }}</td>
-                    <td style="width: var(--col-setting);">{{ media_item['setting'] }}</td>
-                    <td style="width: var(--col-captions);">{{ media_item['captions'] }}</td>
-                    <td style="width: var(--col-tags);">{{ media_item['tags'] }}</td>
-                    <td style="width: var(--col-filepath);">{{ media_item['file_path'] }}</td>
+                    <td>{{ media_item['file_id'] }}</td>
+                    <td>{{ media_item['subject'] }}</td>
+                    <td>{{ media_item['genre'] }}</td>
+                    <td>{{ media_item['setting'] }}</td>
+                    <td>{{ media_item['captions'] }}</td>
+                    <td>{{ media_item['tags'] }}</td>
+                    <td>{{ media_item['file_path'] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
