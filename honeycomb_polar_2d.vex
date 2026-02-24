@@ -1,0 +1,161 @@
+int level_count = chi("bin_levels");
+int bin_sides = 6;
+float sphere_r = chf("sphere_radius");
+float bin_r = chf("bin_size_radius");
+float bin_w = chf("bin_width");
+float bin_angle_lon = 0;
+float lon_delta = 0;
+//float lat_delta = radians(90)/(level_count);
+float lat_delta = radians(level_count)/(level_count); //this assumes that level_count is both degrees and number of bins
+float bin_ctr_distance = 0;
+float bin_lon = radians(30);
+float bin_lat = radians(90);
+float bin_orient = 0;
+float lon_local = 0;
+float lat_local = 0;
+float x = 0;
+float y = 0;
+float z = 0;
+
+vector bin_xyz = {0,0,0};
+vector bin_up = {0,0,0};
+vector bin_out = {0,0,0};
+vector color_odd = {0,0,1};
+vector color_even = {1,1,1};
+
+int count_bins = 0;
+
+// initialize attributes for incoming point
+
+bin_out = set(cos(bin_lon), 0.1 , sin(bin_lon));
+
+setpointattrib(0, "P", 0, bin_xyz);
+setpointattrib(0, "latitude", 0, bin_lat);
+setpointattrib(0, "longitude", 0, bin_lon);
+
+//setpointattrib(0, "out", 0, bin_out);
+
+//bin_lat -= lat_delta; // set up for next loop
+
+for(int bin_level = 0; bin_level <= (level_count-1); bin_level++){
+    
+    count_bins = bin_level*bin_sides;
+    lon_delta = radians(60)/(bin_level);
+
+    bin_lon = radians(30);  // for every level, we start along one of the main axes for ease of computation
+    for (int i=0; i < count_bins; i++){
+        
+        int p = addpoint(0, bin_xyz);
+        
+        bin_ctr_distance = bin_w * bin_level;
+        
+        // for the tests below, we reference the shape of the bin arrangement:
+        //    *
+        //  *   *
+        //  *   *
+        //    *
+        // bins are positioned at levels that align perpendicular to each side
+        // so, each side of the bin represents a primary axis
+  
+        // this first cut at placing bin centers effectively
+        // only correctly positions the bins along the main axes
+        
+        x = bin_ctr_distance*cos(bin_lon);
+        z = bin_ctr_distance*sin(bin_lon);
+        
+
+        
+        // side 1
+        if (i > 0 && i < bin_level) {
+            float tempx = bin_ctr_distance*cos(radians(30));
+            float tempz = bin_ctr_distance*sin(radians(30));
+            x = tempx - 1.5*bin_r*i;
+            z = tempz + 0.5*bin_w*i;
+            //bin_orient = radians(30);
+        }
+        
+        // side 2
+        if (i > bin_level && i < (bin_level)*2) {
+            float tempx = 0;
+            float tempz = bin_w*(bin_level);
+            x = tempx - 1.5*bin_r*(i -(count_bins/6));
+            z = tempz - 0.5*bin_w*(i -(count_bins/6));
+            //bin_orient = radians(30);
+        }
+        
+        // side 3
+        if (i > (bin_level)*2 && i < (bin_level)*3) {
+            float tempx = bin_ctr_distance*cos(radians(150));
+            float tempz = bin_ctr_distance*sin(radians(150));
+            z = tempz - bin_w*(i -(count_bins/6)*2); 
+            x = tempx;
+            //bin_orient = radians(30);
+        }
+        
+        // side 4
+        if (i > (bin_level)*3 && i < (bin_level)*4) {
+            float tempx = bin_ctr_distance*cos(radians(210));
+            float tempz = bin_ctr_distance*sin(radians(210));
+            x = tempx + 1.5*bin_r*(i -(count_bins/6)*3);
+            z = tempz - 0.5*bin_w*(i -(count_bins/6)*3);
+            //bin_orient = radians(30);
+            
+        }
+        
+        // side 5
+        if (i > (bin_level)*4 && i < (bin_level)*5) {
+            float tempx = 0;
+            float tempz = bin_w*(bin_level)*-1;
+            x = tempx + 1.5*bin_r*(i -(count_bins/6)*4);
+            z = tempz + 0.5*bin_w*(i -(count_bins/6)*4);
+            //bin_orient = radians(30);
+            
+        }
+        
+        // side 6
+        if (i > (bin_level)*5 && i < (bin_level)*6) {
+            float tempx = bin_ctr_distance*cos(radians(-30));
+            float tempz = bin_ctr_distance*sin(radians(-30));
+            z = tempz + bin_w*(i -(count_bins/6)*5); 
+            x = tempx;
+            //bin_orient = radians(30);
+        }
+        
+        if (i == 0 || i == bin_level*1 || i == bin_level*2 || i == bin_level*3 || i == bin_level*4 || i == bin_level*5){
+            bin_orient = 0;
+            //lat_local = bin_lat;
+        } else {
+            bin_orient = radians(30);
+            //lat_local = radians(90) - radians((bin_level - (0.5/cos(radians(30)))));
+            //lat_local = radians(90) - 2*bin_level*radians(0.5*cos(radians(30)));
+            
+        }
+        
+        // set/update point attributes
+        bin_xyz = set(x,y,z);
+        //bin_lat = radians(90) - (length(bin_xyz)/(level_count*bin_w)*radians(90));
+        //bin_lat = radians(90) - acos(length(bin_xyz)/(level_count*bin_w));
+        bin_out = set(cos(bin_lon), 0.1 , sin(bin_lon));
+        lon_local = atan2(z,x);
+        lat_local = radians(90) - radians(level_count*(length(bin_xyz)/(bin_w*level_count)));
+        setpointattrib(0, "P", p, bin_xyz);
+        //setpointattrib(0, "latitude", p, bin_lat);
+        setpointattrib(0, "latitude", p, lat_local);
+        setpointattrib(0, "longitude", p, lon_local);
+        //setpointattrib(0, "out", p, bin_out);
+        setpointattrib(0, "orientation", p, bin_orient);
+        
+        if (bin_level%2 == 0){
+            setpointattrib(0, "Cd", p, color_even);
+        } else {
+            setpointattrib(0, "Cd", p, color_odd);
+        }
+        
+        bin_lon += lon_delta;  // set up for the next loop
+    
+    } // end of for i
+    
+    bin_lat -= lat_delta; // set up for next loop
+
+} // end of for level
+
