@@ -804,6 +804,13 @@ end tell
 
         data = request.get_json() or {}
 
+        provided_password = data.get('password', '')
+        correct_password = os.getenv('MEDIA_SQLITE_KEY')
+        if not correct_password:
+            return jsonify({'success': False, 'message': 'Database password not configured on server'}), 500
+        if provided_password != correct_password:
+            return jsonify({'success': False, 'message': 'Incorrect password'}), 403
+
         # generate a new job_id
         job_id = dbj.db_id_create(db_sqlite_path=path_db_sqlite, db_table=db_table_proj, id_column='job_id')
         

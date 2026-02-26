@@ -71,6 +71,49 @@ table {
 .context-menu-item:hover {
     background-color: #4da6ff;
 }
+
+.password-modal {
+    display: none;
+    position: fixed;
+    z-index: 11000;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    align-items: center;
+    justify-content: center;
+}
+
+.password-modal-content {
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 6px;
+    width: 360px;
+    max-width: calc(100vw - 30px);
+    padding: 16px;
+    color: #f0f0f0;
+}
+
+.password-modal-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.password-modal-content input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #333;
+    color: #f0f0f0;
+    border: 1px solid #666;
+    padding: 8px;
+    margin-bottom: 12px;
+}
+
+.password-modal-actions {
+    text-align: right;
+}
+
+.password-modal-actions button {
+    margin-left: 8px;
+}
 {% endblock %}
 
 {% block cart_icon %}
@@ -85,6 +128,18 @@ table {
     <!-- Context Menu -->
     <div id="contextMenu" class="context-menu">
         <div class="context-menu-item" id="applyToSelected">Apply to Selected Items</div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="password-modal" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+        <div class="password-modal-content">
+            <div id="passwordModalTitle" class="password-modal-title">Enter database password</div>
+            <input type="password" id="passwordInput" autocomplete="current-password">
+            <div class="password-modal-actions">
+                <button type="button" id="passwordCancelBtn">Cancel</button>
+                <button type="button" id="passwordConfirmBtn">Confirm</button>
+            </div>
+        </div>
     </div>
 
     {% if not media %}
@@ -230,6 +285,11 @@ table {
         const editModeMsg = document.getElementById('editModeMsg');
         const normalButtons = document.querySelectorAll('.normal-buttons');
         const editButtons = document.querySelectorAll('.edit-buttons');
+        const passwordModal = document.getElementById('passwordModal');
+        const passwordModalTitle = document.getElementById('passwordModalTitle');
+        const passwordInput = document.getElementById('passwordInput');
+        const passwordCancelBtn = document.getElementById('passwordCancelBtn');
+        const passwordConfirmBtn = document.getElementById('passwordConfirmBtn');
 
         if (editBtn) editBtn.addEventListener('click', enterEditMode);
         if (editBtn2) editBtn2.addEventListener('click', enterEditMode);
@@ -239,6 +299,52 @@ table {
         if (cancelBtn2) cancelBtn2.addEventListener('click', cancelEdit);
         if (pruneBtn) pruneBtn.addEventListener('click', pruneSelected);
         if (pruneBtn2) pruneBtn2.addEventListener('click', pruneSelected);
+
+        function requestPassword(titleText) {
+            return new Promise((resolve) => {
+                if (!passwordModal || !passwordInput || !passwordConfirmBtn || !passwordCancelBtn || !passwordModalTitle) {
+                    resolve({ cancelled: true, password: '' });
+                    return;
+                }
+
+                passwordModalTitle.textContent = titleText || 'Enter database password';
+                passwordInput.value = '';
+                passwordModal.style.display = 'flex';
+
+                const cleanup = () => {
+                    passwordModal.style.display = 'none';
+                    passwordConfirmBtn.removeEventListener('click', onConfirm);
+                    passwordCancelBtn.removeEventListener('click', onCancel);
+                    passwordInput.removeEventListener('keydown', onKeyDown);
+                };
+
+                const onConfirm = () => {
+                    const value = passwordInput.value;
+                    cleanup();
+                    resolve({ cancelled: false, password: value || '' });
+                };
+
+                const onCancel = () => {
+                    cleanup();
+                    resolve({ cancelled: true, password: '' });
+                };
+
+                const onKeyDown = (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        onConfirm();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        onCancel();
+                    }
+                };
+
+                passwordConfirmBtn.addEventListener('click', onConfirm);
+                passwordCancelBtn.addEventListener('click', onCancel);
+                passwordInput.addEventListener('keydown', onKeyDown);
+                passwordInput.focus();
+            });
+        }
 
         function enterEditMode() {
             isEditMode = true;
@@ -341,7 +447,7 @@ table {
             editModeMsg.style.display = 'none';
         }
 
-        function saveChanges() {
+        async function saveChanges() {
             const changes = [];
             
             // Collect all modified values
@@ -368,8 +474,12 @@ table {
 
             if (!confirm(`Save ${changes.length} change(s) to database?`)) return;
 
-            // Prompt for password
-            const password = prompt('Enter database password:');
+            const passwordResult = await requestPassword('Enter database password');
+            if (passwordResult.cancelled) {
+                return;
+            }
+
+            const password = passwordResult.password;
             if (!password) {
                 alert('Password required to save changes');
                 return;
@@ -401,7 +511,7 @@ table {
             });
         }
 
-        function pruneSelected() {
+        async function pruneSelected() {
             // Get all checked items
             const selectedCheckboxes = document.querySelectorAll('input[name="selected"]:checked');
             
@@ -417,8 +527,12 @@ table {
                 return;
             }
 
-            // Prompt for password
-            const password = prompt('Enter database password to confirm deletion:');
+            const passwordResult = await requestPassword('Enter database password to confirm deletion');
+            if (passwordResult.cancelled) {
+                return;
+            }
+
+            const password = passwordResult.password;
             if (!password) {
                 alert('Password required to delete items');
                 return;

@@ -358,6 +358,49 @@ input[type="date"]:disabled::-webkit-datetime-edit {
     color: #888;
     cursor: not-allowed;
 }
+
+.password-modal {
+    display: none;
+    position: fixed;
+    z-index: 11000;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    align-items: center;
+    justify-content: center;
+}
+
+.password-modal-content {
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 6px;
+    width: 360px;
+    max-width: calc(100vw - 30px);
+    padding: 16px;
+    color: #f0f0f0;
+}
+
+.password-modal-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.password-modal-content input {
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #333;
+    color: #f0f0f0;
+    border: 1px solid #666;
+    padding: 8px;
+    margin-bottom: 12px;
+}
+
+.password-modal-actions {
+    text-align: right;
+}
+
+.password-modal-actions button {
+    margin-left: 8px;
+}
 {% endblock %}
 
 {% block cart_icon %}{% endblock %}
@@ -610,6 +653,18 @@ input[type="date"]:disabled::-webkit-datetime-edit {
         </div>
     </div>
 
+    <!-- Password Modal -->
+    <div id="passwordModal" class="password-modal" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+        <div class="password-modal-content">
+            <div id="passwordModalTitle" class="password-modal-title">Enter database password</div>
+            <input type="password" id="passwordInput" autocomplete="current-password">
+            <div class="password-modal-actions">
+                <button type="button" id="passwordCancelBtn">Cancel</button>
+                <button type="button" id="passwordConfirmBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let years = {{ years|tojson }};
         let storageSources = {{ storage_sources|tojson }};
@@ -619,6 +674,58 @@ input[type="date"]:disabled::-webkit-datetime-edit {
         let currentStorage = null;  // Track selected storage for API calls
         let currentSyncData = null;  // Track current sync operation data
         let currentSyncController = null;  // Track AbortController for cancelling sync
+
+        const passwordModal = document.getElementById('passwordModal');
+        const passwordModalTitle = document.getElementById('passwordModalTitle');
+        const passwordInput = document.getElementById('passwordInput');
+        const passwordCancelBtn = document.getElementById('passwordCancelBtn');
+        const passwordConfirmBtn = document.getElementById('passwordConfirmBtn');
+
+        function requestPassword(titleText) {
+            return new Promise((resolve) => {
+                if (!passwordModal || !passwordInput || !passwordConfirmBtn || !passwordCancelBtn || !passwordModalTitle) {
+                    resolve({ cancelled: true, password: '' });
+                    return;
+                }
+
+                passwordModalTitle.textContent = titleText || 'Enter database password';
+                passwordInput.value = '';
+                passwordModal.style.display = 'flex';
+
+                const cleanup = () => {
+                    passwordModal.style.display = 'none';
+                    passwordConfirmBtn.removeEventListener('click', onConfirm);
+                    passwordCancelBtn.removeEventListener('click', onCancel);
+                    passwordInput.removeEventListener('keydown', onKeyDown);
+                };
+
+                const onConfirm = () => {
+                    const value = passwordInput.value;
+                    cleanup();
+                    resolve({ cancelled: false, password: value || '' });
+                };
+
+                const onCancel = () => {
+                    cleanup();
+                    resolve({ cancelled: true, password: '' });
+                };
+
+                const onKeyDown = (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        onConfirm();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        onCancel();
+                    }
+                };
+
+                passwordConfirmBtn.addEventListener('click', onConfirm);
+                passwordCancelBtn.addEventListener('click', onCancel);
+                passwordInput.addEventListener('keydown', onKeyDown);
+                passwordInput.focus();
+            });
+        }
         
         // ========== REUSABLE HELPER FUNCTIONS ==========
         
@@ -1477,6 +1584,17 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                 showStatus('Please enter a valid job base', 'error');
                 return;
             }
+
+            const passwordResult = await requestPassword('Enter database password to create job');
+            if (passwordResult.cancelled) {
+                return;
+            }
+
+            const password = passwordResult.password;
+            if (!password) {
+                showStatus('Password required to create job', 'error');
+                return;
+            }
             
             try {
                 const response = await fetch('/api/job_new_create', {
@@ -1485,7 +1603,8 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                     body: JSON.stringify({ 
                         job_base: jobBase,
                         job_name: jobName,
-                        job_alias: jobAlias
+                        job_alias: jobAlias,
+                        password: password
                     })
                 });
                 
