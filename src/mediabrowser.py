@@ -72,6 +72,7 @@ list_db_tables = [db_table_proj, db_table_arch]
 # File types and genres
 list_file_types = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 list_genres = [f"genre_{i:03d}" for i in range(100)]
+list_settings = [f"setting_{i:03d}" for i in range(10)]
 
 list_fields_required = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions']
 
@@ -470,7 +471,8 @@ def register_routes(app):
         return render_template('index.html', random_image=random_image, logo_path=logo_relative,
                               top_subjects=top_subjects, top_genres=top_genres,
                               db_tables=list_db_tables, db_table=db_table,
-                              file_types=list_file_types, genres=list_genres, top_topics=CNT_TOP_TOPICS,
+                              file_types=list_file_types, genres=list_genres, list_settings=list_settings,
+                              top_topics=CNT_TOP_TOPICS,
                               git_info=git_info)
     
     @app.route('/search', methods=['GET', 'POST'])
@@ -480,6 +482,7 @@ def register_routes(app):
         search_query = request.form.get('query') or request.args.get('query', '')
         file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
         genre_filter = request.form.get('genre') or request.args.get('genre', '')
+        setting_filter = request.form.get('setting') or request.args.get('setting', '')
         db_table = request.form.get('db_table') or request.args.get('db_table', list_db_tables[0])
         view = request.form.get('view') or request.args.get('view', 'grid')
         page_str = request.form.get('page') or request.args.get('page', '1')
@@ -513,6 +516,10 @@ def register_routes(app):
             if genre_filter:
                 where_clause += " AND genre = ?"
                 params.append(genre_filter)
+
+            if setting_filter:
+                where_clause += " AND setting = ?"
+                params.append(setting_filter)
             
             sql_query = f'SELECT * FROM {db_table} WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
             params.extend([CNT_ITEMS_PER_PAGE, offset])
@@ -523,7 +530,7 @@ def register_routes(app):
             media = conn.execute(sql_query, params).fetchall()
             total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
             total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
-        elif file_type_filter or genre_filter:
+        elif file_type_filter or genre_filter or setting_filter:
             where_conditions = []
             params = []
             
@@ -534,6 +541,10 @@ def register_routes(app):
             if genre_filter:
                 where_conditions.append("genre = ?")
                 params.append(genre_filter)
+
+            if setting_filter:
+                where_conditions.append("setting = ?")
+                params.append(setting_filter)
             
             where_clause = " AND ".join(where_conditions)
             sql_query = f'SELECT * FROM {db_table} WHERE {where_clause} ORDER BY file_id ASC LIMIT ? OFFSET ?'
@@ -569,9 +580,11 @@ def register_routes(app):
             search_query=search_query,
             file_type_filter=file_type_filter,
             genre_filter=genre_filter,
+            setting_filter=setting_filter,
             db_table=db_table,
             file_types=list_file_types,
             genres=list_genres,
+            list_settings=list_settings,
             db_tables=list_db_tables,
             view=view,
             random_image=None,
