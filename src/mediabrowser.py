@@ -63,7 +63,7 @@ CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud
 
 # Archive settings
 MAX_ARCHIVE_FILES = 10  # Maximum files per archive upload batch
-MAX_ARCHIVE_FILE_SIZE_MEG = 4  # Maximum file size in MB
+MAX_ARCHIVE_FILE_SIZE_MEG = 500  # Maximum file size in MB
 
 # Database tables
 db_table_proj = 'media_proj'

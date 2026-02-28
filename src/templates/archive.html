@@ -241,11 +241,11 @@
                 </div>
                 
                 <div class="action-buttons" style="margin-top: 25px;">
-                    <button class="btn-secondary" onclick="clearQueue()">Clear All</button>
+                    <button id="clearQueueBtn" class="btn-secondary" onclick="clearQueue()">Clear All</button>
                 </div>
                 
                 <div class="action-buttons" style="margin-top: 15px;">
-                    <button type="button" class="btn-secondary" onclick="skipItem()">Remove Current</button>
+                    <button type="button" id="removeCurrentBtn" class="btn-secondary" onclick="skipItem()">Remove Current</button>
                     <button type="button" id="saveButton" class="btn-primary" onclick="document.getElementById('metadataForm').requestSubmit()" disabled>Save to Database</button>
                 </div>
             </div>
@@ -386,6 +386,21 @@
         let currentQueue = {{ queue|tojson }};
         let currentIndex = {{ current_index }};
         let processedFiles = {{ processed_files|tojson }};
+        let isUploadInProgress = false;
+
+        function setUploadInProgressState(isInProgress) {
+            isUploadInProgress = isInProgress;
+
+            const clearQueueBtn = document.getElementById('clearQueueBtn');
+            if (clearQueueBtn) {
+                clearQueueBtn.disabled = isInProgress;
+            }
+
+            const removeCurrentBtn = document.getElementById('removeCurrentBtn');
+            if (removeCurrentBtn) {
+                removeCurrentBtn.disabled = isInProgress;
+            }
+        }
         
         // Show processing message IMMEDIATELY after variables are initialized
         const processingMsg = sessionStorage.getItem('processingMessage');
@@ -470,7 +485,8 @@
         async function handleFiles(files) {
             if (files.length === 0) return;
             
-            showStatus(`Uploading ${files.length} file(s)...`, 'info');
+            showStatus(`Uploading ${files.length} file(s)...`, 'processing');
+            setUploadInProgressState(true);
             
             try {
                 const formData = new FormData();
@@ -504,6 +520,8 @@
                 }
             } catch (error) {
                 showStatus('Error uploading files: ' + error, 'error');
+            } finally {
+                setUploadInProgressState(false);
             }
         }
         
@@ -864,6 +882,7 @@
         // and when submitting the form. No need for change event listeners.
         
         function skipItem() {
+            if (isUploadInProgress) return;
             if (currentQueue.length === 0) {
                 showStatus('Queue is empty', 'info');
                 return;
@@ -925,6 +944,7 @@
         }
         
         async function clearQueue() {
+            if (isUploadInProgress) return;
             if (!confirm('Clear entire queue?')) return;
             
             try {
