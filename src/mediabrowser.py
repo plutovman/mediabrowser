@@ -63,6 +63,7 @@ CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud
 
 # Archive settings
 MAX_ARCHIVE_FILES = 10  # Maximum files per archive upload batch
+MAX_ARCHIVE_FILE_SIZE_MEG = 4  # Maximum file size in MB
 
 # Database tables
 db_table_proj = 'media_proj'
@@ -872,12 +873,30 @@ def register_routes(app):
             queue = session.get('processing_queue', [])
             processed_files = session.get('processed_files', {})
             copied_file_ids = []
+            skipped_oversized_files = []
+            max_file_size_bytes = MAX_ARCHIVE_FILE_SIZE_MEG * 1024 * 1024
             
             for file in uploaded_files:
                 if file.filename == '':
                     continue
                 
                 file_name = file.filename
+                try:
+                    file.stream.seek(0, os.SEEK_END)
+                    file_size_bytes = file.stream.tell()
+                    file.stream.seek(0)
+                except Exception:
+                    file_size_bytes = file.content_length or 0
+                    try:
+                        file.stream.seek(0)
+                    except Exception:
+                        pass
+
+                if file_size_bytes > max_file_size_bytes:
+                    file_size_mb = file_size_bytes / (1024 * 1024)
+                    skipped_oversized_files.append(f"{file_name} ({file_size_mb:.1f} MB)")
+                    continue
+
                 file_ext = os.path.splitext(file_name)[1].lstrip('.').lower()
                 
                 # Determine subfolder based on file type
@@ -939,11 +958,31 @@ def register_routes(app):
             session['processed_files'] = processed_files
             session['current_index'] = 0
             session.modified = True
+
+            if not copied_file_ids and skipped_oversized_files:
+                return jsonify({
+                    'success': False,
+                    'error': (
+                        f"Skipped {len(skipped_oversized_files)} oversized file(s). "
+                        f"Maximum allowed is {MAX_ARCHIVE_FILE_SIZE_MEG} MB per file. "
+                        f"Files: {', '.join(skipped_oversized_files)}"
+                    )
+                })
+
+            warning_message = None
+            if skipped_oversized_files:
+                warning_message = (
+                    f"Skipped {len(skipped_oversized_files)} oversized file(s). "
+                    f"Maximum allowed is {MAX_ARCHIVE_FILE_SIZE_MEG} MB per file. "
+                    f"Files: {', '.join(skipped_oversized_files)}"
+                )
             
             return jsonify({
                 'success': True,
                 'count': len(queue),
-                'copied': len(copied_file_ids)
+                'copied': len(copied_file_ids),
+                'warning': warning_message,
+                'skipped_oversized': skipped_oversized_files
             })
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)})

@@ -67,12 +67,17 @@
         
         #statusMessage .status-message {
             width: 100%;
+            box-sizing: border-box;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
         
         /* Queue List */
         .queue-list {
             max-height: 400px;
             overflow-y: auto;
+            overflow-x: auto;
             background-color: #1a1a1a;
             border-radius: 4px;
             padding: 10px;
@@ -85,6 +90,9 @@
             border-radius: 4px;
             cursor: pointer;
             transition: background-color 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .queue-item:hover {
@@ -385,6 +393,12 @@
             // Use showStatus to ensure consistent behavior and protection
             showStatus(processingMsg, 'processing');
         }
+
+        const uploadErrorMsg = sessionStorage.getItem('uploadErrorMessage');
+        if (uploadErrorMsg) {
+            showStatus(uploadErrorMsg, 'error');
+            sessionStorage.removeItem('uploadErrorMessage');
+        }
         
         // Helper function to get current file_id from queue
         function getCurrentFileId() {
@@ -474,6 +488,10 @@
                 if (result.success) {
                     // Save current form data before reloading
                     await saveCurrentFormToCache();
+
+                    if (result.warning) {
+                        sessionStorage.setItem('uploadErrorMessage', result.warning);
+                    }
                     
                     // Store processing message to persist across reload
                     sessionStorage.setItem('processingMessage', `Processing ${result.copied} file(s), please wait...`);
