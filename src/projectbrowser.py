@@ -931,6 +931,21 @@ end tell
                         'job_name': job_name,
                         'warning': f'Job created but nav file creation failed: {str(nav_error)}'
                     }), 200
+            # create local directories if configured
+            '''
+            if job_path_job_local and job_path_rnd_local:
+                try:
+                    vpr.vpr_job_create_directories(job_name=job_name, 
+                                                   path_job=job_path_job_local, 
+                                                   path_rnd=job_path_rnd_local)
+                except Exception as local_dir_error:
+                    # Job created in DB but local directories failed - still return success
+                    return jsonify({
+                        'success': True, 
+                        'job_name': job_name,
+                        'warning': f'Job created but local directory creation failed: {str(local_dir_error)}'
+                    }), 200
+            '''
                 
             return jsonify({
                 'success': True,

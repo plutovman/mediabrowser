@@ -1370,6 +1370,8 @@ input[type="date"]:disabled::-webkit-datetime-edit {
         
         // List of editable fields (matching list_columns_editable in backend)
         const editableFields = ['job_date_due', 'job_charge1', 'job_charge2', 'job_charge3', 'job_tags', 'job_notes'];
+
+        const createdJobSessionKey = 'productionCreatedJob';
         
         // Store original job data for cancel/restore functionality
         let originalJobData = null;
@@ -1418,6 +1420,57 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             // Show action buttons when job is loaded
             document.getElementById('action-buttons').style.display = 'flex';
         }
+
+        function enterJobEditMode() {
+            const editButton = document.querySelector('button[onclick="jobEditOrSave()"]');
+            if (!editButton) {
+                return;
+            }
+
+            const mode = editButton.dataset.mode || 'edit';
+            if (mode !== 'edit') {
+                return;
+            }
+
+            editableFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) field.disabled = false;
+            });
+
+            editButton.textContent = jobContextSave;
+            editButton.dataset.mode = 'save';
+        }
+
+        async function restoreCreatedJobAfterReload() {
+            const saved = sessionStorage.getItem(createdJobSessionKey);
+            if (!saved) {
+                return;
+            }
+
+            sessionStorage.removeItem(createdJobSessionKey);
+
+            try {
+                const jobContext = JSON.parse(saved);
+                if (!jobContext || !jobContext.job_name || !jobContext.job_path_job) {
+                    return;
+                }
+
+                const loadedJob = await loadJobDashboard(
+                    jobContext.job_name,
+                    jobContext.job_path_job,
+                    { app: null, subdir: null, storage: null }
+                );
+
+                if (loadedJob) {
+                    enterJobEditMode();
+                    showStatus('Job created successfully: ' + jobContext.job_name, 'success');
+                }
+            } catch (error) {
+                console.error('Failed to restore created job state:', error);
+            }
+        }
+
+        window.addEventListener('load', restoreCreatedJobAfterReload);
         
         // Toggle between Edit and Save modes
         async function jobEditOrSave() {
@@ -1634,6 +1687,15 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                 const data = await response.json();
                 
                 if (data.success) {
+                    const createdJob = {
+                        job_name: data.job_name || jobName,
+                        job_path_job: (data.job_data && data.job_data.job_path_job) || document.getElementById('new_job_path').value || ''
+                    };
+
+                    if (createdJob.job_name && createdJob.job_path_job) {
+                        sessionStorage.setItem(createdJobSessionKey, JSON.stringify(createdJob));
+                    }
+
                     window.location.reload();
                     return;
                 } else {
