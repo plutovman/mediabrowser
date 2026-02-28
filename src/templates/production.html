@@ -927,12 +927,12 @@ input[type="date"]:disabled::-webkit-datetime-edit {
             return appsUnoList;
         }
 
-        // Build storage sources menu on first hover of JOB NAV button
-        document.getElementById('project-select-root').addEventListener('mouseenter', async function() {
+        async function buildNavigationMenu() {
             if (menuBuilt) return;
             menuBuilt = true;
             
             const storageMenu = document.getElementById('storage-menu');
+            if (!storageMenu) return;
             storageMenu.innerHTML = '<li class="nav-placeholder">Loading...</li>';
             
             try {
@@ -984,16 +984,21 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                 storageMenu.innerHTML = '<li class="nav-placeholder">Error loading menu</li>';
                 showStatus('Error building navigation menu: ' + error.message, 'error');
             }
-        }, { once: true });
+        }
+
+        const projectSelectRoot = document.getElementById('project-select-root');
+        if (projectSelectRoot) {
+            projectSelectRoot.addEventListener('mouseenter', buildNavigationMenu);
+        }
 
         // Build sync menu on first hover of JOB SYNC button - now using reusable functions
         const syncSelectRoot = document.getElementById('sync-select-root');
-        if (syncSelectRoot) {
-            syncSelectRoot.addEventListener('mouseenter', async function() {
+        async function buildSyncMenu() {
             if (syncMenuBuilt) return;
             syncMenuBuilt = true;
             
             const syncMenu = document.getElementById('sync-menu');
+            if (!syncMenu) return;
             syncMenu.innerHTML = '<li class="nav-placeholder">Loading...</li>';
             
             try {
@@ -1040,7 +1045,25 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                 syncMenu.innerHTML = '<li class="nav-placeholder">Error loading sync menu</li>';
                 showStatus('Error building sync menu: ' + error.message, 'error');
             }
-        }, { once: true });
+        }
+
+        if (syncSelectRoot) {
+            syncSelectRoot.addEventListener('mouseenter', buildSyncMenu);
+        }
+
+        function invalidateJobMenus() {
+            menuBuilt = false;
+            syncMenuBuilt = false;
+
+            const storageMenu = document.getElementById('storage-menu');
+            if (storageMenu) {
+                storageMenu.innerHTML = '';
+            }
+
+            const syncMenu = document.getElementById('sync-menu');
+            if (syncMenu) {
+                syncMenu.innerHTML = '';
+            }
         }
 
         function showSyncConfirmation(jobPath, projectName, app, subdir, syncDirection) {
@@ -1611,27 +1634,8 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                 const data = await response.json();
                 
                 if (data.success) {
-                    showStatus('Job created successfully: ' + data.job_name, 'success');
-                    cancelNewJob();
-                    
-                    // Load the new job into the Job Dashboard and enter edit mode
-                    if (data.job_data) {
-                        // Show the job dashboard with the new job data
-                        document.getElementById('info-display').style.display = 'block';
-                        populateJobForm(data.job_data);
-                        
-                        // Automatically enter edit mode
-                        const editButton = document.querySelector('button[onclick="jobEditOrSave()"]');
-                        if (editButton && editButton.dataset.mode === 'edit') {
-                            // Trigger edit mode by simulating the button click logic
-                            editableFields.forEach(fieldId => {
-                                const field = document.getElementById(fieldId);
-                                if (field) field.disabled = false;
-                            });
-                            editButton.textContent = jobContextSave;
-                            editButton.dataset.mode = 'save';
-                        }
-                    }
+                    window.location.reload();
+                    return;
                 } else {
                     showStatus('Error creating job: ' + (data.message || 'Unknown error'), 'error');
                 }
