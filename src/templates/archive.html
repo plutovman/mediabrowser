@@ -49,6 +49,12 @@
         .drop-zone:hover {
             background-color: #333;
         }
+
+        .drop-zone.disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
         
         .drop-zone-icon {
             font-size: 3em;
@@ -205,6 +211,12 @@
         
         .action-buttons button {
             flex: 1;
+        }
+
+        .action-buttons button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
         }
 {% endblock %}
 
@@ -400,6 +412,19 @@
             if (removeCurrentBtn) {
                 removeCurrentBtn.disabled = isInProgress;
             }
+
+            const dropZoneEl = document.getElementById('dropZone');
+            if (dropZoneEl) {
+                dropZoneEl.classList.toggle('disabled', isInProgress);
+                if (isInProgress) {
+                    dropZoneEl.classList.remove('dragover');
+                }
+            }
+
+            const fileInputEl = document.getElementById('fileInput');
+            if (fileInputEl) {
+                fileInputEl.disabled = isInProgress;
+            }
         }
         
         // Show processing message IMMEDIATELY after variables are initialized
@@ -461,6 +486,7 @@
         dropZone.addEventListener('click', () => fileInput.click());
         
         dropZone.addEventListener('dragover', (e) => {
+            if (isUploadInProgress) return;
             e.preventDefault();
             dropZone.classList.add('dragover');
         });
@@ -470,6 +496,7 @@
         });
         
         dropZone.addEventListener('drop', async (e) => {
+            if (isUploadInProgress) return;
             e.preventDefault();
             dropZone.classList.remove('dragover');
             

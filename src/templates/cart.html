@@ -248,6 +248,18 @@ table {
         const button1 = document.getElementById('downloadBtn');
         const button2 = document.getElementById('downloadBtn2');
 
+        function applyDefaultSelections() {
+            const totalCheckboxes = checkboxes.length;
+            let defaultsApplied = 0;
+            checkboxes.forEach(cb => {
+                if (!cb.checked) {
+                    cb.checked = true;
+                    defaultsApplied += 1;
+                }
+            });
+            console.log(`[cart] applyDefaultSelections called; checked ${defaultsApplied} of ${totalCheckboxes} checkbox(es)`);
+        }
+
         function updateButtons() {
             const checked = Array.from(checkboxes).some(cb => cb.checked);
             if (button1) button1.disabled = !checked;
@@ -255,9 +267,15 @@ table {
         }
 
         if (checkboxes.length > 0) {
+            applyDefaultSelections();
             checkboxes.forEach(cb => cb.addEventListener('change', updateButtons));
             updateButtons();
         }
+
+        window.addEventListener('pageshow', function() {
+            applyDefaultSelections();
+            updateButtons();
+        });
 
         // Toggle all checkboxes
         const toggleAllBtn = document.getElementById('toggleAll');

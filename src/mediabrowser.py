@@ -21,12 +21,15 @@ import sqlite3
 import os
 import math
 import random
+import threading
 import cv2
 import io
 import zipfile
 import time
 import shutil
+from contextlib import contextmanager
 from datetime import datetime
+from functools import lru_cache
 from flask import render_template, request, url_for, abort, session, redirect, send_file, jsonify, flash, send_from_directory
 from PIL import Image
 
@@ -49,6 +52,17 @@ path_base_archive = os.path.join(path_base_media, 'archive')
 path_db_media = os.path.join(depot_local, 'assetdepot', 'media', 'dummy', 'db')
 file_sqlite_media = 'media_dummy.sqlite'
 path_db_media = os.path.join(path_db_media, file_sqlite_media)
+
+# SQLite tuning for network-shared DB
+SQLITE_TIMEOUT_SECONDS = 60.0
+SQLITE_BUSY_TIMEOUT_MS = 30000
+# SQLite PRAGMA cache_size uses sign as unit selector:
+#   positive => number of pages, negative => size in KiB.
+# We use negative so memory target is explicit/predictable (~100 MB per thread)
+# regardless of SQLite page size.
+SQLITE_CACHE_SIZE_KB = -102400  # 100MB page cache per Flask thread
+_connection_cache = threading.local()
+_cache_config_logged = False
 
 # Git repository information (defined once at module level)
 file_git_info = 'repo_info.json'
@@ -92,6 +106,7 @@ dict_thumbs = {
 # Logo configuration
 file_logo_sqr = 'foxlito.png'
 path_logo_sqr = os.path.join(path_base_media, 'dummy', 'thumbnails', file_logo_sqr)
+path_base_thumbs_relative = os.path.relpath(path_base_thumbs, depot_local)
 
 
 # ============================================================================
@@ -132,11 +147,177 @@ def cart_clear_table(db_table):
 # HELPER FUNCTIONS - DATABASE & MEDIA
 # ============================================================================
 
-def db_get_connection():
-    """Connect to SQLite database and return connection with row factory enabled"""
-    conn = sqlite3.connect(path_db_media)
+def _db_connection_configure(conn):
+    """Apply connection settings optimized for network SQLite usage."""
     conn.row_factory = sqlite3.Row
-    return conn
+    conn.execute("PRAGMA journal_mode=DELETE")
+    conn.execute(f"PRAGMA cache_size={SQLITE_CACHE_SIZE_KB}")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA temp_store=MEMORY")
+    conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+
+
+def _db_cache_config_log_once():
+    global _cache_config_logged
+    if _cache_config_logged:
+        return
+    print(
+        "[CACHE][MediaBrowser] sqlite "
+        f"journal=DELETE sync=NORMAL cache_size_kb={abs(SQLITE_CACHE_SIZE_KB)} "
+        f"busy_timeout_ms={SQLITE_BUSY_TIMEOUT_MS} timeout_s={SQLITE_TIMEOUT_SECONDS} "
+        "mode=thread-local-persistent"
+    )
+    _cache_config_logged = True
+
+
+def _db_connection_thread_get():
+    """Get or create a persistent SQLite connection per Flask worker thread."""
+    conn = getattr(_connection_cache, 'conn', None)
+    if conn is None:
+        conn = sqlite3.connect(path_db_media, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
+        _db_connection_configure(conn)
+        _connection_cache.conn = conn
+        _db_cache_config_log_once()
+        return conn
+
+    try:
+        conn.execute('SELECT 1')
+        return conn
+    except sqlite3.Error:
+        conn = sqlite3.connect(path_db_media, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
+        _db_connection_configure(conn)
+        _connection_cache.conn = conn
+        _db_cache_config_log_once()
+        return conn
+
+
+def db_get_connection():
+    """Return thread-local persistent SQLite connection with warm page cache."""
+    return _db_connection_thread_get()
+
+
+def db_connection_close(conn):
+    """Close only non-thread-local connections; cached thread connection stays warm."""
+    if conn is None:
+        return
+    if conn is getattr(_connection_cache, 'conn', None):
+        return
+    conn.close()
+
+
+@contextmanager
+def db_connection_context():
+    """Context manager helper for call sites that prefer with-style DB access."""
+    conn = db_get_connection()
+    yield conn
+
+
+@lru_cache(maxsize=128)
+def _cached_category_counts(category: str, top_n: int, db_table: str):
+    conn = db_get_connection()
+    query = f'''
+        SELECT {category}, COUNT(*) as count
+        FROM {db_table}
+        WHERE {category} IS NOT NULL AND {category} != ''
+        GROUP BY {category}
+        ORDER BY count DESC
+        LIMIT ?
+    '''
+    results = conn.execute(query, (top_n,)).fetchall()
+    return tuple((row[category], row['count']) for row in results)
+
+
+@lru_cache(maxsize=20000)
+def _cached_media_path_details(file_path_raw: str, file_type_raw: str):
+    full_path = file_path_raw
+    if full_path.startswith('$DEPOT_ALL'):
+        full_path = full_path.replace('$DEPOT_ALL', depot_local)
+
+    relative_path = os.path.relpath(full_path, depot_local)
+    file_type = (file_type_raw or '').lower()
+
+    ext_is_matched = False
+    ext_is_viewable = False
+    thumb_relative_path = relative_path
+
+    if file_type == 'mp4':
+        ext_is_viewable = True
+        base, _ = os.path.splitext(relative_path)
+        for ext in ('.jpg', '.png'):
+            candidate = base + ext
+            if os.path.exists(os.path.join(depot_local, candidate)):
+                thumb_relative_path = candidate
+                ext_is_matched = True
+                break
+        if not ext_is_matched:
+            thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs['other'])
+            ext_is_matched = True
+    elif file_type in ['wav', 'mp3', 'aac', 'flac']:
+        ext_is_viewable = True
+        thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs.get(file_type, dict_thumbs['other']))
+        ext_is_matched = True
+    elif file_type in ['jpg', 'jpeg', 'png']:
+        ext_is_matched = True
+        ext_is_viewable = True
+        thumb_relative_path = relative_path
+    else:
+        for file_ext in dict_thumbs.keys():
+            if file_type == file_ext:
+                thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs[file_ext])
+                ext_is_matched = True
+                break
+
+    if not ext_is_matched:
+        thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs['other'])
+
+    return full_path, relative_path, thumb_relative_path, ext_is_viewable
+
+
+@lru_cache(maxsize=2048)
+def _extract_media_metadata_cached(file_path: str, file_mtime_ns: int):
+    metadata = {}
+    file_ext = os.path.splitext(file_path)[1].lstrip('.').lower()
+
+    try:
+        if file_ext in ['mp4', 'mov', 'avi', 'mkv']:
+            cap = cv2.VideoCapture(file_path)
+            if cap.isOpened():
+                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+                metadata['file_resolution'] = f"{width}x{height}"
+
+                if fps > 0:
+                    duration_seconds = frame_count / fps
+                    hours = int(duration_seconds // 3600)
+                    minutes = int((duration_seconds % 3600) // 60)
+                    seconds = int(duration_seconds % 60)
+                    if hours > 0:
+                        metadata['file_duration'] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    else:
+                        metadata['file_duration'] = f"{minutes:02d}:{seconds:02d}"
+
+                cap.release()
+
+            extra_info = dbj.db_media_video_info(file_path)
+            if isinstance(extra_info, dict):
+                title = extra_info.get('data', {}).get('title')
+                if title is not None:
+                    title_str = str(title).strip()
+                    if title_str:
+                        metadata['subject'] = title_str
+    except Exception as e:
+        print(f"Error extracting video metadata: {e}")
+
+    return metadata
+
+
+def cache_invalidate_runtime():
+    """Invalidate in-process read caches after DB/content mutations."""
+    _cached_category_counts.cache_clear()
+    _cached_media_path_details.cache_clear()
 
 def db_tables_sync_field(conn, source_table: str, file_id: str, field: str, value: str):
     """
@@ -223,59 +404,20 @@ def db_item_add_from_dict(item_dict: dict, db_table: str = None):
     sql = f'INSERT INTO {db_table} ({columns}) VALUES ({placeholders})'
     conn.execute(sql, tuple(all_fields.values()))
     conn.commit()
-    conn.close()
+    cache_invalidate_runtime()
+    db_connection_close(conn)
 
 def enrich_media_paths(item):
     """Enrich media item with absolute/relative paths and thumbnail paths for Flask serving"""
     
     item_dict = dict(item)
-    full_path = item_dict['file_path']
-    if full_path.startswith('$DEPOT_ALL'):
-        full_path = full_path.replace('$DEPOT_ALL', depot_local)
+    full_path, relative_path, thumb_relative_path, ext_is_viewable = _cached_media_path_details(
+        item_dict['file_path'],
+        item_dict.get('file_type', '')
+    )
+
     item_dict['absolute_path'] = full_path
-    relative_path = os.path.relpath(full_path, depot_local)
-    thumbs_other_relative_path = os.path.relpath(path_base_thumbs, depot_local)
     item_dict['relative_path'] = relative_path
-
-    ext_is_matched = False
-    ext_is_viewable = False
-    thumb_relative_path = relative_path
-
-    # logic for displaying thumbnails when loading mp4 files
-    if item_dict.get('file_type', '').lower() == 'mp4':
-        #ext_is_matched = True
-        ext_is_viewable = True
-        base, _ = os.path.splitext(relative_path)
-        for ext in ('.jpg', '.png'):
-            candidate = base + ext
-            if os.path.exists(os.path.join(depot_local, candidate)):
-                thumb_relative_path = candidate
-                ext_is_matched = True
-                break
-        if not ext_is_matched:
-            thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs["other"])
-            ext_is_matched = True
-    # logic for audio files (wav, mp3, etc.)
-    elif item_dict.get('file_type', '').lower() in ['wav', 'mp3', 'aac', 'flac']:
-        ext_is_viewable = True
-        thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs.get(item_dict.get('file_type', '').lower(), dict_thumbs["other"]))
-        ext_is_matched = True
-    # for 'jpg', 'jpeg', 'png' files, use the image itself as thumbnail
-    elif item_dict.get('file_type', '').lower() in ['jpg', 'jpeg', 'png']:
-        ext_is_matched = True
-        ext_is_viewable = True
-        thumb_relative_path = relative_path
-    # for other file types, use predefined thumbnails
-    else:
-        for file_ext in dict_thumbs.keys():
-            if item_dict.get('file_type', '').lower() == file_ext:
-                thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs[file_ext])
-                ext_is_matched = True
-                break
-
-    if not ext_is_matched:
-        thumb_relative_path = os.path.join(thumbs_other_relative_path, dict_thumbs["other"])
-
     item_dict['thumbnail_relative_path'] = thumb_relative_path
     item_dict['ext_is_viewable'] = ext_is_viewable
     return item_dict
@@ -295,76 +437,27 @@ def category_get_dict(category: str, top_n: int, db_table: str = None) -> dict:
     if db_table is None:
         db_table = list_db_tables[0]
     
-    conn = db_get_connection()
-    
     # Validate category to prevent SQL injection
     allowed_categories = ['file_type', 'genre', 'subject', 'category', 'lighting', 'setting', 'tags']
     if category not in allowed_categories:
-        conn.close()
         return {}
     
     # Validate table name
     if db_table not in list_db_tables:
-        conn.close()
         return {}
-    
-    query = f'''
-        SELECT {category}, COUNT(*) as count 
-        FROM {db_table} 
-        WHERE {category} IS NOT NULL AND {category} != ''
-        GROUP BY {category}
-        ORDER BY count DESC
-        LIMIT ?
-    '''
-    
-    results = conn.execute(query, (top_n,)).fetchall()
-    conn.close()
-    
-    category_dict = {row[category]: row['count'] for row in results}
+
+    counts = _cached_category_counts(category, int(top_n), db_table)
+    category_dict = {value: count for value, count in counts}
     return category_dict
 
 def extract_media_metadata(file_path):
     """Extract resolution and duration metadata from video files using OpenCV"""
     
-    metadata = {}
-    file_ext = os.path.splitext(file_path)[1].lstrip('.').lower()
-    
     try:
-        if file_ext in ['mp4', 'mov', 'avi', 'mkv']:
-            cap = cv2.VideoCapture(file_path)
-            if cap.isOpened():
-                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                
-                metadata['file_resolution'] = f"{width}x{height}"
-                
-                if fps > 0:
-                    duration_seconds = frame_count / fps
-                    hours = int(duration_seconds // 3600)
-                    minutes = int((duration_seconds % 3600) // 60)
-                    seconds = int(duration_seconds % 60)
-                    if hours > 0:
-                        metadata['file_duration'] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                    else:
-                        metadata['file_duration'] = f"{minutes:02d}:{seconds:02d}"
-                
-                cap.release()
-            # use dbm.db_media_video_info() to extract optional metadata
-            extra_info = dbj.db_media_video_info(file_path)
-            if isinstance(extra_info, dict):
-                title = extra_info.get('data', {}).get('title')
-                if title is not None:
-                    title_str = str(title).strip()
-                    if title_str:
-                        metadata['subject'] = title_str
-            
-                  
-    except Exception as e:
-        print(f"Error extracting video metadata: {e}")
-
-    return metadata
+        file_mtime_ns = os.stat(file_path).st_mtime_ns
+    except OSError:
+        file_mtime_ns = 0
+    return dict(_extract_media_metadata_cached(file_path, file_mtime_ns))
 
 def generate_video_thumbnail(video_path, time_percent=0.0):
     """
@@ -463,7 +556,7 @@ def register_routes(app):
         conn = db_get_connection()
         random_media = conn.execute(f'SELECT * FROM {db_table} ORDER BY RANDOM() LIMIT 1').fetchone()
         random_image = enrich_media_paths(random_media) if random_media else None
-        conn.close()
+        db_connection_close(conn)
         
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
         top_subjects = category_get_dict('subject', CNT_TOP_TOPICS, db_table)
@@ -565,7 +658,7 @@ def register_routes(app):
             total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
     
         media_list = [enrich_media_paths(item) for item in media]
-        conn.close()
+        db_connection_close(conn)
     
         if total_pages > 0 and (page > total_pages or page < 1):
             abort(404)
@@ -672,7 +765,7 @@ def register_routes(app):
             media = conn.execute(query, cart_ids).fetchall()
             for item in media:
                 media_list.append(enrich_media_paths(item))
-            conn.close()
+            db_connection_close(conn)
         
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
         back_url = session.get('last_search_url', url_for('page_search'))
@@ -715,7 +808,7 @@ def register_routes(app):
         query = f'SELECT * FROM {db_table} WHERE file_id IN ({placeholders})'
         conn = db_get_connection()
         media = conn.execute(query, selected_ids).fetchall()
-        conn.close()
+        db_connection_close(conn)
         
         if not media:
             flash('Selected files not found in database', 'error')
@@ -796,11 +889,12 @@ def register_routes(app):
                     db_tables_sync_field(conn, db_table, file_id, field, value)
             
             conn.commit()
-            conn.close()
+            cache_invalidate_runtime()
+            db_connection_close(conn)
             
             return jsonify({'success': True, 'updated': updated_count})
         except Exception as e:
-            conn.close()
+            db_connection_close(conn)
             return jsonify({'success': False, 'error': str(e)})
     
     @app.route('/prune_cart_items', methods=['POST'])
@@ -840,11 +934,12 @@ def register_routes(app):
                     session.modified = True
             
             conn.commit()
-            conn.close()
+            cache_invalidate_runtime()
+            db_connection_close(conn)
             
             return {'success': True, 'deleted': deleted_count}
         except Exception as e:
-            conn.close()
+            db_connection_close(conn)
             return {'success': False, 'error': str(e)}
     
     # ========================================================================
@@ -1085,6 +1180,7 @@ def register_routes(app):
             db_table = session.get('target_db_table', db_table_arch)
             
             db_item_add_from_dict(data, db_table)
+            cache_invalidate_runtime()
             
             current_index = session.get('current_index', 0)
             session['current_index'] = current_index + 1

@@ -21,8 +21,10 @@ import os
 import platform
 import subprocess
 import time
+import threading
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
+from functools import lru_cache
 import db_jobtools as dbj
 import vpr_jobtools as vpr
 
@@ -48,6 +50,13 @@ file_sqlite = 'db_projects.sqlite3'
 file_projects_aliases = 'db_projects.tcsh'
 file_project_env = 'project_env.tcsh'
 file_git_info = 'repo_info.json'
+
+# SQLite tuning for network-shared DB (lighter than mediabrowser)
+SQLITE_TIMEOUT_SECONDS = 60.0
+SQLITE_BUSY_TIMEOUT_MS = 30000
+SQLITE_CACHE_SIZE_KB = -32768  # 32MB page cache per Flask thread
+_connection_cache = threading.local()
+_cache_config_logged = False
 
 db_table_proj = 'projects'
 path_db_sqlite = os.path.join(path_db, 'sqlite', file_sqlite)
@@ -206,12 +215,123 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_
 
 
 def db_get_connection():
-    """Connect to SQLite database and return connection with row factory enabled"""
-    # Connects to the database and sets row_factory to sqlite3.Row 
-    # to access columns by name (like a dictionary)
-    conn = sqlite3.connect(path_db_sqlite)
-    conn.row_factory = sqlite3.Row 
-    return conn
+    """Get per-thread persistent SQLite connection with network-aware tuning."""
+    global _cache_config_logged
+
+    conn = getattr(_connection_cache, 'conn', None)
+    if conn is None:
+        conn = sqlite3.connect(path_db_sqlite, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=DELETE")
+        conn.execute(f"PRAGMA cache_size={SQLITE_CACHE_SIZE_KB}")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA temp_store=MEMORY")
+        conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+        _connection_cache.conn = conn
+        if not _cache_config_logged:
+            print(
+                "[CACHE][ProjectBrowser] sqlite "
+                f"journal=DELETE sync=NORMAL cache_size_kb={abs(SQLITE_CACHE_SIZE_KB)} "
+                f"busy_timeout_ms={SQLITE_BUSY_TIMEOUT_MS} timeout_s={SQLITE_TIMEOUT_SECONDS} "
+                "mode=thread-local-persistent"
+            )
+            _cache_config_logged = True
+        return conn
+
+    try:
+        conn.execute('SELECT 1')
+        return conn
+    except sqlite3.Error:
+        conn = sqlite3.connect(path_db_sqlite, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=DELETE")
+        conn.execute(f"PRAGMA cache_size={SQLITE_CACHE_SIZE_KB}")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA temp_store=MEMORY")
+        conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+        _connection_cache.conn = conn
+        if not _cache_config_logged:
+            print(
+                "[CACHE][ProjectBrowser] sqlite "
+                f"journal=DELETE sync=NORMAL cache_size_kb={abs(SQLITE_CACHE_SIZE_KB)} "
+                f"busy_timeout_ms={SQLITE_BUSY_TIMEOUT_MS} timeout_s={SQLITE_TIMEOUT_SECONDS} "
+                "mode=thread-local-persistent"
+            )
+            _cache_config_logged = True
+        return conn
+
+
+def db_connection_close(conn):
+    """Close only non-thread-local connections; keep the cached one warm."""
+    if conn is None:
+        return
+    if conn is getattr(_connection_cache, 'conn', None):
+        return
+    conn.close()
+
+
+def _row_to_dict(row):
+    if row is None:
+        return None
+    return {k: row[k] for k in row.keys()}
+
+
+@lru_cache(maxsize=8)
+def _cached_years():
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f'SELECT DISTINCT job_year FROM {db_table_proj} ORDER BY job_year DESC')
+    return tuple(row['job_year'] for row in cursor.fetchall())
+
+
+@lru_cache(maxsize=64)
+def _cached_projects_by_year(year: str):
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f'SELECT job_name, job_path_job FROM {db_table_proj} WHERE job_year = ? ORDER BY job_name', (year,))
+    return tuple((row['job_name'], row['job_path_job']) for row in cursor.fetchall())
+
+
+@lru_cache(maxsize=128)
+def _cached_project_apps(project_name: str):
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f'SELECT job_apps, job_path_job FROM {db_table_proj} WHERE job_name = ?', (project_name,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+    return row['job_apps'], row['job_path_job']
+
+
+@lru_cache(maxsize=256)
+def _cached_job_by_name(job_name: str):
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+    return tuple(_row_to_dict(row).items())
+
+
+@lru_cache(maxsize=256)
+def _cached_job_by_path(job_path_job: str):
+    conn = db_get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_path_job = ?", (job_path_job,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+    return tuple(_row_to_dict(row).items())
+
+
+def cache_invalidate_runtime():
+    """Invalidate read caches after DB writes."""
+    _cached_years.cache_clear()
+    _cached_projects_by_year.cache_clear()
+    _cached_project_apps.cache_clear()
+    _cached_job_by_name.cache_clear()
+    _cached_job_by_path.cache_clear()
 
 
 # ============================================================================
@@ -239,12 +359,8 @@ def register_routes(flask_app):
         # Logo relative path for template
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
         
-        # Get all available years
-        conn = db_get_connection()
-        cursor = conn.cursor()
-        cursor.execute(f'SELECT DISTINCT job_year FROM {db_table} ORDER BY job_year DESC')
-        years = [row['job_year'] for row in cursor.fetchall()]
-        conn.close()
+        # Get all available years (cached)
+        years = list(_cached_years())
         
         # Only show sync menu if we have more than one storage source
         show_sync_menu = len(list_storage_src) > 1
@@ -271,11 +387,8 @@ def register_routes(flask_app):
         if not year:
             return jsonify({'error': 'Year parameter required'}), 400
         
-        conn = db_get_connection()
-        cursor = conn.cursor()
-        cursor.execute(f'SELECT job_name, job_path_job FROM {db_table_proj} WHERE job_year = ? ORDER BY job_name', (year,))
-        projects = [{'name': row['job_name'], 'path': row['job_path_job']} for row in cursor.fetchall()]
-        conn.close()
+        project_rows = _cached_projects_by_year(year)
+        projects = [{'name': name, 'path': path} for name, path in project_rows]
         
         return jsonify({'projects': projects})
     
@@ -287,19 +400,15 @@ def register_routes(flask_app):
         if not project_name:
             return jsonify({'error': 'Project parameter required'}), 400
         
-        conn = db_get_connection()
-        cursor = conn.cursor()
-        cursor.execute(f'SELECT job_apps, job_path_job FROM {db_table_proj} WHERE job_name = ?', (project_name,))
-        row = cursor.fetchone()
-        conn.close()
-        
-        if not row:
+        project_apps = _cached_project_apps(project_name)
+        if not project_apps:
             return jsonify({'error': 'Project not found'}), 404
+        job_apps, job_path_job = project_apps
         
         # Parse job_apps (comma-separated string)
-        apps = [app.strip() for app in row['job_apps'].split(',')]
+        apps = [app.strip() for app in job_apps.split(',')]
         
-        return jsonify({'apps': apps, 'job_path_job': row['job_path_job']})
+        return jsonify({'apps': apps, 'job_path_job': job_path_job})
     
     @flask_app.route('/api/subdirs_by_app', methods=['GET'])
     def api_subdirs_by_app():
@@ -591,22 +700,15 @@ end tell
         if not job_name and not job_path_job:
             return jsonify({'success': False, 'message': 'job_name or job_path_job required'}), 400
 
-        conn = db_get_connection()
-        cursor = conn.cursor()
-
         if job_name:
-            cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
-            row = cursor.fetchone()
+            job_items = _cached_job_by_name(job_name)
         else:
-            cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_path_job = ?", (job_path_job,))
-            row = cursor.fetchone()
+            job_items = _cached_job_by_path(job_path_job)
 
-        if not row:
-            conn.close()
+        if not job_items:
             return jsonify({'success': False, 'message': 'Job not found'}), 404
 
-        job = {k: row[k] for k in row.keys()}
-        conn.close()
+        job = dict(job_items)
         return jsonify({'success': True, 'job': job}), 200
     
     @flask_app.route('/api/action_jobactive_dashboard_populate', methods=['POST'])
@@ -619,22 +721,15 @@ end tell
         if not job_name and not job_path_job:
             return jsonify({'success': False, 'message': 'job_name or job_path_job required'}), 400
 
-        conn = db_get_connection()
-        cursor = conn.cursor()
-
         if job_name:
-            cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
-            row = cursor.fetchone()
+            job_items = _cached_job_by_name(job_name)
         else:
-            cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_path_job = ?", (job_path_job,))
-            row = cursor.fetchone()
+            job_items = _cached_job_by_path(job_path_job)
 
-        if not row:
-            conn.close()
+        if not job_items:
             return jsonify({'success': False, 'message': 'Job not found'}), 404
 
-        job = {k: row[k] for k in row.keys()}
-        conn.close()
+        job = dict(job_items)
 
         # Choose fields to expose for display
         fields = ['job_name', 'job_alias', 'job_state', 'job_year', 'job_path_job', 
@@ -705,19 +800,13 @@ end tell
             conn.commit()
             
             if cursor.rowcount == 0:
-                conn.close()
+                db_connection_close(conn)
                 return jsonify({'success': False, 'message': 'Job not found'}), 404
             
-            conn.close()  # Close connection to flush changes
-            
-            # Reopen connection to ensure SELECT sees committed data (important for Windows)
-            conn = db_get_connection()
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT * FROM {db_table_proj} WHERE job_name = ?", (job_name,))
-            row = cursor.fetchone()
-            updated_job = dict(row) if row else None
-            
-            conn.close()
+            cache_invalidate_runtime()
+            job_items = _cached_job_by_name(job_name)
+            updated_job = dict(job_items) if job_items else None
+            db_connection_close(conn)
             return jsonify({
                 'success': True, 
                 'message': 'Job updated successfully',
@@ -753,7 +842,7 @@ end tell
             # Match pattern: job_partial followed by underscore and single character (%)
             cursor.execute(f"SELECT job_name FROM {db_table_proj} WHERE job_name LIKE ?", (job_partial + '_%',))
             matching_jobs = cursor.fetchall()
-            conn.close()
+            db_connection_close(conn)
             
             # Extract revision letters from matching jobs
             revisions = []
@@ -851,7 +940,7 @@ end tell
             existing = cursor.fetchone()
             
             if existing:
-                conn.close()
+                db_connection_close(conn)
                 return jsonify({'success': False, 'message': f'Job {job_name} already exists'}), 409
             
 
@@ -888,7 +977,8 @@ end tell
             ##########
 
             conn.commit()
-            conn.close()
+            cache_invalidate_runtime()
+            db_connection_close(conn)
             
             # Create directories if paths are configured
             if job_path_job and job_path_rnd:

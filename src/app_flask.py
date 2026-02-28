@@ -272,6 +272,37 @@ def register_routes_projectbrowser():
         print(f"⚠ Error registering projectbrowser routes: {e}")
 
 
+def print_cache_summary():
+    """Print consolidated cache configuration for registered browser modules."""
+    print("\n[SQLite Cache Configuration]")
+
+    try:
+        import mediabrowser as mb
+        print(
+            "  • MediaBrowser: "
+            f"cache_size_kb={abs(getattr(mb, 'SQLITE_CACHE_SIZE_KB', 0))} "
+            f"busy_timeout_ms={getattr(mb, 'SQLITE_BUSY_TIMEOUT_MS', 'n/a')} "
+            f"timeout_s={getattr(mb, 'SQLITE_TIMEOUT_SECONDS', 'n/a')} "
+            "mode=thread-local-persistent"
+        )
+    except Exception as e:
+        print(f"  • MediaBrowser: unavailable ({e})")
+
+    try:
+        import projectbrowser as pb
+        print(
+            "  • ProjectBrowser: "
+            f"cache_size_kb={abs(getattr(pb, 'SQLITE_CACHE_SIZE_KB', 0))} "
+            f"busy_timeout_ms={getattr(pb, 'SQLITE_BUSY_TIMEOUT_MS', 'n/a')} "
+            f"timeout_s={getattr(pb, 'SQLITE_TIMEOUT_SECONDS', 'n/a')} "
+            "mode=thread-local-persistent"
+        )
+    except Exception as e:
+        print(f"  • ProjectBrowser: unavailable ({e})")
+
+    print("[Cache summary complete]\n")
+
+
 # Attempt to register routes on module load
 
 register_routes_mediabrowser()
@@ -293,6 +324,7 @@ def main(debug=True, host='127.0.0.1', port=5000, browser_open_on_start=True):
     """
     # Initialize database indexes for optimal performance
     ensure_all_indexes()
+    print_cache_summary()
     
     # Find an available port if the requested one is in use
     if not port_number_available(host, port):

@@ -253,6 +253,7 @@ class LaunchpadApp(ctk.CTk):
             # Initialize database indexes for optimal performance
             print("\n" + "="*60)
             flsk.ensure_all_indexes()
+            flsk.print_cache_summary()
             print("="*60 + "\n")
             
             # Configure Flask app from app_flask module
