@@ -50,14 +50,33 @@ added_files = [
 ]
 
 # Collect hidden imports
+# How to decide hidden imports:
+# 1) Build once and inspect build/*/warn-*.txt for missing modules.
+# 2) Run frozen app and watch for ModuleNotFoundError or missing features.
+# 3) Rebuild with import tracing (e.g., --debug imports) when diagnosis is unclear.
+# 4) Prefer adding only runtime/dynamic imports; avoid over-broad lists when possible.
 hidden_imports = [
+    # App modules imported at runtime by app_flask route registration
+    'app_flask',
+    'mediabrowser',
+    'projectbrowser',
+
+    # UI / framework
     'customtkinter',
     'PIL',
+    'PIL.ImageTk',
     'PIL._tkinter_finder',
     'flask',
+
+    # Database / app utilities
     'sqlite3',
     'vpr_jobtools',
     'db_jobtools',
+    'db_mediatools',
+
+    # Media stack used by mediabrowser
+    'cv2',
+    'numpy',
 ]
 
 block_cipher = None
