@@ -35,63 +35,21 @@ def _read_git_info_json(path_json):
     return None
 
 
-def _is_repo_owner(path_repo_root):
-    """True when current user owns the repository root (POSIX only)."""
+def _can_query_repo_with_git(path_repo_root):
+    """True when current user can query this repo via git CLI."""
     if not path_repo_root:
         return False
-
-    if os.name == 'nt':
-        # Ownership checks are platform-specific on Windows; allow git path.
-        return True
-
-    try:
-        repo_stat = os.stat(path_repo_root)
-        return repo_stat.st_uid == os.geteuid()
-    except OSError:
-        return False
-
-
-def _get_safe_directories(path_repo_root):
-    """Return configured safe.directory entries visible to current user."""
-    if not path_repo_root:
-        return set()
 
     try:
         result = subprocess.run(
-            ['git', '-C', path_repo_root, 'config', '--get-all', 'safe.directory'],
+            ['git', '-C', path_repo_root, 'rev-parse', '--is-inside-work-tree'],
             capture_output=True,
             text=True,
             timeout=5
         )
+        return result.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
-        return set()
-
-    if result.returncode != 0:
-        return set()
-
-    entries = set()
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        expanded = os.path.abspath(os.path.expanduser(line)) if line != '*' else '*'
-        entries.add(expanded)
-    return entries
-
-
-def _is_repo_trusted(path_repo_root):
-    """True when repo is owner-controlled or explicitly marked safe.directory."""
-    if not path_repo_root:
         return False
-
-    if _is_repo_owner(path_repo_root):
-        return True
-
-    safe_dirs = _get_safe_directories(path_repo_root)
-    if '*' in safe_dirs:
-        return True
-
-    return os.path.abspath(path_repo_root) in safe_dirs
 
 try:
     import git
@@ -122,21 +80,20 @@ def git_get_info(path_repo=None, path_json=None):
     # Resolve repository root without requiring GitPython calls.
     repo_root = _find_repo_root(path_repo or os.getcwd())
 
-    # Prefer JSON first for non-owner users to avoid dubious-ownership errors.
-    if repo_root and not _is_repo_owner(repo_root):
+    # If git CLI cannot query the repo (permissions/safe.directory/ownership),
+    # immediately fall back to JSON metadata.
+    if repo_root and not _can_query_repo_with_git(repo_root):
         commit_info = _read_git_info_json(path_json)
         if commit_info:
             return commit_info
 
-        # Only attempt live git access when repo is explicitly trusted.
-        if not _is_repo_trusted(repo_root):
-            print(
-                "Git info skipped: repository is not owned by current user and "
-                "is not configured as safe.directory; no JSON fallback available."
-            )
-            return None
+        print(
+            "Git info skipped: current user cannot query this repository via git; "
+            "no JSON fallback available."
+        )
+        return None
 
-    # Try live git access when available and trusted/owner.
+    # Try live git access when available.
     if GIT_AVAILABLE:
         try:
             # Get the repository root (current directory or parent directories)
