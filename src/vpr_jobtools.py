@@ -3,6 +3,96 @@ import db_jobtools as dbj
 import datetime
 import json
 
+
+def _find_repo_root(start_path):
+    """Return the nearest parent directory containing a .git entry."""
+    if not start_path:
+        start_path = os.getcwd()
+
+    current = os.path.abspath(start_path)
+    if os.path.isfile(current):
+        current = os.path.dirname(current)
+
+    while True:
+        git_entry = os.path.join(current, '.git')
+        if os.path.exists(git_entry):
+            return current
+
+        parent = os.path.dirname(current)
+        if parent == current:
+            return None
+        current = parent
+
+
+def _read_git_info_json(path_json):
+    """Read commit info from JSON metadata file."""
+    if path_json and os.path.exists(path_json):
+        try:
+            with open(path_json, 'r') as f:
+                return json.load(f)
+        except (OSError, IOError, json.JSONDecodeError) as e:
+            print(f"Error reading git info from {path_json}: {e}")
+    return None
+
+
+def _is_repo_owner(path_repo_root):
+    """True when current user owns the repository root (POSIX only)."""
+    if not path_repo_root:
+        return False
+
+    if os.name == 'nt':
+        # Ownership checks are platform-specific on Windows; allow git path.
+        return True
+
+    try:
+        repo_stat = os.stat(path_repo_root)
+        return repo_stat.st_uid == os.geteuid()
+    except OSError:
+        return False
+
+
+def _get_safe_directories(path_repo_root):
+    """Return configured safe.directory entries visible to current user."""
+    if not path_repo_root:
+        return set()
+
+    try:
+        result = subprocess.run(
+            ['git', '-C', path_repo_root, 'config', '--get-all', 'safe.directory'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return set()
+
+    if result.returncode != 0:
+        return set()
+
+    entries = set()
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        expanded = os.path.abspath(os.path.expanduser(line)) if line != '*' else '*'
+        entries.add(expanded)
+    return entries
+
+
+def _is_repo_trusted(path_repo_root):
+    """True when repo is owner-controlled or explicitly marked safe.directory."""
+    if not path_repo_root:
+        return False
+
+    if _is_repo_owner(path_repo_root):
+        return True
+
+    safe_dirs = _get_safe_directories(path_repo_root)
+    if '*' in safe_dirs:
+        return True
+
+    return os.path.abspath(path_repo_root) in safe_dirs
+
 try:
     import git
     GIT_AVAILABLE = True
@@ -29,11 +119,30 @@ def git_get_info(path_repo=None, path_json=None):
         - In development: Uses git module and writes to path_json
         - In production (frozen app): Reads from path_json
     """
-    # Try to use git module if available
+    # Resolve repository root without requiring GitPython calls.
+    repo_root = _find_repo_root(path_repo or os.getcwd())
+
+    # Prefer JSON first for non-owner users to avoid dubious-ownership errors.
+    if repo_root and not _is_repo_owner(repo_root):
+        commit_info = _read_git_info_json(path_json)
+        if commit_info:
+            return commit_info
+
+        # Only attempt live git access when repo is explicitly trusted.
+        if not _is_repo_trusted(repo_root):
+            print(
+                "Git info skipped: repository is not owned by current user and "
+                "is not configured as safe.directory; no JSON fallback available."
+            )
+            return None
+
+    # Try live git access when available and trusted/owner.
     if GIT_AVAILABLE:
         try:
             # Get the repository root (current directory or parent directories)
-            if path_repo:
+            if repo_root:
+                repo = git.Repo(repo_root, search_parent_directories=False)
+            elif path_repo:
                 repo = git.Repo(path_repo, search_parent_directories=True)
             else:
                 repo = git.Repo(search_parent_directories=True)
@@ -64,13 +173,9 @@ def git_get_info(path_repo=None, path_json=None):
             # Fall through to JSON fallback
     
     # Fallback: Try to read from JSON file
-    if path_json and os.path.exists(path_json):
-        try:
-            with open(path_json, 'r') as f:
-                commit_info = json.load(f)
-                return commit_info
-        except (OSError, IOError, json.JSONDecodeError) as e:
-            print(f"Error reading git info from {path_json}: {e}")
+    commit_info = _read_git_info_json(path_json)
+    if commit_info:
+        return commit_info
     
     # No git and no JSON file available
     return None
