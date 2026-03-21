@@ -181,7 +181,7 @@ table {
                     <td style="text-align: center;">
                         <div class="media-card">
                             {% if media_item['ext_is_viewable'] %}
-                            {% if media_item['file_type'] == 'mp4' %}
+                            {% if media_item['file_extension'] == 'mp4' %}
                             <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                                  alt="{{ media_item['file_name'] }}"
                                  class="thumbnail"

@@ -48,11 +48,11 @@ Tables: `media_proj`, `media_arch`
 - `idx_genre` on `genre`
 - `idx_setting` on `setting`
 - `idx_lighting` on `lighting`
-- `idx_file_type` on `file_type`
+- `idx_file_extension` on `file_extension`
 - `idx_category` on `category`
 
 **Composite indexes** (for multi-field queries):
-- `idx_type_subject` on `(file_type, subject)`
+- `idx_type_subject` on `(file_extension, subject)`
 - `idx_genre_subject` on `(genre, subject)`
 
 #### ProjectBrowser (`db_projects.sqlite3`)

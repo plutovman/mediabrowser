@@ -291,8 +291,8 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="file_type">File Type</label>
-                        <input type="text" id="file_type" name="file_type" readonly>
+                        <label for="file_extension">File Type</label>
+                        <input type="text" id="file_extension" name="file_extension" readonly>
                     </div>
                     
                     <div class="form-group">
@@ -597,7 +597,7 @@
                 document.getElementById('file_id').value = cached.file_id;
                 document.getElementById('file_name').value = cached.file_name;
                 document.getElementById('file_path').value = cached.file_path;
-                document.getElementById('file_type').value = cached.file_type;
+                document.getElementById('file_extension').value = cached.file_extension;
                 document.getElementById('file_resolution').value = cached.file_resolution || '';
                 document.getElementById('file_format').value = cached.file_format || '';
                 document.getElementById('file_duration').value = cached.file_duration || '';
@@ -615,9 +615,9 @@
                 document.getElementById('thumbnailGrid').innerHTML = '';
                 
                 // Show preview using the database path (with $DEPOT_ALL prefix)
-                if (['mp4', 'mov', 'avi', 'mkv'].includes(cached.file_type)) {
+                if (['mp4', 'mov', 'avi', 'mkv'].includes(cached.file_extension)) {
                     showVideoPreview(cached.file_path);
-                } else if (['jpg', 'jpeg', 'png'].includes(cached.file_type)) {
+                } else if (['jpg', 'jpeg', 'png'].includes(cached.file_extension)) {
                     showImagePreview(cached.file_path);
                 } else {
                     // Hide all previews for unsupported types
@@ -669,7 +669,7 @@
                 document.getElementById('file_id').value = fileId;
                 document.getElementById('file_name').value = metadata.file_name;
                 document.getElementById('file_path').value = filePath;
-                document.getElementById('file_type').value = metadata.file_type;
+                document.getElementById('file_extension').value = metadata.file_extension;
                 document.getElementById('file_resolution').value = metadata.file_resolution || '';
                 document.getElementById('file_format').value = metadata.file_format || '';
                 document.getElementById('file_duration').value = metadata.file_duration || '';
@@ -707,9 +707,9 @@
                 document.getElementById('thumbnailGrid').innerHTML = '';
                 
                 // Show preview using the database path (with $DEPOT_ALL)
-                if (['mp4', 'mov', 'avi', 'mkv'].includes(metadata.file_type)) {
+                if (['mp4', 'mov', 'avi', 'mkv'].includes(metadata.file_extension)) {
                     showVideoPreview(filePath);
-                } else if (['jpg', 'jpeg', 'png'].includes(metadata.file_type)) {
+                } else if (['jpg', 'jpeg', 'png'].includes(metadata.file_extension)) {
                     showImagePreview(filePath);
                 } else {
                     // Hide all previews for unsupported types

@@ -13,7 +13,7 @@ MediaBrowser is a Flask web application for browsing, searching, and managing me
 ## Database Schema (media table)
 ```python
 # Full column list from db_get_connection():
-file_id, file_name, file_path, file_type, file_format, 
+file_id, file_name, file_path, file_extension, file_format, 
 file_resolution, file_duration, shot_size, shot_type, 
 source, source_id, genre, subject, category, lighting, 
 setting, tags, captions
@@ -28,7 +28,7 @@ setting, tags, captions
 - **`/clear_cart`**: Empties cart and redirects
 
 ## Search Implementation Patterns
-1. **Standard filters** (subject/setting/lighting/file_type): SQL `LIKE` with wildcards
+1. **Standard filters** (subject/setting/lighting/file_extension): SQL `LIKE` with wildcards
 2. **Caption search**: Special handling - filters in Python using regex word boundary matching across sentence splits
 3. **Dynamic PER_PAGE**: Table view = 10 items, Grid view = 30 items
 4. **Pagination**: Standard LIMIT/OFFSET with `math.ceil(total/per_page)` for page count

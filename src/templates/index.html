@@ -27,7 +27,7 @@
                  alt="{{ random_image['file_name'] }}"
                  class="random-image thumbnail"
                  data-open-image="{{ url_for('static', filename=random_image['thumbnail_relative_path']) }}">
-            {% if random_image['file_type'] == 'mp4' %}
+            {% if random_image['file_extension'] == 'mp4' %}
             <button type="button" class="play-button"
                     data-open-video="{{ url_for('static', filename=random_image['relative_path']) }}"
                     data-poster="{{ url_for('static', filename=random_image['thumbnail_relative_path']) }}">▶</button>
@@ -53,9 +53,9 @@
             <option value="{{ table }}" {% if db_table == table %}selected{% endif %}>{{ table }}</option>
             {% endfor %}
         </select>
-        <select name="file_type">
+        <select name="file_extension">
             <option value="">All File Types</option>
-            {% for ft in file_types %}
+            {% for ft in file_extensions %}
             <option value="{{ ft }}">{{ ft }}</option>
             {% endfor %}
         </select>

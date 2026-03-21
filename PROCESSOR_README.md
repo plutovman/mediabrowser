@@ -104,7 +104,7 @@ http://localhost:5000/processor
 ```json
 {
   "source_path": "/path/to/file.mp4",
-  "file_type": "mp4"
+  "file_extension": "mp4"
 }
 ```
 
@@ -130,7 +130,7 @@ Returns:
   "file_id": "MED1704304123456",
   "file_name": "video.mp4",
   "file_path": "$DEPOT_ALL/assetdepot/media/videos/video.mp4",
-  "file_type": "mp4",
+  "file_extension": "mp4",
   "genre": "noir",
   "subject": "urban landscape",
   "tags": "city, night, timelapse",

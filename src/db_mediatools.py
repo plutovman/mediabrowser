@@ -114,7 +114,7 @@ def db_sqlite_tablea_copy_to_tableb(db_path: str, table_a: str, table_b: str, pa
             # Get file_path and file_name from record
             file_path = record['file_path'] if 'file_path' in record.keys() else None
             file_name = record['file_name'] if 'file_name' in record.keys() else None
-            file_extension = record['file_type'] if 'file_type' in record.keys() else None
+            file_extension = record['file_extension'] if 'file_extension' in record.keys() else None
             
             if not file_path or not file_name:
                 error_msg = f"Record {file_id} missing file_path or file_name"

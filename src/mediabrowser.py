@@ -85,7 +85,7 @@ db_table_arch = 'media_arch'
 list_db_tables = [db_table_proj, db_table_arch]
 
 # File types and genres
-list_file_types = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
+list_file_extensions = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
 list_genres = [f"genre_{i:03d}" for i in range(100)]
 list_settings = [f"setting_{i:03d}" for i in range(10)]
 
@@ -228,19 +228,19 @@ def _cached_category_counts(category: str, top_n: int, db_table: str):
 
 
 @lru_cache(maxsize=20000)
-def _cached_media_path_details(file_path_raw: str, file_type_raw: str):
+def _cached_media_path_details(file_path_raw: str, file_extension_raw: str):
     full_path = file_path_raw
     if full_path.startswith('$DEPOT_ALL'):
         full_path = full_path.replace('$DEPOT_ALL', depot_local)
 
     relative_path = os.path.relpath(full_path, depot_local)
-    file_type = (file_type_raw or '').lower()
+    file_extension = (file_extension_raw or '').lower()
 
     ext_is_matched = False
     ext_is_viewable = False
     thumb_relative_path = relative_path
 
-    if file_type == 'mp4':
+    if file_extension == 'mp4':
         ext_is_viewable = True
         base, _ = os.path.splitext(relative_path)
         for ext in ('.jpg', '.png'):
@@ -252,17 +252,17 @@ def _cached_media_path_details(file_path_raw: str, file_type_raw: str):
         if not ext_is_matched:
             thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs['other'])
             ext_is_matched = True
-    elif file_type in ['wav', 'mp3', 'aac', 'flac']:
+    elif file_extension in ['wav', 'mp3', 'aac', 'flac']:
         ext_is_viewable = True
-        thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs.get(file_type, dict_thumbs['other']))
+        thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs.get(file_extension, dict_thumbs['other']))
         ext_is_matched = True
-    elif file_type in ['jpg', 'jpeg', 'png']:
+    elif file_extension in ['jpg', 'jpeg', 'png']:
         ext_is_matched = True
         ext_is_viewable = True
         thumb_relative_path = relative_path
     else:
         for file_ext in dict_thumbs.keys():
-            if file_type == file_ext:
+            if file_extension == file_ext:
                 thumb_relative_path = os.path.join(path_base_thumbs_relative, dict_thumbs[file_ext])
                 ext_is_matched = True
                 break
@@ -376,7 +376,7 @@ def db_item_add_from_dict(item_dict: dict, db_table: str = None):
         'file_id': 'unknown',
         'file_name': 'unknown',
         'file_path': 'unknown',
-        'file_type': 'unknown',
+        'file_extension': 'unknown',
         'file_format': 'unknown',
         'file_resolution': 'unknown',
         'file_duration': 'unknown',
@@ -413,7 +413,7 @@ def enrich_media_paths(item):
     item_dict = dict(item)
     full_path, relative_path, thumb_relative_path, ext_is_viewable = _cached_media_path_details(
         item_dict['file_path'],
-        item_dict.get('file_type', '')
+        item_dict.get('file_extension', '')
     )
 
     item_dict['absolute_path'] = full_path
@@ -438,7 +438,7 @@ def category_get_dict(category: str, top_n: int, db_table: str = None) -> dict:
         db_table = list_db_tables[0]
     
     # Validate category to prevent SQL injection
-    allowed_categories = ['file_type', 'genre', 'subject', 'category', 'lighting', 'setting', 'tags']
+    allowed_categories = ['file_extension', 'genre', 'subject', 'category', 'lighting', 'setting', 'tags']
     if category not in allowed_categories:
         return {}
     
@@ -565,7 +565,7 @@ def register_routes(app):
         return render_template('index.html', random_image=random_image, logo_path=logo_relative,
                               top_subjects=top_subjects, top_genres=top_genres,
                               db_tables=list_db_tables, db_table=db_table,
-                              file_types=list_file_types, genres=list_genres, list_settings=list_settings,
+                              file_extensions=list_file_extensions, genres=list_genres, list_settings=list_settings,
                               top_topics=CNT_TOP_TOPICS,
                               git_info=git_info)
     
@@ -574,7 +574,7 @@ def register_routes(app):
         """Search and filter media with pagination. POST adds items to cart, GET displays results"""
         
         search_query = request.form.get('query') or request.args.get('query', '')
-        file_type_filter = request.form.get('file_type') or request.args.get('file_type', '')
+        file_extension_filter = request.form.get('file_extension') or request.args.get('file_extension', '')
         genre_filter = request.form.get('genre') or request.args.get('genre', '')
         setting_filter = request.form.get('setting') or request.args.get('setting', '')
         db_table = request.form.get('db_table') or request.args.get('db_table', list_db_tables[0])
@@ -603,9 +603,9 @@ def register_routes(app):
             where_clause = "(genre LIKE ? OR category LIKE ? OR subject LIKE ? OR tags LIKE ?)"
             params = ['%' + search_query + '%'] * 4
             
-            if file_type_filter:
-                where_clause += " AND file_type = ?"
-                params.append(file_type_filter)
+            if file_extension_filter:
+                where_clause += " AND file_extension = ?"
+                params.append(file_extension_filter)
             
             if genre_filter:
                 where_clause += " AND genre = ?"
@@ -624,13 +624,13 @@ def register_routes(app):
             media = conn.execute(sql_query, params).fetchall()
             total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
             total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
-        elif file_type_filter or genre_filter or setting_filter:
+        elif file_extension_filter or genre_filter or setting_filter:
             where_conditions = []
             params = []
             
-            if file_type_filter:
-                where_conditions.append("file_type = ?")
-                params.append(file_type_filter)
+            if file_extension_filter:
+                where_conditions.append("file_extension = ?")
+                params.append(file_extension_filter)
             
             if genre_filter:
                 where_conditions.append("genre = ?")
@@ -672,11 +672,11 @@ def register_routes(app):
             total_pages=total_pages,
             total_media_count=total_media_count,
             search_query=search_query,
-            file_type_filter=file_type_filter,
+            file_extension_filter=file_extension_filter,
             genre_filter=genre_filter,
             setting_filter=setting_filter,
             db_table=db_table,
-            file_types=list_file_types,
+            file_extensions=list_file_extensions,
             genres=list_genres,
             list_settings=list_settings,
             db_tables=list_db_tables,
@@ -729,7 +729,7 @@ def register_routes(app):
                               current_item=current_item,
                               current_index=current_index,
                               total_items=len(queue),
-                              file_types=list_file_types,
+                              file_extensions=list_file_extensions,
                               genres=list_genres,
                               logo_path=logo_relative,
                               depot_local=depot_local,
@@ -1029,7 +1029,7 @@ def register_routes(app):
                     'file_id': file_id,
                     'file_name': os.path.basename(dest_path),
                     'file_path': dest_path_rel,
-                    'file_type': file_ext,
+                    'file_extension': file_ext,
                     'file_resolution': '',
                     'file_format': '',
                     'file_duration': '',
@@ -1122,7 +1122,7 @@ def register_routes(app):
             file_ext = os.path.splitext(file_name)[1].lstrip('.')
             
             metadata['file_name'] = file_name
-            metadata['file_type'] = file_ext.lower()
+            metadata['file_extension'] = file_ext.lower()
             metadata['source_path'] = file_path
             metadata['file_format'] = metadata.get('file_format', 'info_tbd')
             metadata['source'] = metadata.get('source', 'info_tbd')
@@ -1172,7 +1172,7 @@ def register_routes(app):
         try:
             data = request.json
             
-            required_fields = ['file_id', 'file_name', 'file_path', 'file_type']
+            required_fields = ['file_id', 'file_name', 'file_path', 'file_extension']
             for field in required_fields:
                 if not data.get(field):
                     return jsonify({'success': False, 'error': f'Missing required field: {field}'})

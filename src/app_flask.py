@@ -132,7 +132,7 @@ def ensure_database_indexes(db_path, table_name, index_definitions):
         index_definitions (list): List of tuples (index_name, column_or_columns)
                                  where column_or_columns can be:
                                  - Single column: 'subject'
-                                 - Multiple columns: 'file_type, subject'
+                                 - Multiple columns: 'file_extension, subject'
     
     Example:
         ensure_database_indexes(
@@ -140,7 +140,7 @@ def ensure_database_indexes(db_path, table_name, index_definitions):
             table_name='media_proj',
             index_definitions=[
                 ('idx_subject', 'subject'),
-                ('idx_type_subject', 'file_type, subject')  # composite index
+                ('idx_type_subject', 'file_extension, subject')  # composite index
             ]
         )
     """
@@ -209,10 +209,10 @@ def ensure_all_indexes():
             ('idx_genre', 'genre'),
             ('idx_setting', 'setting'),
             ('idx_lighting', 'lighting'),
-            ('idx_file_type', 'file_type'),
+            ('idx_file_extension', 'file_extension'),
             ('idx_category', 'category'),
             # Composite indexes for common search combinations
-            ('idx_type_subject', 'file_type, subject'),
+            ('idx_type_subject', 'file_extension, subject'),
             ('idx_genre_subject', 'genre, subject'),
         ]
         

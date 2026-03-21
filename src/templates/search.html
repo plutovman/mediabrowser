@@ -31,10 +31,10 @@ table {
             <option value="{{ table }}" {% if db_table == table %}selected{% endif %}>{{ table }}</option>
             {% endfor %}
         </select>
-        <select name="file_type">
+        <select name="file_extension">
             <option value="">All File Types</option>
-            {% for ft in file_types %}
-            <option value="{{ ft }}" {% if file_type_filter == ft %}selected{% endif %}>{{ ft }}</option>
+            {% for ft in file_extensions %}
+            <option value="{{ ft }}" {% if file_extension_filter == ft %}selected{% endif %}>{{ ft }}</option>
             {% endfor %}
         </select>
         <select name="genre">
@@ -53,7 +53,7 @@ table {
     </form>
 
     <!-- Add a "Clear Search" link if a query is active -->
-    {% if search_query or file_type_filter or genre_filter or setting_filter %}
+    {% if search_query or file_extension_filter or genre_filter or setting_filter %}
     <div style="text-align: center; margin: 10px 0;">
         <a href="{{ url_for('page_search', db_table=db_table) }}">Clear Search</a>
     </div>
@@ -62,8 +62,8 @@ table {
     <!-- View mode selector -->
     <div style="text-align: center; margin: 20px 0;">
         <span>View Mode:</span>
-        <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, page=1, view='table') }}" style="margin: 0 10px;">Table</a>
-        <a href="{{ url_for('page_search', query=search_query, file_type=file_type_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, page=1, view='grid') }}" style="margin: 0 10px; font-weight: bold;">Grid</a>
+        <a href="{{ url_for('page_search', query=search_query, file_extension=file_extension_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, page=1, view='table') }}" style="margin: 0 10px;">Table</a>
+        <a href="{{ url_for('page_search', query=search_query, file_extension=file_extension_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, page=1, view='grid') }}" style="margin: 0 10px; font-weight: bold;">Grid</a>
     </div>
 
     <p style="text-align: center;">{{ page }} of {{ total_pages }} (Total Records Found: {{ total_media_count }})</p>
@@ -71,13 +71,13 @@ table {
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('page_search', page=page - 1, query=search_query, file_type=file_type_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Previous</a>
+            <a href="{{ url_for('page_search', page=page - 1, query=search_query, file_extension=file_extension_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('page_search', page=page + 1, query=search_query, file_type=file_type_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Next</a>
+            <a href="{{ url_for('page_search', page=page + 1, query=search_query, file_extension=file_extension_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}
@@ -107,7 +107,7 @@ table {
                     <td style="text-align: center;">
                         <div class="media-card">
                             {% if media_item['ext_is_viewable'] %}
-                            {% if media_item['file_type'] == 'mp4' %}
+                            {% if media_item['file_extension'] == 'mp4' %}
                             <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                                  alt="{{ media_item['file_name'] }}"
                                  class="thumbnail"
@@ -116,7 +116,7 @@ table {
                             <button type="button" class="play-button"
                                     data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
                                     data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
-                            {% elif media_item['file_type'] in ['wav', 'mp3', 'aac', 'flac'] %}
+                            {% elif media_item['file_extension'] in ['wav', 'mp3', 'aac', 'flac'] %}
                             <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                                  alt="{{ media_item['file_name'] }}"
                                  class="thumbnail"
@@ -158,7 +158,7 @@ table {
                 <input type="checkbox" name="selected" value="{{ media_item['file_id'] }}" style="position: absolute; top: 5px; left: 5px; z-index: 10;">
                  <div class="media-card" style="flex: 1; display: flex; align-items: center; justify-content: center;">
                     {% if media_item['ext_is_viewable'] %}
-                    {% if media_item['file_type'] == 'mp4' %}
+                    {% if media_item['file_extension'] == 'mp4' %}
                     <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                         alt="{{ media_item['file_name'] }}"
                         style="max-width: 100%; height: auto; display: block;" class="thumbnail"
@@ -167,7 +167,7 @@ table {
                     <button type="button" class="play-button"
                            data-open-video="{{ url_for('static', filename=media_item['relative_path']) }}"
                            data-poster="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}">▶</button>
-                    {% elif media_item['file_type'] in ['wav', 'mp3', 'aac', 'flac'] %}
+                    {% elif media_item['file_extension'] in ['wav', 'mp3', 'aac', 'flac'] %}
                     <img src="{{ url_for('static', filename=media_item['thumbnail_relative_path']) }}" 
                         alt="{{ media_item['file_name'] }}"
                         style="max-width: 100%; height: auto; display: block;" class="thumbnail"
@@ -194,7 +194,7 @@ table {
         </div>
         {% endif %}
         <input type="hidden" name="query" value="{{ search_query }}">
-        <input type="hidden" name="file_type" value="{{ file_type_filter }}">
+        <input type="hidden" name="file_extension" value="{{ file_extension_filter }}">
         <input type="hidden" name="genre" value="{{ genre_filter }}">
         <input type="hidden" name="setting" value="{{ setting_filter }}">
         <input type="hidden" name="db_table" value="{{ db_table }}">
@@ -208,13 +208,13 @@ table {
     <!-- Pagination Controls -->
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('page_search', page=page - 1, query=search_query, file_type=file_type_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Previous</a>
+            <a href="{{ url_for('page_search', page=page - 1, query=search_query, file_extension=file_extension_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Previous</a>
         {% else %}
             <span class="disabled">Previous</span>
         {% endif %}
 
         {% if page < total_pages %}
-            <a href="{{ url_for('page_search', page=page + 1, query=search_query, file_type=file_type_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Next</a>
+            <a href="{{ url_for('page_search', page=page + 1, query=search_query, file_extension=file_extension_filter, genre=genre_filter, setting=setting_filter, db_table=db_table, view=view) }}">Next</a>
         {% else %}
             <span class="disabled">Next</span>
         {% endif %}
