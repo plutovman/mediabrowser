@@ -218,6 +218,53 @@ def run_cmd(cmd: list[str], step_name: str) -> None:
         )
 
 
+def get_image_dimensions(path_image: str) -> tuple[int, int]:
+    if shutil.which("ffprobe") is None:
+        fail("ffprobe executable was not found in PATH (install with: brew install ffmpeg)")
+
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "csv=s=x:p=0",
+        path_image,
+    ]
+    try:
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        fail(
+            "Unable to read image dimensions with ffprobe\n"
+            f"  image: {path_image}\n"
+            f"  stderr:\n{exc.stderr}"
+        )
+
+    size_text = result.stdout.strip()
+    try:
+        width_text, height_text = size_text.split("x", 1)
+        width = int(width_text)
+        height = int(height_text)
+    except ValueError:
+        fail(
+            "Unexpected ffprobe output while reading image dimensions\n"
+            f"  image: {path_image}\n"
+            f"  output: {size_text}"
+        )
+
+    if width <= 0 or height <= 0:
+        fail(
+            "Invalid image dimensions detected\n"
+            f"  image: {path_image}\n"
+            f"  dimensions: {width}x{height}"
+        )
+
+    return width, height
+
+
 def make_sequence_video(
     path_src: str,
     fps: int,
@@ -253,6 +300,8 @@ def make_slate_video(
     project_name: str,
     scene_name: str,
     movie_date: str,
+    video_width: int,
+    video_height: int,
     font_file: str | None,
     path_out: str,
 ) -> None:
@@ -273,7 +322,7 @@ def make_slate_video(
         "-f",
         "lavfi",
         "-i",
-        f"color=c=#111111:s=1920x1080:r={DEFAULT_FPS}:d={DEFAULT_TITLE_SECONDS}",
+        f"color=c=#111111:s={video_width}x{video_height}:r={DEFAULT_FPS}:d={DEFAULT_TITLE_SECONDS}",
         "-loop",
         "1",
         "-i",
@@ -361,6 +410,10 @@ def main() -> None:
     )
     print(f"Found sequence: {len(frame_numbers)} frames ({frame_start:04d}-{frame_end:04d})")
 
+    first_frame = os.path.join(path_src, f"{base_name}.{frame_start:0{frame_width}d}.png")
+    video_width, video_height = get_image_dimensions(first_frame)
+    print(f"Detected frame size: {video_width}x{video_height}")
+
     project_name, scene_name, movie_stem = derive_names(
         path_src=path_src,
         wf_img_dir=wf_img_dir,
@@ -405,6 +458,8 @@ def main() -> None:
             project_name=project_name,
             scene_name=scene_name,
             movie_date=movie_date,
+            video_width=video_width,
+            video_height=video_height,
             font_file=font_file,
             path_out=path_slate,
         )
