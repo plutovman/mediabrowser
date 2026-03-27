@@ -56,7 +56,7 @@ class LaunchpadApp(ctk.CTk):
         super().__init__()
 
         # Timer settings
-        self.app_close = 60*15  # seconds until auto-close
+        self.app_close = 60*60  # seconds until auto-close
         self.time_remaining = self.app_close
         
         self.title(f"[{self.time_format(self.time_remaining)}] Launchpad")

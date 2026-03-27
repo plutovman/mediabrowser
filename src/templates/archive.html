@@ -315,7 +315,12 @@
                     <!-- Editable fields -->
                     <div class="form-group">
                         <label for="source">Source *</label>
-                        <input type="text" id="source" name="source" required placeholder="e.g., ig, apod, metart">
+                        <select id="source" name="source" required>
+                            <option value="">-- Select Source --</option>
+                            {% for src in list_sources %}
+                            <option value="{{ src }}">{{ src }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="form-group">
@@ -327,7 +332,7 @@
                         <label for="genre">Genre *</label>
                         <select id="genre" name="genre" required>
                             <option value="">-- Select Genre --</option>
-                            {% for g in genres %}
+                            {% for g in list_genres %}
                             <option value="{{ g }}">{{ g }}</option>
                             {% endfor %}
                         </select>
@@ -335,22 +340,42 @@
                     
                     <div class="form-group">
                         <label for="subject">Subject *</label>
-                        <input type="text" id="subject" name="subject" required placeholder="e.g., landscape, portrait, technology">
+                        <select id="subject" name="subject" required>
+                            <option value="">-- Select Subject --</option>
+                            {% for s in list_subjects %}
+                            <option value="{{ s }}">{{ s }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="form-group">
                         <label for="category">Category *</label>
-                        <input type="text" id="category" name="category" required placeholder="e.g., nature, urban, abstract">
+                        <select id="category" name="category" required>
+                            <option value="">-- Select Category --</option>
+                            {% for c in list_categories %}
+                            <option value="{{ c }}">{{ c }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="form-group">
                         <label for="setting">Setting *</label>
-                        <input type="text" id="setting" name="setting" required placeholder="e.g., outdoor, studio, urban">
+                        <select id="setting" name="setting" required>
+                            <option value="">-- Select Setting --</option>
+                            {% for st in list_settings %}
+                            <option value="{{ st }}">{{ st }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="form-group">
                         <label for="lighting">Lighting *</label>
-                        <input type="text" id="lighting" name="lighting" required placeholder="e.g., natural, studio, low-key">
+                        <select id="lighting" name="lighting" required>
+                            <option value="">-- Select Lighting --</option>
+                            {% for l in list_lighting %}
+                            <option value="{{ l }}">{{ l }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     
                     <div class="form-group">

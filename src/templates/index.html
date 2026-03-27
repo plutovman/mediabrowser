@@ -55,13 +55,13 @@
         </select>
         <select name="file_extension">
             <option value="">All File Types</option>
-            {% for ft in file_extensions %}
+            {% for ft in list_file_extensions %}
             <option value="{{ ft }}">{{ ft }}</option>
             {% endfor %}
         </select>
         <select name="genre">
             <option value="">All Genres</option>
-            {% for g in genres %}
+            {% for g in list_genres %}
             <option value="{{ g }}">{{ g }}</option>
             {% endfor %}
         </select>

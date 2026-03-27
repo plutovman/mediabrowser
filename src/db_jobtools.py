@@ -23,6 +23,24 @@ list_dirs_movies = ['src', 'out']
 list_dirs_nuke = []
 list_dirs_python = []
 
+list_file_extensions = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
+
+list_ext_geometry = ['blend', 'fbx', 'obj', 'abc', 'usd', 'geo', 'bgeo', 'bgeo.sc', 'bgeo.sc.gz', 'bgeo.gz']
+list_ext_images = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'exr', 'dpx']
+list_ext_videos = ['mov', 'mp4', 'avi', 'mkv', 'wmv', 'flv', 'mpg', 'mpeg']
+list_ext_audio = ['wav', 'mp3', 'ogg', 'flac', 'aac']
+list_ext_docs = ['aep', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'nk', 'psd', 'psb', 'txt', 'csv']
+list_ext_others = ['bzip', 'zip', 'tar', 'tgz', 'rar']
+
+list_content_types = ['animation' , 'animatic', 'broll', 'geometry', 'image', 'infographic', 'other', 'show', 'storyboard']
+
+list_sources = ['ig', 'apod', 'metart', 'nasa']
+list_genres = ['anatomy', 'art-traditional', 'art-ai', 'fashion', 'science', 'nature', 'other']
+list_subjects = ['landscape', 'portrait', 'character', 'creature', 'space', 'prop', 'set', 'other']
+list_categories = ['abstract', 'astronomy', 'nature', 'urban', 'people', 'animals', 'sci-fi', 'fantasy', 'other']
+list_settings = ['outdoor', 'indoor', 'underwater', 'space', 'other']
+list_lighting = ['day', 'dawn', 'natural', 'night', 'sunset', 'studio', 'other']
+
 sync_local_to_netwk = 'LOCAL TO NETWK'
 sync_netwk_to_local = 'NETWK TO LOCAL'
 list_sync_directions = [sync_local_to_netwk, sync_netwk_to_local]
