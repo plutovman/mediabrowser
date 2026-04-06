@@ -693,6 +693,202 @@ end tell
 
 ###############################################################################
 ###############################################################################
+def vpr_dirs_projectdepot_synchronize(jobs_local: str, jobs_netwk: str, direction: str, show_term: bool = False):
+    """
+    OS-aware directory-structure synchronization using rsync (Linux/macOS/WSL) or robocopy (Windows).
+    Replicates the directory tree only - no files are copied.
+
+    Args:
+        jobs_local: Local directory path
+        jobs_netwk: Network directory path
+        direction: dbj.sync_local_to_netwk or dbj.sync_netwk_to_local
+        show_term: If True, opens terminal window and runs async with Popen.
+                  If False, runs synchronously with subprocess.run (default)
+
+    Returns:
+        bool: True if synchronization succeeded, False otherwise
+    """
+
+    func_name = inspect.stack()[0][3]
+    dbh = '[{}]'.format(func_name)
+
+    system = platform.system()
+
+    # Determine source and destination
+    if direction == dbj.sync_local_to_netwk:
+        source, destination = jobs_local, jobs_netwk
+    elif direction == dbj.sync_netwk_to_local:
+        source, destination = jobs_netwk, jobs_local
+    else:
+        print(dbh + ' Invalid direction: {}'.format(direction))
+        return False
+
+    if not os.path.exists(source):
+        print(dbh + ' Source path does not exist: {}'.format(source))
+        return False
+
+    if not os.path.exists(destination):
+        try:
+            os.makedirs(destination, exist_ok=True)
+            print(dbh + ' Created destination directory: {}'.format(destination))
+        except Exception as e:
+            print(dbh + ' Failed to create destination: {}'.format(e))
+            return False
+
+    # Shared robocopy flags (Windows and WSL)
+    # /T = create directory tree only (no files), /E = include empty subdirectories
+    robocopy_flags = ['/T', '/E', '/R:3', '/W:5', '/XA:SH']
+    exclude_dirs   = ['.*', '__pycache__', '.git']
+
+    if system == 'Windows':
+        if show_term:
+            flags_str       = ' '.join(robocopy_flags)
+            exclude_dirs_str = ' '.join([f'"{d}"' for d in exclude_dirs])
+            robocopy_cmd = (
+                f'robocopy "{source}" "{destination}" {flags_str} '
+                f'/XD {exclude_dirs_str} '
+                f'& echo. & echo Sync completed. Press any key to close... & pause'
+            )
+            print(dbh + ' Launching Command Prompt window for robocopy (dirs only): {} -> {}'.format(source, destination))
+            try:
+                subprocess.Popen(
+                    ['cmd', '/c', 'start', 'cmd', '/k',
+                     f'echo Synchronizing dirs: {direction} & '
+                     f'echo Source: {source} & '
+                     f'echo Destination: {destination} & '
+                     f'echo. & '
+                     f'{robocopy_cmd}'],
+                    shell=True
+                )
+                return True
+            except Exception as e:
+                print(dbh + ' Failed to launch Command Prompt: {}'.format(e))
+                return False
+        else:
+            cmd = ['robocopy', source, destination] + robocopy_flags + ['/XD'] + exclude_dirs
+            print(dbh + ' Executing robocopy (dirs only): {} -> {}'.format(source, destination))
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode < 8:
+                    print(dbh + ' Robocopy completed successfully (exit code: {})'.format(result.returncode))
+                    return True
+                else:
+                    print(dbh + ' Robocopy failed with exit code: {}'.format(result.returncode))
+                    print(dbh + ' Error output: {}'.format(result.stderr))
+                    return False
+            except Exception as e:
+                print(dbh + ' Robocopy command failed: {}'.format(e))
+                return False
+
+    else:
+        # rsync: include all directories, exclude all files
+        src = source if source.endswith('/') else source + '/'
+        dst = destination if destination.endswith('/') else destination + '/'
+
+        if show_term:
+            rsync_cmd = f"rsync -a --include='*/' --exclude='*' '{src}' '{dst}'"
+
+            if system == 'Darwin':
+                terminal_script = (
+                    f'tell application "Terminal"\n'
+                    f'    do script "echo \'Synchronizing dirs: {direction}\'; '
+                    f'echo \'Source: {source}\'; echo \'Destination: {destination}\'; '
+                    f'echo \'\'; {rsync_cmd}; echo \'\'; '
+                    f'echo \'Sync completed. Press any key to close...\'; read -n 1"\n'
+                    f'    activate\nend tell'
+                )
+                print(dbh + ' Launching Terminal window for rsync (dirs only): {} -> {}'.format(source, destination))
+                try:
+                    subprocess.Popen(['osascript', '-e', terminal_script])
+                    return True
+                except Exception as e:
+                    print(dbh + ' Failed to launch Terminal: {}'.format(e))
+                    return False
+
+            elif system == 'Linux':
+                is_wsl = False
+                try:
+                    with open('/proc/version', 'r') as f:
+                        is_wsl = 'microsoft' in f.read().lower()
+                except Exception:
+                    pass
+
+                if is_wsl:
+                    try:
+                        source_win      = subprocess.run(['wslpath', '-w', source],      capture_output=True, text=True, check=True).stdout.strip()
+                        destination_win = subprocess.run(['wslpath', '-w', destination], capture_output=True, text=True, check=True).stdout.strip()
+                        flags_str       = ' '.join(robocopy_flags)
+                        exclude_dirs_str = ' '.join([f'"{d}"' for d in exclude_dirs])
+                        robocopy_cmd = (
+                            f'robocopy "{source_win}" "{destination_win}" {flags_str} '
+                            f'/XD {exclude_dirs_str} '
+                            f'& echo. & echo Sync completed. Press any key to close... & pause'
+                        )
+                        print(dbh + ' Launching Command Prompt window (WSL) for robocopy (dirs only): {} -> {}'.format(source, destination))
+                        subprocess.Popen(
+                            ['cmd.exe', '/c', 'start', 'cmd', '/k',
+                             f'echo Synchronizing dirs: {direction} & '
+                             f'echo Source: {source_win} & '
+                             f'echo Destination: {destination_win} & '
+                             f'echo. & '
+                             f'{robocopy_cmd}'],
+                            shell=False
+                        )
+                        return True
+                    except Exception as e:
+                        print(dbh + ' Failed to launch Command Prompt (WSL): {}'.format(e))
+                        return False
+                else:
+                    # Native Linux: find first available terminal emulator
+                    terminal_cmd = None
+                    bash_script = (
+                        f"echo 'Synchronizing dirs: {direction}'; "
+                        f"echo 'Source: {source}'; echo 'Destination: {destination}'; "
+                        f"echo ''; {rsync_cmd}; echo ''; "
+                        f"echo 'Sync completed. Press any key to close...'; read -n 1"
+                    )
+                    for emulator, prefix in [
+                        ('gnome-terminal', ['gnome-terminal', '--', 'bash', '-c']),
+                        ('xterm',          ['xterm', '-hold', '-e', 'bash', '-c']),
+                        ('konsole',        ['konsole', '--hold', '-e', 'bash', '-c']),
+                    ]:
+                        if subprocess.run(['which', emulator], capture_output=True).returncode == 0:
+                            terminal_cmd = prefix + [bash_script]
+                            break
+                    if terminal_cmd:
+                        print(dbh + ' Launching terminal window for rsync (dirs only): {} -> {}'.format(source, destination))
+                        try:
+                            subprocess.Popen(terminal_cmd)
+                            return True
+                        except Exception as e:
+                            print(dbh + ' Failed to launch terminal: {}'.format(e))
+                            return False
+                    else:
+                        print(dbh + ' No terminal emulator found (tried gnome-terminal, xterm, konsole)')
+                        return False
+        else:
+            cmd = ['rsync', '-a', '--include=*/', '--exclude=*', src, dst]
+            print(dbh + ' Executing rsync (dirs only): {} -> {}'.format(source, destination))
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode == 0:
+                    print(dbh + ' Project infrastructure Rsync completed successfully')
+                    return True
+                else:
+                    print(dbh + ' Project infrastructure Rsync failed with exit code: {}'.format(result.returncode))
+                    print(dbh + ' Error output: {}'.format(result.stderr))
+                    return False
+            except FileNotFoundError:
+                print(dbh + ' rsync command not found. Please install rsync.')
+                return False
+            except Exception as e:
+                print(dbh + ' Rsync command failed: {}'.format(e))
+                return False
+
+# end of def vpr_dirs_projectdepot_synchronize(jobs_local: str, jobs_netwk: str, direction: str, show_term: bool = False):
+
+###############################################################################
+###############################################################################
 def vpr_job_base_is_valid(job_base: str):
     """
     verify the legality of job_base from a set of rules

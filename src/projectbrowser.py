@@ -338,6 +338,23 @@ def cache_invalidate_runtime():
 # ROUTE REGISTRATION FUNCTION
 # ============================================================================
 
+def startup_sync():
+    """Synchronize project directory structure (network -> local) on startup."""
+    if not (path_proj_netwk and path_proj_local):
+        return
+    if not (os.path.exists(path_proj_netwk) and os.path.exists(path_proj_local)):
+        return
+    vpr.vpr_dirs_projectdepot_synchronize(
+        jobs_local=path_proj_local,
+        jobs_netwk=path_proj_netwk,
+        direction=dbj.sync_netwk_to_local,
+        show_term=False
+    )
+
+# end of def startup_sync():
+
+###############################################################################
+###############################################################################
 def register_routes(flask_app):
     """
     Register all projectbrowser routes to the provided Flask app instance.
