@@ -85,9 +85,16 @@ db_table_arch = 'media_arch'
 list_db_tables = [db_table_proj, db_table_arch]
 
 # File types and genres
-list_file_extensions = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
-list_genres = [f"genre_{i:03d}" for i in range(100)]
-list_settings = [f"setting_{i:03d}" for i in range(10)]
+#list_file_extensions = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
+list_file_extensions = dbj.list_file_extensions
+#list_genres = [f"genre_{i:03d}" for i in range(100)]
+list_genres = dbj.list_genres
+#list_settings = [f"setting_{i:03d}" for i in range(10)]
+list_sources = dbj.list_sources
+list_settings = dbj.list_settings
+list_subjects = dbj.list_subjects
+list_categories = dbj.list_categories
+list_lighting = dbj.list_lighting
 
 list_fields_required = ['source', 'source_id', 'genre', 'subject', 'category', 'setting', 'lighting', 'tags', 'captions']
 
@@ -562,12 +569,18 @@ def register_routes(app):
         top_subjects = category_get_dict('subject', CNT_TOP_TOPICS, db_table)
         top_genres = category_get_dict('genre', CNT_TOP_TOPICS, db_table)
     
-        return render_template('index.html', random_image=random_image, logo_path=logo_relative,
-                              top_subjects=top_subjects, top_genres=top_genres,
-                              db_tables=list_db_tables, db_table=db_table,
-                              file_extensions=list_file_extensions, genres=list_genres, list_settings=list_settings,
-                              top_topics=CNT_TOP_TOPICS,
-                              git_info=git_info)
+        return render_template('index.html',
+                               random_image=random_image, 
+                               logo_path=logo_relative,
+                               top_subjects=top_subjects,
+                               top_genres=top_genres,
+                               db_tables=list_db_tables,
+                               db_table=db_table,
+                               list_file_extensions=list_file_extensions,
+                               list_genres=list_genres, 
+                               list_settings=list_settings,
+                               top_topics=CNT_TOP_TOPICS,
+                               git_info=git_info)
     
     @app.route('/search', methods=['GET', 'POST'])
     def page_search():
@@ -665,8 +678,7 @@ def register_routes(app):
         
         logo_relative = os.path.relpath(path_logo_sqr, depot_local)
     
-        return render_template(
-            'search.html',
+        return render_template('search.html',
             media=media_list,
             page=page,
             total_pages=total_pages,
@@ -676,8 +688,8 @@ def register_routes(app):
             genre_filter=genre_filter,
             setting_filter=setting_filter,
             db_table=db_table,
-            file_extensions=list_file_extensions,
-            genres=list_genres,
+            list_file_extensions=list_file_extensions,
+            list_genres=list_genres,
             list_settings=list_settings,
             db_tables=list_db_tables,
             view=view,
@@ -729,14 +741,18 @@ def register_routes(app):
                               current_item=current_item,
                               current_index=current_index,
                               total_items=len(queue),
-                              file_extensions=list_file_extensions,
-                              genres=list_genres,
                               logo_path=logo_relative,
                               depot_local=depot_local,
                               path_base_media=path_base_media,
                               db_table=db_table,
                               db_tables=list_db_tables,
                               list_fields_required=list_fields_required,
+                              list_sources=list_sources,
+                              list_genres=list_genres,
+                              list_subjects=list_subjects,
+                              list_categories=list_categories,
+                              list_settings=list_settings,
+                              list_lighting=list_lighting,
                               processed_files=session.get('processed_files', {}),
                               git_info=git_info)
     
