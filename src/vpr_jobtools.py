@@ -736,8 +736,8 @@ def vpr_dirs_projectdepot_synchronize(jobs_local: str, jobs_netwk: str, directio
             return False
 
     # Shared robocopy flags (Windows and WSL)
-    # /T = create directory tree only (no files), /E = include empty subdirectories
-    robocopy_flags = ['/T', '/E', '/R:3', '/W:5', '/XA:SH']
+    # /E = include empty subdirectories, /XF * = exclude all files (dirs only)
+    robocopy_flags = ['/E', '/R:3', '/W:5', '/XA:SH']
     exclude_dirs   = ['.*', '__pycache__', '.git']
 
     if system == 'Windows':
@@ -746,7 +746,7 @@ def vpr_dirs_projectdepot_synchronize(jobs_local: str, jobs_netwk: str, directio
             exclude_dirs_str = ' '.join([f'"{d}"' for d in exclude_dirs])
             robocopy_cmd = (
                 f'robocopy "{source}" "{destination}" {flags_str} '
-                f'/XD {exclude_dirs_str} '
+                f'/XD {exclude_dirs_str} /XF * '
                 f'& echo. & echo Sync completed. Press any key to close... & pause'
             )
             print(dbh + ' Launching Command Prompt window for robocopy (dirs only): {} -> {}'.format(source, destination))
@@ -765,7 +765,7 @@ def vpr_dirs_projectdepot_synchronize(jobs_local: str, jobs_netwk: str, directio
                 print(dbh + ' Failed to launch Command Prompt: {}'.format(e))
                 return False
         else:
-            cmd = ['robocopy', source, destination] + robocopy_flags + ['/XD'] + exclude_dirs
+            cmd = ['robocopy', source, destination] + robocopy_flags + ['/XD'] + exclude_dirs + ['/XF', '*']
             print(dbh + ' Executing robocopy (dirs only): {} -> {}'.format(source, destination))
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True)
@@ -821,7 +821,7 @@ def vpr_dirs_projectdepot_synchronize(jobs_local: str, jobs_netwk: str, directio
                         exclude_dirs_str = ' '.join([f'"{d}"' for d in exclude_dirs])
                         robocopy_cmd = (
                             f'robocopy "{source_win}" "{destination_win}" {flags_str} '
-                            f'/XD {exclude_dirs_str} '
+                            f'/XD {exclude_dirs_str} /XF * '
                             f'& echo. & echo Sync completed. Press any key to close... & pause'
                         )
                         print(dbh + ' Launching Command Prompt window (WSL) for robocopy (dirs only): {} -> {}'.format(source, destination))
