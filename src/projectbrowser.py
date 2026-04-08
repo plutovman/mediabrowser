@@ -358,15 +358,20 @@ def register_routes(flask_app):
         """Production interface with cascading dropdowns for years, projects, and apps"""
         global _production_sync_done
         if not _production_sync_done:
+            _production_sync_done = True
             if path_proj_netwk and path_proj_local:
                 if os.path.exists(path_proj_netwk) and os.path.exists(path_proj_local):
-                    vpr.vpr_dirs_projectdepot_synchronize(
-                        jobs_local=path_proj_local,
-                        jobs_netwk=path_proj_netwk,
-                        direction=dbj.sync_netwk_to_local,
-                        show_term=False
+                    t = threading.Thread(
+                        target=vpr.vpr_dirs_projectdepot_synchronize,
+                        kwargs=dict(
+                            jobs_local=path_proj_local,
+                            jobs_netwk=path_proj_netwk,
+                            direction=dbj.sync_netwk_to_local,
+                            show_term=False
+                        ),
+                        daemon=True
                     )
-            _production_sync_done = True
+                    t.start()
 
         # Production uses 'projects' table
         db_table = db_table_proj

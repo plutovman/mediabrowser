@@ -1,5 +1,5 @@
 {
-  "hash": "3c2a10e",
-  "date": "2026-04-07 00:01:27",
-  "message": "osx: tweak to vpr_dirs_projectdepot_synchronize"
+  "hash": "6c38e45",
+  "date": "2026-04-07 17:40:26",
+  "message": "osx: vpr.vpr_dirs_projectdepot_synchronize() is now called once, the first time that 'production' portal is activated"
 }
