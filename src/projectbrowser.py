@@ -87,6 +87,7 @@ if not list_storage_src:
 CNT_ITEMS_VIEW_TABLE = 100  # Number of rows per page for table view
 CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
 CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud
+_production_sync_done = False  # Run dir sync once on first /production visit
 
 # Note: This module can work as a standalone Flask app OR have its routes
 # registered with another Flask app (e.g., mediabrowser)
@@ -338,21 +339,6 @@ def cache_invalidate_runtime():
 # ROUTE REGISTRATION FUNCTION
 # ============================================================================
 
-def startup_sync():
-    """Synchronize project directory structure (network -> local) on startup."""
-    if not (path_proj_netwk and path_proj_local):
-        return
-    if not (os.path.exists(path_proj_netwk) and os.path.exists(path_proj_local)):
-        return
-    vpr.vpr_dirs_projectdepot_synchronize(
-        jobs_local=path_proj_local,
-        jobs_netwk=path_proj_netwk,
-        direction=dbj.sync_netwk_to_local,
-        show_term=False
-    )
-
-# end of def startup_sync():
-
 ###############################################################################
 ###############################################################################
 def register_routes(flask_app):
@@ -370,6 +356,18 @@ def register_routes(flask_app):
     @flask_app.route('/production', methods=['GET', 'POST'])
     def page_production():
         """Production interface with cascading dropdowns for years, projects, and apps"""
+        global _production_sync_done
+        if not _production_sync_done:
+            if path_proj_netwk and path_proj_local:
+                if os.path.exists(path_proj_netwk) and os.path.exists(path_proj_local):
+                    vpr.vpr_dirs_projectdepot_synchronize(
+                        jobs_local=path_proj_local,
+                        jobs_netwk=path_proj_netwk,
+                        direction=dbj.sync_netwk_to_local,
+                        show_term=False
+                    )
+            _production_sync_done = True
+
         # Production uses 'projects' table
         db_table = db_table_proj
         

@@ -1,5 +1,5 @@
 {
-  "hash": "89d3a89",
-  "date": "2026-03-26 15:21:34",
-  "message": "update to util_imgseq_to_mp4 that doesn't assume 1920x1080 content"
+  "hash": "3c2a10e",
+  "date": "2026-04-07 00:01:27",
+  "message": "osx: tweak to vpr_dirs_projectdepot_synchronize"
 }

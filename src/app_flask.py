@@ -264,8 +264,6 @@ def register_routes_projectbrowser():
     """Register projectbrowser routes if module is available"""
     try:
         import projectbrowser as pb
-        if hasattr(pb, 'startup_sync'):
-            pb.startup_sync()
         if hasattr(pb, 'register_routes'):
             pb.register_routes(app)
     except ImportError:
