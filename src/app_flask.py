@@ -211,9 +211,13 @@ def ensure_all_indexes():
             ('idx_lighting', 'lighting'),
             ('idx_file_extension', 'file_extension'),
             ('idx_category', 'category'),
+            # Soft-delete state filter (essential - used in all queries)
+            ('idx_file_state', 'file_state'),
             # Composite indexes for common search combinations
             ('idx_type_subject', 'file_extension, subject'),
             ('idx_genre_subject', 'genre, subject'),
+            ('idx_file_state_subject', 'file_state, subject'),
+            ('idx_file_state_extension', 'file_state, file_extension'),
         ]
         
         # Apply indexes to both tables

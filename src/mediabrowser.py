@@ -398,6 +398,9 @@ def db_item_add_from_dict(item_dict: dict, db_table: str = None):
         'setting': 'unknown',
         'tags': 'unknown',
         'captions': 'unknown',
+        'file_date': datetime.now().strftime('%Y-%m-%d'),
+        'file_state': 'active',
+        'file_state_date': datetime.now().strftime('%Y-%m-%d'),
     }
     
     # Merge item_dict into all_fields, overwriting defaults with actual values
@@ -561,7 +564,7 @@ def register_routes(app):
             db_table = list_db_tables[0]
         
         conn = db_get_connection()
-        random_media = conn.execute(f'SELECT * FROM {db_table} ORDER BY RANDOM() LIMIT 1').fetchone()
+        random_media = conn.execute(f'SELECT * FROM {db_table} WHERE file_state = "active" ORDER BY RANDOM() LIMIT 1').fetchone()
         random_image = enrich_media_paths(random_media) if random_media else None
         db_connection_close(conn)
         
@@ -613,7 +616,7 @@ def register_routes(app):
     
         # Build complex query searching across multiple fields
         if search_query:
-            where_clause = "(genre LIKE ? OR category LIKE ? OR subject LIKE ? OR tags LIKE ?)"
+            where_clause = "file_state = 'active' AND (genre LIKE ? OR category LIKE ? OR subject LIKE ? OR tags LIKE ?)"
             params = ['%' + search_query + '%'] * 4
             
             if file_extension_filter:
@@ -638,7 +641,7 @@ def register_routes(app):
             total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
             total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
         elif file_extension_filter or genre_filter or setting_filter:
-            where_conditions = []
+            where_conditions = ["file_state = 'active'"]
             params = []
             
             if file_extension_filter:
@@ -662,9 +665,9 @@ def register_routes(app):
             total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
             total_pages = math.ceil(total_media_count / CNT_ITEMS_PER_PAGE)
         else:
-            sql_query = f'SELECT * FROM {db_table} ORDER BY file_id ASC LIMIT ? OFFSET ?'
+            sql_query = f'SELECT * FROM {db_table} WHERE file_state = "active" ORDER BY file_id ASC LIMIT ? OFFSET ?'
             params = (CNT_ITEMS_PER_PAGE, offset)
-            count_sql = f'SELECT COUNT(*) FROM {db_table}'
+            count_sql = f'SELECT COUNT(*) FROM {db_table} WHERE file_state = "active"'
             count_params = ()
             media = conn.execute(sql_query, params).fetchall()
             total_media_count = conn.execute(count_sql, count_params).fetchone()[0]
@@ -776,7 +779,7 @@ def register_routes(app):
         media_list = []
         if cart_ids:
             placeholders = ','.join('?' for _ in cart_ids)
-            query = f'SELECT * FROM {db_table} WHERE file_id IN ({placeholders})'
+            query = f'SELECT * FROM {db_table} WHERE file_state = "active" AND file_id IN ({placeholders})'
             conn = db_get_connection()
             media = conn.execute(query, cart_ids).fetchall()
             for item in media:
@@ -821,7 +824,7 @@ def register_routes(app):
             return redirect(url_for('page_cart'))
         
         placeholders = ','.join('?' for _ in selected_ids)
-        query = f'SELECT * FROM {db_table} WHERE file_id IN ({placeholders})'
+        query = f'SELECT * FROM {db_table} WHERE file_state = "active" AND file_id IN ({placeholders})'
         conn = db_get_connection()
         media = conn.execute(query, selected_ids).fetchall()
         db_connection_close(conn)
@@ -882,7 +885,7 @@ def register_routes(app):
         if not changes:
             return jsonify({'success': False, 'error': 'No changes provided'})
         
-        list_columns_editable = ['subject', 'genre', 'setting', 'captions', 'tags']
+        list_columns_editable = ['subject', 'genre', 'setting', 'captions', 'tags', 'file_state', 'file_state_date']
         
         conn = db_get_connection()
         updated_count = 0
@@ -1057,7 +1060,10 @@ def register_routes(app):
                     'captions': '',
                     'tags': '',
                     'source': '',
-                    'source_id': ''
+                    'source_id': '',
+                    'file_date': datetime.now().strftime('%Y-%m-%d'),
+                    'file_state': 'active',
+                    'file_state_date': datetime.now().strftime('%Y-%m-%d')
                 }
                 
                 # Add file_id to queue

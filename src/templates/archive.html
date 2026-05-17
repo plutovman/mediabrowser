@@ -310,6 +310,21 @@
                         <input type="text" id="file_duration" name="file_duration" readonly>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="file_date">File Date</label>
+                        <input type="text" id="file_date" name="file_date" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="file_state">File State</label>
+                        <input type="text" id="file_state" name="file_state" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="file_state_date">File State Date</label>
+                        <input type="text" id="file_state_date" name="file_state_date" readonly>
+                    </div>
+                    
                     <hr style="border-color: #444; margin: 20px 0;">
                     
                     <!-- Editable fields -->
@@ -626,6 +641,9 @@
                 document.getElementById('file_resolution').value = cached.file_resolution || '';
                 document.getElementById('file_format').value = cached.file_format || '';
                 document.getElementById('file_duration').value = cached.file_duration || '';
+                document.getElementById('file_date').value = cached.file_date || '';
+                document.getElementById('file_state').value = cached.file_state || '';
+                document.getElementById('file_state_date').value = cached.file_state_date || '';
                 document.getElementById('subject').value = cached.subject || '';
                 document.getElementById('genre').value = cached.genre || '';
                 document.getElementById('setting').value = cached.setting || '';
@@ -698,6 +716,9 @@
                 document.getElementById('file_resolution').value = metadata.file_resolution || '';
                 document.getElementById('file_format').value = metadata.file_format || '';
                 document.getElementById('file_duration').value = metadata.file_duration || '';
+                document.getElementById('file_date').value = processedFiles[fileId].file_date || '';
+                document.getElementById('file_state').value = processedFiles[fileId].file_state || '';
+                document.getElementById('file_state_date').value = processedFiles[fileId].file_state_date || '';
                 
                 // Load user-editable fields from cache (they should be empty for new files)
                 const cachedSubject = (processedFiles[fileId].subject || '').trim();

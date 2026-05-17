@@ -541,40 +541,48 @@ table {
             const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
             const count = selectedIds.length;
 
-            if (!confirm(`WARNING: This will permanently delete ${count} item(s) from the database.\n\nThis action CANNOT be undone!\n\nAre you sure you want to continue?`)) {
+            if (!confirm(`This will mark ${count} item(s) as inactive in the database.\n\nItems will no longer appear in search results or the cart.\n\nAre you sure you want to continue?`)) {
                 return;
             }
 
-            const passwordResult = await requestPassword('Enter database password to confirm deletion');
+            const passwordResult = await requestPassword('Enter database password to confirm');
             if (passwordResult.cancelled) {
                 return;
             }
 
             const password = passwordResult.password;
             if (!password) {
-                alert('Password required to delete items');
+                alert('Password required');
                 return;
             }
 
-            // Send to server
-            fetch("{{ url_for('cart_items_prune') }}", {
+            // Build changes list: set file_state=inactive and file_state_date=today for each item
+            const today = new Date().toISOString().slice(0, 10);
+            const changes = [];
+            for (const file_id of selectedIds) {
+                changes.push({ file_id: file_id, field: 'file_state', value: 'inactive' });
+                changes.push({ file_id: file_id, field: 'file_state_date', value: today });
+            }
+
+            // Route through cart_items_update (soft-delete)
+            fetch("{{ url_for('cart_items_update') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ file_ids: selectedIds, password: password, db_table: '{{ db_table }}' })
+                body: JSON.stringify({ changes: changes, password: password, db_table: '{{ db_table }}' })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert(`Successfully deleted ${data.deleted} item(s) from database`);
+                    alert(`Successfully marked ${count} item(s) as inactive`);
                     window.location.reload();
                 } else {
                     alert('Error: ' + data.error);
                 }
             })
             .catch(error => {
-                alert('Error deleting items: ' + error);
+                alert('Error updating items: ' + error);
             });
         }
 

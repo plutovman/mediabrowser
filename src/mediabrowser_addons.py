@@ -1,12 +1,12 @@
 def get_file_status(file_id):
-    """Check if file exists in proj, arch, or both tables"""
+    """Check if file exists in proj, arch, or both tables (active only)"""
     conn = db_get_connection()
     
-    # Single query across both tables
+    # Single query across both tables, filtering by active state
     query = '''
         SELECT 
-            (SELECT 1 FROM media_proj WHERE file_id = ?) as in_proj,
-            (SELECT 1 FROM media_arch WHERE file_id = ?) as in_arch
+            (SELECT 1 FROM media_proj WHERE file_id = ? AND file_state = 'active') as in_proj,
+            (SELECT 1 FROM media_arch WHERE file_id = ? AND file_state = 'active') as in_arch
     '''
     result = conn.execute(query, (file_id, file_id)).fetchone()
     conn.close()
@@ -19,14 +19,15 @@ def get_file_status(file_id):
 
 # Could also use JOINs to find curated items:
 def get_curated_items():
-    """Get items that exist in both tables"""
+    """Get items that exist in both tables with active state"""
     conn = db_get_connection()
     
     query = '''
         SELECT p.* 
         FROM media_proj p
         INNER JOIN media_arch a ON p.file_id = a.file_id
-        WHERE p.subject != a.subject  -- Find items with different metadata
+        WHERE p.file_state = 'active' AND a.file_state = 'active'
+            AND p.subject != a.subject  -- Find items with different metadata
     '''
     
     results = conn.execute(query).fetchall()
@@ -47,7 +48,7 @@ def api_archive_copy_from_proj():
         
         # Check if already in archive
         exists = conn.execute(
-            'SELECT 1 FROM media_arch WHERE file_id = ?', 
+            'SELECT 1 FROM media_arch WHERE file_id = ? AND file_state = "active"', 
             (file_id,)
         ).fetchone()
         
@@ -105,7 +106,7 @@ def sync_metadata_across_tables(file_id, field, value, source_table):
         
         # Check if file exists in target table
         exists = conn.execute(
-            f'SELECT 1 FROM {target_table} WHERE file_id = ? LIMIT 1',
+            f'SELECT 1 FROM {target_table} WHERE file_id = ? AND file_state = "active" LIMIT 1',
             (file_id,)
         ).fetchone()
         

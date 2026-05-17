@@ -1,5 +1,5 @@
 {
-  "hash": "6c38e45",
-  "date": "2026-04-07 17:40:26",
-  "message": "osx: vpr.vpr_dirs_projectdepot_synchronize() is now called once, the first time that 'production' portal is activated"
+  "hash": "42c4b33",
+  "date": "2026-04-09 21:32:06",
+  "message": "new frange_to_list() routine"
 }
