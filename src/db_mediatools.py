@@ -1,4 +1,5 @@
 import os, sqlite3
+import vpr_jobtools as vpr
 
 
 list_ext_geometry = ['blend', 'stl', 'obj', 'fbx', '3mf', 'ply', 'geo', 'bgeo', 'gltf', 'glb', 'ma', 'mb', 'abc']
@@ -147,7 +148,7 @@ def db_sqlite_tablea_copy_to_tableb(db_path: str, table_a: str, table_b: str, pa
                 subdir = 'others'
             
             # Build source path (handle $DEPOT_ALL placeholder)
-            path_src = file_path.replace('$DEPOT_ALL', os.getenv('DEPOT_ALL', ''))
+            path_src = vpr.vpr_env_depot_expand(file_path)
             
             # Build destination path
             path_dst = os.path.join(path_target, subdir)
@@ -162,9 +163,8 @@ def db_sqlite_tablea_copy_to_tableb(db_path: str, table_a: str, table_b: str, pa
             
             if copy_result['success']:
                 # Update file_path to reflect new archive location with symbolic path
-                depot_local = os.getenv('DEPOT_ALL', '')
                 path_dst_full = os.path.join(path_dst, file_name)
-                path_dst_symbolic = path_dst_full.replace(depot_local, '$DEPOT_ALL')
+                path_dst_symbolic = vpr.vpr_env_depot_symbolize(path_dst_full)
                 
                 # Convert record to dict and update file_path
                 record_dict = dict(record)

@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rm *)",
+      "Bash(git mv *)",
+      "Bash(python3 -m py_compile src/projectbrowser.py src/launchpad.py src/mediabrowser.py src/app_flask.py)",
+      "Bash(python3 -m py_compile src/db_jobtools.py src/mediabrowser.py src/projectbrowser.py src/app_flask.py src/vpr_jobtools.py)",
+      "Bash(env)",
+      "Bash(curl -s -o /dev/null -w \"index: %{http_code}\\\\n\" http://127.0.0.1:5099/)",
+      "Bash(curl -s -o /dev/null -w \"search: %{http_code}\\\\n\" http://127.0.0.1:5099/search)",
+      "Bash(curl -s -o /dev/null -w \"production: %{http_code}\\\\n\" http://127.0.0.1:5099/production)",
+      "Bash(curl -s http://127.0.0.1:5099/api/projects_by_year?job_year=2024)",
+      "Bash(curl -s \"http://127.0.0.1:5099/api/projects_by_year?job_year=2024\")",
+      "Bash(kill %1)",
+      "Read(//private/tmp/**)",
+      "Bash(pkill -f \"app_flask.py --port 5099\")",
+      "Bash(md5 /Users/vs/Developer/git/dev/mediabrowser/CLAUDE.md)",
+      "Bash(grep *)",
+      "Bash(python3 -m py_compile vpr_jobtools.py)",
+      "Bash(python3 -m py_compile vpr_jobtools.py db_jobtools.py db_mediatools.py mediabrowser.py projectbrowser.py util_job_make.py app_flask.py)",
+      "Bash(curl -s -o /dev/null -w \"search: %{http_code}\\\\n\" \"http://127.0.0.1:5099/search?db_table=media_proj\")",
+      "Bash(curl -s -X POST \"http://127.0.0.1:5099/api/job_name_validate\" -H \"Content-Type: application/json\" -d '{\"job_base\":\"foxlito\"}')",
+      "Bash(python3 -m py_compile *.py)",
+      "Bash(python3 *)"
+    ]
+  }
+}

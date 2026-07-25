@@ -1,5 +1,4 @@
 import os
-import sys
 import threading
 import webbrowser
 import time
@@ -35,21 +34,6 @@ def port_find_available(host='127.0.0.1', start_port=5000, max_attempts=10):
         if port_number_available(host, port):
             return port
     return None
-
-###############################################################################
-###############################################################################
-def get_python_executable():
-    """Get the appropriate Python executable
-    
-    When running as a PyInstaller frozen app, sys.executable points to the
-    frozen executable itself, not Python. This causes recursive execution
-    when trying to launch Python scripts. This function returns the system
-    Python interpreter when frozen.
-    """
-    if getattr(sys, 'frozen', False):
-        # Running as frozen executable - use system Python
-        return 'python3'  # WSL/Linux default
-    return sys.executable
 
 class LaunchpadApp(ctk.CTk):
     def __init__(self):

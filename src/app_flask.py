@@ -15,6 +15,7 @@ Environment Requirements:
 import socket
 import webbrowser
 import os
+import secrets
 import sqlite3
 from threading import Timer
 from flask import Flask, send_from_directory
@@ -37,7 +38,10 @@ template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templat
 app = Flask(__name__, 
             static_folder=None,  # Disable automatic static route
             template_folder=template_dir)
-app.secret_key = 'your_secret_key_here'  # Set secret key for sessions
+# secret_key signs the session cookie (cart, archive queue, etc.) so the
+# browser can't tamper with it; generated fresh per app run/session, so
+# restarting the app invalidates any cookies from a previous run.
+app.secret_key = secrets.token_hex(32)
 app.config['TEMPLATES_AUTO_RELOAD'] = True  # Force template reloading
 
 # Global reference to launchpad app for HTTP activity tracking
@@ -326,6 +330,13 @@ def main(debug=True, host='127.0.0.1', port=5000, browser_open_on_start=True):
         port (int): Port to bind to. Default is 5000.
         browser_open_on_start (bool): Automatically open browser. Default is True.
     """
+    # Flask debug mode exposes the Werkzeug interactive debugger (arbitrary code
+    # execution from any unhandled exception) to anyone who can reach the host:port.
+    # Only safe on the loopback interface, so force it off whenever host is anything else.
+    if host != '127.0.0.1' and debug:
+        print(f"[SECURITY] Disabling debug mode: host={host} is not 127.0.0.1")
+        debug = False
+
     # Initialize database indexes for optimal performance
     ensure_all_indexes()
     print_cache_summary()

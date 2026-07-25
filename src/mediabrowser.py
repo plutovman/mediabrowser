@@ -21,7 +21,7 @@ import sqlite3
 import os
 import math
 import random
-import threading
+import hmac
 import cv2
 import io
 import zipfile
@@ -58,11 +58,18 @@ SQLITE_TIMEOUT_SECONDS = 60.0
 SQLITE_BUSY_TIMEOUT_MS = 30000
 # SQLite PRAGMA cache_size uses sign as unit selector:
 #   positive => number of pages, negative => size in KiB.
-# We use negative so memory target is explicit/predictable (~100 MB per thread)
-# regardless of SQLite page size.
+# We use negative so memory target is explicit/predictable regardless of
+# SQLite page size. MediaBrowser's media table is much larger than
+# ProjectBrowser's jobs table, hence the bigger cache budget here.
 SQLITE_CACHE_SIZE_KB = -102400  # 100MB page cache per Flask thread
-_connection_cache = threading.local()
-_cache_config_logged = False
+
+_media_db = dbj.SqliteThreadConnection(
+    path_db_media,
+    label='MediaBrowser',
+    cache_size_kb=SQLITE_CACHE_SIZE_KB,
+    busy_timeout_ms=SQLITE_BUSY_TIMEOUT_MS,
+    timeout_s=SQLITE_TIMEOUT_SECONDS,
+)
 
 # Git repository information (defined once at module level)
 file_git_info = 'repo_info.json'
@@ -154,62 +161,14 @@ def cart_clear_table(db_table):
 # HELPER FUNCTIONS - DATABASE & MEDIA
 # ============================================================================
 
-def _db_connection_configure(conn):
-    """Apply connection settings optimized for network SQLite usage."""
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=DELETE")
-    conn.execute(f"PRAGMA cache_size={SQLITE_CACHE_SIZE_KB}")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("PRAGMA temp_store=MEMORY")
-    conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
-
-
-def _db_cache_config_log_once():
-    global _cache_config_logged
-    if _cache_config_logged:
-        return
-    print(
-        "[CACHE][MediaBrowser] sqlite "
-        f"journal=DELETE sync=NORMAL cache_size_kb={abs(SQLITE_CACHE_SIZE_KB)} "
-        f"busy_timeout_ms={SQLITE_BUSY_TIMEOUT_MS} timeout_s={SQLITE_TIMEOUT_SECONDS} "
-        "mode=thread-local-persistent"
-    )
-    _cache_config_logged = True
-
-
-def _db_connection_thread_get():
-    """Get or create a persistent SQLite connection per Flask worker thread."""
-    conn = getattr(_connection_cache, 'conn', None)
-    if conn is None:
-        conn = sqlite3.connect(path_db_media, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
-        _db_connection_configure(conn)
-        _connection_cache.conn = conn
-        _db_cache_config_log_once()
-        return conn
-
-    try:
-        conn.execute('SELECT 1')
-        return conn
-    except sqlite3.Error:
-        conn = sqlite3.connect(path_db_media, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
-        _db_connection_configure(conn)
-        _connection_cache.conn = conn
-        _db_cache_config_log_once()
-        return conn
-
-
 def db_get_connection():
     """Return thread-local persistent SQLite connection with warm page cache."""
-    return _db_connection_thread_get()
+    return _media_db.get()
 
 
 def db_connection_close(conn):
     """Close only non-thread-local connections; cached thread connection stays warm."""
-    if conn is None:
-        return
-    if conn is getattr(_connection_cache, 'conn', None):
-        return
-    conn.close()
+    _media_db.release(conn)
 
 
 @contextmanager
@@ -236,9 +195,7 @@ def _cached_category_counts(category: str, top_n: int, db_table: str):
 
 @lru_cache(maxsize=20000)
 def _cached_media_path_details(file_path_raw: str, file_extension_raw: str):
-    full_path = file_path_raw
-    if full_path.startswith('$DEPOT_ALL'):
-        full_path = full_path.replace('$DEPOT_ALL', depot_local)
+    full_path = vpr.vpr_env_depot_expand(file_path_raw, depot_local)
 
     relative_path = os.path.relpath(full_path, depot_local)
     file_extension = (file_extension_raw or '').lower()
@@ -838,10 +795,8 @@ def register_routes(app):
         with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
             for item in media:
                 item_dict = dict(item)
-                full_path = item_dict['file_path']
-                if full_path.startswith('$DEPOT_ALL'):
-                    full_path = full_path.replace('$DEPOT_ALL', depot_local)
-                
+                full_path = vpr.vpr_env_depot_expand(item_dict['file_path'], depot_local)
+
                 if os.path.exists(full_path):
                     arcname = os.path.basename(full_path)
                     zf.write(full_path, arcname)
@@ -879,7 +834,7 @@ def register_routes(app):
         if not correct_password:
             return jsonify({'success': False, 'error': 'Database password not configured on server'})
         
-        if provided_password != correct_password:
+        if not hmac.compare_digest(provided_password, correct_password):
             return jsonify({'success': False, 'error': 'Incorrect password'})
         
         if not changes:
@@ -913,6 +868,7 @@ def register_routes(app):
             
             return jsonify({'success': True, 'updated': updated_count})
         except Exception as e:
+            conn.rollback()
             db_connection_close(conn)
             return jsonify({'success': False, 'error': str(e)})
     
@@ -932,7 +888,7 @@ def register_routes(app):
         if not correct_password:
             return {'success': False, 'error': 'Database password not configured on server'}
         
-        if provided_password != correct_password:
+        if not hmac.compare_digest(provided_password, correct_password):
             return {'success': False, 'error': 'Incorrect password'}
         
         if not file_ids:
@@ -958,6 +914,7 @@ def register_routes(app):
             
             return {'success': True, 'deleted': deleted_count}
         except Exception as e:
+            conn.rollback()
             db_connection_close(conn)
             return {'success': False, 'error': str(e)}
     
@@ -1038,7 +995,7 @@ def register_routes(app):
                     generate_video_thumbnail(dest_path, time_percent=0.25)
                 
                 # Convert to relative path with $DEPOT_ALL prefix
-                dest_path_rel = dest_path.replace(depot_local, '$DEPOT_ALL').replace('\\', '/')
+                dest_path_rel = vpr.vpr_env_depot_symbolize(dest_path, depot_local)
                 
                 # Generate unique file_id
                 file_id = dbj.db_id_create(db_sqlite_path=path_db_media, db_table=db_table_arch, id_column='file_id')
@@ -1131,7 +1088,7 @@ def register_routes(app):
             
             # Convert $DEPOT_ALL to actual path if present
             if file_path.startswith('$DEPOT_ALL'):
-                file_path_abs = file_path.replace('$DEPOT_ALL', depot_local).replace('\\', '/')
+                file_path_abs = vpr.vpr_env_depot_expand(file_path, depot_local).replace('\\', '/')
             else:
                 file_path_abs = file_path
             
@@ -1235,18 +1192,25 @@ def register_routes(app):
     
     @app.route('/api/archive/serve_file')
     def api_archive_serve_file():
-        """Serve file for preview from any filesystem location"""
-        
+        """Serve file for preview from anywhere within the depot directory tree"""
+
         try:
             file_path = request.args.get('path', '')
-            
-            if not os.path.exists(file_path):
+
+            # Resolve symlinks and '..' segments, then confirm the result still
+            # lives under depot_local before serving anything.
+            real_path = os.path.realpath(file_path)
+            real_depot = os.path.realpath(depot_local)
+            if os.path.commonpath([real_path, real_depot]) != real_depot:
+                return jsonify({'error': 'Access denied: path is outside the depot directory'}), 403
+
+            if not os.path.exists(real_path):
                 return jsonify({'error': 'File not found'}), 404
-            
-            if not os.path.isfile(file_path):
+
+            if not os.path.isfile(real_path):
                 return jsonify({'error': 'Not a file'}), 400
-            
-            return send_file(file_path)
+
+            return send_file(real_path)
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     

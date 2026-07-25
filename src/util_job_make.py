@@ -441,8 +441,8 @@ def main():
         job_path_job = os.path.join(config['path_proj_netwk'], year, job_name) if config['path_proj_netwk'] else ''
         job_path_rnd = os.path.join(config['path_rend_netwk'], year, job_name) if config['path_rend_netwk'] else ''
         
-        job_path_job_symbolic = job_path_job.replace(config['depot_local'], '$DEPOT_ALL')
-        job_path_rnd_symbolic = job_path_rnd.replace(config['depot_local'], '$DEPOT_ALL')
+        job_path_job_symbolic = vpr.vpr_env_depot_symbolize(job_path_job, config['depot_local'])
+        job_path_rnd_symbolic = vpr.vpr_env_depot_symbolize(job_path_rnd, config['depot_local'])
         
         job_info = {
             'job_name': job_name,

@@ -400,6 +400,61 @@ def vpr_file_parts_get(file_name: str):
 
 ###############################################################################
 ###############################################################################
+def vpr_env_depot_expand(path: str, depot_local: str = None):
+    """
+    Expand a '$DEPOT_ALL' placeholder in a stored path to a real filesystem path.
+
+    Paths persisted to the media/jobs databases use the portable placeholder
+    '$DEPOT_ALL' in place of the real depot root, so the database stays valid
+    across machines/mount points. This reverses that substitution for local
+    filesystem use.
+
+    Args:
+        path: Path that may contain the '$DEPOT_ALL' placeholder.
+        depot_local: Real depot root to substitute in. Defaults to the
+            DEPOT_ALL environment variable.
+
+    Returns:
+        str: path with '$DEPOT_ALL' replaced by depot_local, or the original
+            path unchanged if it did not contain the placeholder.
+    """
+    if not path or '$DEPOT_ALL' not in path:
+        return path
+    if depot_local is None:
+        depot_local = os.getenv('DEPOT_ALL', '')
+    return path.replace('$DEPOT_ALL', depot_local)
+
+# end of def vpr_env_depot_expand(path: str, depot_local: str = None):
+
+###############################################################################
+###############################################################################
+def vpr_env_depot_symbolize(path: str, depot_local: str = None):
+    """
+    Contract a real filesystem path back to the portable '$DEPOT_ALL' placeholder
+    form used for database storage, normalizing backslashes to forward slashes.
+
+    Args:
+        path: Real filesystem path under the depot root.
+        depot_local: Real depot root to substitute out. Defaults to the
+            DEPOT_ALL environment variable.
+
+    Returns:
+        str: path with depot_local replaced by '$DEPOT_ALL' and backslashes
+            normalized to forward slashes, or the original path unchanged if
+            depot_local is not set/known.
+    """
+    if not path:
+        return path
+    if depot_local is None:
+        depot_local = os.getenv('DEPOT_ALL', '')
+    if not depot_local:
+        return path
+    return path.replace(depot_local, '$DEPOT_ALL').replace('\\', '/')
+
+# end of def vpr_env_depot_symbolize(path: str, depot_local: str = None):
+
+###############################################################################
+###############################################################################
 def vpr_dir_synchronize(path_local: str, path_netwk: str, direction: str, show_term: bool = False):
     """
     OS-aware directory synchronization using rsync (Linux/macOS/WSL) or robocopy (Windows).
@@ -1190,9 +1245,9 @@ def vpr_jobs_dummy_create():
             job_charge3 = 'charge3'
             job_state = 'active'
             job_path_job = os.path.join(path_proj_netwk, year, job_name)
-            job_path_job_symbolic = job_path_job.replace(depot_local, '$DEPOT_ALL')
+            job_path_job_symbolic = vpr_env_depot_symbolize(job_path_job, depot_local)
             job_path_rnd = os.path.join(path_rend_netwk, year, job_name)
-            job_path_rnd_symbolic = job_path_rnd.replace(depot_local, '$DEPOT_ALL')
+            job_path_rnd_symbolic = vpr_env_depot_symbolize(job_path_rnd, depot_local)
             print (dbh + 'Creating job: {}'.format(job_name))
 
             job_data = {

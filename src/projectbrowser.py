@@ -21,8 +21,8 @@ import os
 import platform
 import subprocess
 import time
-import threading
-from flask import Flask, render_template, request, jsonify
+import hmac
+from flask import render_template, request, jsonify
 from datetime import datetime
 from functools import lru_cache
 import db_jobtools as dbj
@@ -51,16 +51,23 @@ file_projects_aliases = 'db_projects.tcsh'
 file_project_env = 'project_env.tcsh'
 file_git_info = 'repo_info.json'
 
-# SQLite tuning for network-shared DB (lighter than mediabrowser)
+# SQLite tuning for network-shared DB. Lighter cache budget than
+# mediabrowser's since the jobs table is much smaller than the media table.
 SQLITE_TIMEOUT_SECONDS = 60.0
 SQLITE_BUSY_TIMEOUT_MS = 30000
 SQLITE_CACHE_SIZE_KB = -32768  # 32MB page cache per Flask thread
-_connection_cache = threading.local()
-_cache_config_logged = False
 
 db_table_proj = 'projects'
 path_db_sqlite = os.path.join(path_db, 'sqlite', file_sqlite)
 path_db_aliases = os.path.join(path_db, 'tcsh', file_projects_aliases)
+
+_jobs_db = dbj.SqliteThreadConnection(
+    path_db_sqlite,
+    label='ProjectBrowser',
+    cache_size_kb=SQLITE_CACHE_SIZE_KB,
+    busy_timeout_ms=SQLITE_BUSY_TIMEOUT_MS,
+    timeout_s=SQLITE_TIMEOUT_SECONDS,
+)
 
 # Logo and database table configuration
 path_base_media = os.path.join(depot_local, 'assetdepot', 'media')
@@ -89,28 +96,9 @@ CNT_ITEMS_VIEW_GRID = 30  # Number of items per page for grid view
 CNT_TOP_TOPICS = 20  # Number of top topics to display in word cloud
 _production_sync_done = False  # Run dir sync once on first /production visit
 
-# Note: This module can work as a standalone Flask app OR have its routes
-# registered with another Flask app (e.g., mediabrowser)
-app = Flask(__name__, static_folder=depot_local)
-app.secret_key = 'your_secret_key_here'  # Set secret key for session
-
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
-
-def expand_depot_path(path):
-    """
-    Replace $DEPOT_ALL placeholder with actual depot path.
-    
-    Args:
-        path (str): Path that may contain $DEPOT_ALL placeholder
-        
-    Returns:
-        str: Path with $DEPOT_ALL replaced by actual depot_local value
-    """
-    if path and '$DEPOT_ALL' in path:
-        return path.replace('$DEPOT_ALL', depot_local)
-    return path
 
 def is_wsl():
     """
@@ -158,7 +146,7 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_
         dict: {'success': bool, 'message': str, 'path': str}
     """
     # Replace $DEPOT_ALL with actual path
-    job_path_job = expand_depot_path(job_path_job)
+    job_path_job = vpr.vpr_env_depot_expand(job_path_job, depot_local)
 
     # Use passed storage_source parameter, or fall back to network storage
     active_storage = storage_source if storage_source is not None else storage_netwk
@@ -217,58 +205,12 @@ def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_
 
 def db_get_connection():
     """Get per-thread persistent SQLite connection with network-aware tuning."""
-    global _cache_config_logged
-
-    conn = getattr(_connection_cache, 'conn', None)
-    if conn is None:
-        conn = sqlite3.connect(path_db_sqlite, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=DELETE")
-        conn.execute(f"PRAGMA cache_size={SQLITE_CACHE_SIZE_KB}")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA temp_store=MEMORY")
-        conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
-        _connection_cache.conn = conn
-        if not _cache_config_logged:
-            print(
-                "[CACHE][ProjectBrowser] sqlite "
-                f"journal=DELETE sync=NORMAL cache_size_kb={abs(SQLITE_CACHE_SIZE_KB)} "
-                f"busy_timeout_ms={SQLITE_BUSY_TIMEOUT_MS} timeout_s={SQLITE_TIMEOUT_SECONDS} "
-                "mode=thread-local-persistent"
-            )
-            _cache_config_logged = True
-        return conn
-
-    try:
-        conn.execute('SELECT 1')
-        return conn
-    except sqlite3.Error:
-        conn = sqlite3.connect(path_db_sqlite, check_same_thread=False, timeout=SQLITE_TIMEOUT_SECONDS)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=DELETE")
-        conn.execute(f"PRAGMA cache_size={SQLITE_CACHE_SIZE_KB}")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA temp_store=MEMORY")
-        conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
-        _connection_cache.conn = conn
-        if not _cache_config_logged:
-            print(
-                "[CACHE][ProjectBrowser] sqlite "
-                f"journal=DELETE sync=NORMAL cache_size_kb={abs(SQLITE_CACHE_SIZE_KB)} "
-                f"busy_timeout_ms={SQLITE_BUSY_TIMEOUT_MS} timeout_s={SQLITE_TIMEOUT_SECONDS} "
-                "mode=thread-local-persistent"
-            )
-            _cache_config_logged = True
-        return conn
+    return _jobs_db.get()
 
 
 def db_connection_close(conn):
     """Close only non-thread-local connections; keep the cached one warm."""
-    if conn is None:
-        return
-    if conn is getattr(_connection_cache, 'conn', None):
-        return
-    conn.close()
+    _jobs_db.release(conn)
 
 
 def _row_to_dict(row):
@@ -458,7 +400,7 @@ def register_routes(flask_app):
             return jsonify({'success': False, 'message': 'Invalid sync_direction'}), 400
         
         # Replace $DEPOT_ALL with actual path
-        job_path_job = expand_depot_path(job_path_job)
+        job_path_job = vpr.vpr_env_depot_expand(job_path_job, depot_local)
         
         # Build full path to directory
         if app is None:
@@ -662,7 +604,7 @@ end tell
             return jsonify({'success': False, 'message': 'job_path_job parameter required'}), 400
         
         # Replace $DEPOT_ALL with actual path
-        job_path_job = expand_depot_path(job_path_job)
+        job_path_job = vpr.vpr_env_depot_expand(job_path_job, depot_local)
         
         # Build full path to directory
         if app is None:
@@ -891,7 +833,7 @@ end tell
         job_path = os.path.join(path_proj_netwk, job_name) if path_proj_netwk else ''
 
         # replace depot_local with $DEPOT_ALL for symbolic path
-        job_path = job_path.replace(depot_local, '$DEPOT_ALL')
+        job_path = vpr.vpr_env_depot_symbolize(job_path, depot_local)
         
         return jsonify({
             'valid': True,
@@ -912,7 +854,7 @@ end tell
         correct_password = os.getenv('MEDIA_SQLITE_KEY')
         if not correct_password:
             return jsonify({'success': False, 'message': 'Database password not configured on server'}), 500
-        if provided_password != correct_password:
+        if not hmac.compare_digest(provided_password, correct_password):
             return jsonify({'success': False, 'message': 'Incorrect password'}), 403
 
         # generate a new job_id
@@ -943,8 +885,8 @@ end tell
         job_path_job = os.path.join(path_proj_netwk, job_year, job_name) if path_proj_netwk else ''
         job_path_rnd = os.path.join(path_rend_netwk, job_year, job_name) if path_rend_netwk else ''
         
-        job_path_job_symbolic = job_path_job.replace(depot_local, '$DEPOT_ALL')
-        job_path_rnd_symbolic = job_path_rnd.replace(depot_local, '$DEPOT_ALL')
+        job_path_job_symbolic = vpr.vpr_env_depot_symbolize(job_path_job, depot_local)
+        job_path_rnd_symbolic = vpr.vpr_env_depot_symbolize(job_path_rnd, depot_local)
         
         
         # Check if job already exists in database

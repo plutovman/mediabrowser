@@ -2,6 +2,7 @@
 import random, string, re, pathlib, datetime
 import os, inspect, json
 import sqlite3
+import threading
 
 job_mode_active = 'active'
 job_mode_archvd = 'archvd'
@@ -24,13 +25,6 @@ list_dirs_nuke = []
 list_dirs_python = []
 
 list_file_extensions = ['mp4', 'wav', 'jpg', 'psd', 'prproj', 'docx', 'xlsx', 'pptx', 'hip', 'nk', 'obj']
-
-list_ext_geometry = ['blend', 'fbx', 'obj', 'abc', 'usd', 'geo', 'bgeo', 'bgeo.sc', 'bgeo.sc.gz', 'bgeo.gz']
-list_ext_images = ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'exr', 'dpx']
-list_ext_videos = ['mov', 'mp4', 'avi', 'mkv', 'wmv', 'flv', 'mpg', 'mpeg']
-list_ext_audio = ['wav', 'mp3', 'ogg', 'flac', 'aac']
-list_ext_docs = ['aep', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'nk', 'psd', 'psb', 'txt', 'csv']
-list_ext_others = ['bzip', 'zip', 'tar', 'tgz', 'rar']
 
 list_content_types = ['animation' , 'animatic', 'broll', 'geometry', 'image', 'infographic', 'other', 'show', 'storyboard']
 
@@ -266,7 +260,7 @@ def db_jobname_clean(jobname:str, jobname_char_max: int):
     # strip out digits from end of job name
     jobname = re.sub(r'[0-9]+$', '', jobname)
     # strip out non-alphanumeric characters 
-    jobname = re.sub(r'[\x00-\X1F\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\xFF]+', '', jobname)
+    jobname = re.sub(r'[\x00-\x1F\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\xFF]+', '', jobname)
     # chop at char_max
     jobname = jobname[0:jobname_char_max].lower()
 
@@ -606,4 +600,84 @@ def db_sqlite_table_jobs_create(db_path: str, table_name: str):
     return conn
 
 # end of def db_sqlite_table_jobs_create(db_path: str, table_name: str):
+
+###############################################################################
+###############################################################################
+class SqliteThreadConnection:
+    '''
+    Thread-local persistent sqlite3 connection with PRAGMA tuning for
+    network-hosted (Samba/NFS) database files.
+
+    Each Flask worker thread that calls get() receives its own long-lived
+    sqlite3.Connection (backed by threading.local()), configured once and
+    reused across requests so the SQLite page cache stays warm instead of
+    being rebuilt on every request. Two independent instances (e.g. one per
+    database) never share state even though they use identically-named
+    attributes internally, since each wraps its own threading.local().
+
+    Args:
+        db_path (str): path to the sqlite database file.
+        label (str): short tag used in the one-time startup log line.
+        cache_size_kb (int): PRAGMA cache_size value (negative => size in KiB).
+        busy_timeout_ms (int): PRAGMA busy_timeout value, in milliseconds.
+        timeout_s (float): sqlite3.connect() timeout, in seconds.
+
+    Example:
+        _media_db = SqliteThreadConnection(path_db_media, label='MediaBrowser', cache_size_kb=-102400)
+        conn = _media_db.get()
+        ...
+        _media_db.release(conn)
+    '''
+
+    def __init__(self, db_path: str, label: str, cache_size_kb: int = -32768,
+                 busy_timeout_ms: int = 30000, timeout_s: float = 60.0):
+        self.db_path = db_path
+        self.label = label
+        self.cache_size_kb = cache_size_kb
+        self.busy_timeout_ms = busy_timeout_ms
+        self.timeout_s = timeout_s
+        self._local = threading.local()
+        self._logged = False
+
+    def _configure(self, conn):
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=DELETE")
+        conn.execute(f"PRAGMA cache_size={self.cache_size_kb}")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA temp_store=MEMORY")
+        conn.execute(f"PRAGMA busy_timeout={self.busy_timeout_ms}")
+
+    def _open(self):
+        conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=self.timeout_s)
+        self._configure(conn)
+        self._local.conn = conn
+        if not self._logged:
+            print(
+                f"[CACHE][{self.label}] sqlite journal=DELETE sync=NORMAL "
+                f"cache_size_kb={abs(self.cache_size_kb)} busy_timeout_ms={self.busy_timeout_ms} "
+                f"timeout_s={self.timeout_s} mode=thread-local-persistent"
+            )
+            self._logged = True
+        return conn
+
+    def get(self):
+        '''Return this thread's persistent connection, reopening it if it went stale.'''
+        conn = getattr(self._local, 'conn', None)
+        if conn is None:
+            return self._open()
+        try:
+            conn.execute('SELECT 1')
+            return conn
+        except sqlite3.Error:
+            return self._open()
+
+    def release(self, conn):
+        '''Close conn only if it is not this thread's cached connection.'''
+        if conn is None:
+            return
+        if conn is getattr(self._local, 'conn', None):
+            return
+        conn.close()
+
+# end of class SqliteThreadConnection
 
