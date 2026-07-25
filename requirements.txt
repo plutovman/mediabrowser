@@ -7,3 +7,4 @@ GitPython
 Pillow
 PyInstaller
 mutagen
+pytest

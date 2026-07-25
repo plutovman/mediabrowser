@@ -241,6 +241,127 @@
     font-size: 10px;
 }
 
+/* New consolidated nav bar (#nav-menu-2) -- mirrors the #nav-menu rules above.
+   Kept as a parallel block (rather than reusing #nav-menu's ID-scoped selectors)
+   so the original bar's CSS is untouched while both are live side by side. */
+#nav-menu-2 {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+}
+
+#nav-menu-2 > li {
+    position: relative;
+    border-right: 1px solid #444;
+}
+
+#nav-menu-2 > li:last-child {
+    border-right: none;
+}
+
+#nav-menu-2 > li > a {
+    display: block;
+    padding: 12px 20px;
+    color: #f0f0f0;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+#nav-menu-2 > li > a:hover {
+    background-color: #3a3a3a;
+}
+
+#nav-menu-2 li.has-submenu > a::after {
+    content: '▼';
+    margin-left: 8px;
+    font-size: 10px;
+}
+
+#nav-menu-2 ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background-color: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 4px;
+    min-width: 140px;
+    display: none;
+    z-index: 1000;
+    text-align: left;
+}
+
+#nav-menu-2 ul ul {
+    left: 100%;
+    top: 0;
+}
+
+#nav-menu-2 li:hover > ul {
+    display: block;
+}
+
+.menus-closed #nav-menu-2 ul {
+    display: none !important;
+}
+
+#nav-menu-2 ul li {
+    position: relative;
+    border-bottom: 1px solid #333;
+}
+
+#nav-menu-2 ul li:last-child {
+    border-bottom: none;
+}
+
+#nav-menu-2 ul li a {
+    display: block;
+    padding: 10px 15px;
+    font-size: 13px;
+    color: var(--color-text);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    text-align: left;
+}
+
+#nav-menu-2 ul li a:hover {
+    background-color: var(--color-background-hover);
+}
+
+#nav-menu-2 ul li.has-submenu > a::after {
+    content: '▶';
+    float: right;
+    font-size: 10px;
+}
+
+#job-actions-root.job-not-set {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Widen the JOB: button by 50px total (25px extra padding per side) */
+#job-actions-root > a {
+    padding-left: 45px;
+    padding-right: 45px;
+}
+
+/* Match the old bar's sync-direction item width so "LOCAL TO NETWK" /
+   "NETWK TO LOCAL" fit on one line (mirrors #sync-menu > li > a) */
+#sync-direction-menu-2 > li > a {
+    padding: 10px 18px;
+    min-width: 140px;
+}
+
 .nav-placeholder {
     padding: 12px 20px;
     color: #888;
@@ -435,6 +556,54 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                 {% endif %}
                 <li class="nav-button">
                     <a onclick="newProject()">JOB NEW</a>
+                </li>
+                <li class="nav-button">
+                    <a onclick="research()">RESEARCH</a>
+                </li>
+                <li class="nav-button">
+                    <a onclick="archive()">ARCHIVE</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- New consolidated nav bar -- kept alongside the bar above for behavioral comparison
+         while this is being developed; see CLAUDE.md / production_layout.png mockup -->
+    <div class="dropdown-container" style="margin-top: 50px;">
+        <div class="nav-menu-container">
+            <ul id="nav-menu-2">
+                <li id="job-ops-root" class="has-submenu">
+                    <a>JOB OPS</a>
+                    <ul id="job-ops-menu">
+                        <li class="nav-button">
+                            <a onclick="newProject()">NEW JOB</a>
+                        </li>
+                        <li id="set-job-root" class="has-submenu">
+                            <a>SET JOB</a>
+                            <ul id="set-job-years-menu">
+                                <!-- Years will be populated here -->
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li id="job-actions-root" class="has-submenu job-not-set">
+                    <a>JOB: <span id="active-job-label">[inactive]</span></a>
+                    <ul id="job-actions-menu">
+                        <li class="has-submenu">
+                            <a>JOB NAV</a>
+                            <ul id="navigate-storage-menu">
+                                <!-- LOCAL / NETWK will be populated here -->
+                            </ul>
+                        </li>
+                        {% if show_sync_menu %}
+                        <li class="has-submenu">
+                            <a>JOB SYNC</a>
+                            <ul id="sync-direction-menu-2">
+                                <!-- LOCAL TO NETWK / NETWK TO LOCAL will be populated here -->
+                            </ul>
+                        </li>
+                        {% endif %}
+                    </ul>
                 </li>
                 <li class="nav-button">
                     <a onclick="research()">RESEARCH</a>
@@ -675,6 +844,11 @@ input[type="date"]:disabled::-webkit-datetime-edit {
         let currentSyncData = null;  // Track current sync operation data
         let currentSyncController = null;  // Track AbortController for cancelling sync
 
+        // New consolidated nav bar (WIP) state
+        let activeJob = {{ active_job|tojson }};  // {job_name, job_path_job} or null, restored from settings.json
+        let jobOpsMenuBuilt = false;
+        let jobActionsMenuBuilt = false;
+
         const passwordModal = document.getElementById('passwordModal');
         const passwordModalTitle = document.getElementById('passwordModalTitle');
         const passwordInput = document.getElementById('passwordInput');
@@ -784,26 +958,28 @@ input[type="date"]:disabled::-webkit-datetime-edit {
          * Build projects submenu for a given year
          * Reusable for both nav and sync menus
          */
-        async function buildProjectsMenu(year, isSync = false, syncDirection = null, storage = null) {
+        async function buildProjectsMenu(year, isSync = false, syncDirection = null, storage = null, onProjectSelected = null, showAppsSubmenu = true) {
             const projectsUnoList = document.createElement('ul');
-            
+
             try {
                 const response = await fetch(`/api/projects_by_year?year=${encodeURIComponent(year)}`);
                 const data = await response.json();
-                
+
                 if (!data.projects || data.projects.length === 0) {
                     projectsUnoList.innerHTML = '<li class="nav-placeholder">No projects found</li>';
                     return projectsUnoList;
                 }
-                
+
                 for (const project of data.projects) {
                     const projectListItem = document.createElement('li');
-                    projectListItem.className = 'has-submenu';
-                    
+                    if (showAppsSubmenu) {
+                        projectListItem.className = 'has-submenu';
+                    }
+
                     const projectAnchor = document.createElement('a');
                     projectAnchor.textContent = project.name;
                     projectListItem.appendChild(projectAnchor);
-                    
+
                     // Add click handler
                     if (isSync) {
                         projectAnchor.addEventListener('click', (e) => {
@@ -816,16 +992,21 @@ input[type="date"]:disabled::-webkit-datetime-edit {
                             closeAllMenus();
                             // Open directory at project level (app=null) and load dashboard
                             loadJobDashboard(project.name, project.path, {app: null, subdir: null, storage: storage});
+                            if (onProjectSelected) {
+                                onProjectSelected(project.name, project.path);
+                            }
                         });
                     }
-                    
-                    // Lazy load apps on hover
-                    projectAnchor.addEventListener('mouseenter', async function() {
-                        if (projectListItem.querySelector('ul')) return;
-                        const appsMenu = await buildAppsMenu(project, isSync, syncDirection, storage);
-                        projectListItem.appendChild(appsMenu);
-                    });
-                    
+
+                    if (showAppsSubmenu) {
+                        // Lazy load apps on hover
+                        projectAnchor.addEventListener('mouseenter', async function() {
+                            if (projectListItem.querySelector('ul')) return;
+                            const appsMenu = await buildAppsMenu(project, isSync, syncDirection, storage);
+                            projectListItem.appendChild(appsMenu);
+                        });
+                    }
+
                     projectsUnoList.appendChild(projectListItem);
                 }
             } catch (error) {
@@ -1050,6 +1231,137 @@ input[type="date"]:disabled::-webkit-datetime-edit {
         if (syncSelectRoot) {
             syncSelectRoot.addEventListener('mouseenter', buildSyncMenu);
         }
+
+        // ====================================================================
+        // NEW CONSOLIDATED NAV BAR (WIP)
+        // ====================================================================
+
+        function updateJobActionsLabel() {
+            const label = document.getElementById('active-job-label');
+            const root = document.getElementById('job-actions-root');
+            if (!label || !root) return;
+            if (activeJob) {
+                label.textContent = activeJob.job_name;
+                root.classList.remove('job-not-set');
+            } else {
+                label.textContent = '[inactive]';
+                root.classList.add('job-not-set');
+            }
+        }
+
+        async function setActiveJob(jobName, jobPath) {
+            activeJob = { job_name: jobName, job_path_job: jobPath };
+            updateJobActionsLabel();
+
+            // Force JOB NAV/JOB SYNC submenus to rebuild for the newly set job
+            jobActionsMenuBuilt = false;
+            const navigateMenu = document.getElementById('navigate-storage-menu');
+            const syncMenu2 = document.getElementById('sync-direction-menu-2');
+            if (navigateMenu) navigateMenu.innerHTML = '';
+            if (syncMenu2) syncMenu2.innerHTML = '';
+
+            try {
+                await fetch('/api/active_job_set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_name: jobName, job_path_job: jobPath })
+                });
+            } catch (error) {
+                console.error('Error persisting active job:', error);
+            }
+        }
+
+        async function buildJobOpsMenu() {
+            if (jobOpsMenuBuilt) return;
+            jobOpsMenuBuilt = true;
+
+            const setJobRoot = document.getElementById('set-job-root');
+            const yearsMenu = document.getElementById('set-job-years-menu');
+            if (!setJobRoot || !yearsMenu) return;
+
+            setJobRoot.addEventListener('mouseenter', function() {
+                if (yearsMenu.children.length > 0) return;
+
+                for (const year of years) {
+                    const yearListItem = document.createElement('li');
+                    yearListItem.className = 'has-submenu';
+
+                    const yearAnchor = document.createElement('a');
+                    yearAnchor.textContent = year;
+                    yearListItem.appendChild(yearAnchor);
+
+                    yearAnchor.addEventListener('mouseenter', async function() {
+                        if (yearListItem.querySelector('ul')) return;
+                        const projectsMenu = await buildProjectsMenu(year, false, null, null, setActiveJob, false);
+                        yearListItem.appendChild(projectsMenu);
+                    });
+
+                    yearsMenu.appendChild(yearListItem);
+                }
+            }, { once: true });
+        }
+
+        async function buildJobActionsMenu() {
+            if (jobActionsMenuBuilt || !activeJob) return;
+            jobActionsMenuBuilt = true;
+
+            const project = { name: activeJob.job_name, path: activeJob.job_path_job };
+
+            // JOB NAV -> LOCAL / NETWK -> apps -> subdirs (reuses buildAppsMenu as-is)
+            const navigateStorageMenu = document.getElementById('navigate-storage-menu');
+            if (navigateStorageMenu) {
+                if (storageSources.length === 1) {
+                    // Only one storage source configured (e.g. NETWK-only) -- a storage choice
+                    // is meaningless, so skip straight to the app list on that single source.
+                    const appsMenu = await buildAppsMenu(project, false, null, storageSources[0]);
+                    while (appsMenu.firstChild) {
+                        navigateStorageMenu.appendChild(appsMenu.firstChild);
+                    }
+                } else {
+                    for (const storage of storageSources) {
+                        const li = document.createElement('li');
+                        li.className = 'has-submenu';
+                        const a = document.createElement('a');
+                        a.textContent = storage;
+                        li.appendChild(a);
+                        a.addEventListener('mouseenter', async function() {
+                            if (li.querySelector('ul')) return;
+                            li.appendChild(await buildAppsMenu(project, false, null, storage));
+                        }, { once: true });
+                        navigateStorageMenu.appendChild(li);
+                    }
+                }
+            }
+
+            // JOB SYNC -> LOCAL TO NETWK / NETWK TO LOCAL -> apps -> subdirs (reuses buildAppsMenu as-is)
+            const syncDirMenu = document.getElementById('sync-direction-menu-2');
+            if (syncDirMenu) {
+                for (const syncDirection of syncDirections) {
+                    const li = document.createElement('li');
+                    li.className = 'has-submenu';
+                    const a = document.createElement('a');
+                    a.textContent = syncDirection;
+                    li.appendChild(a);
+                    a.addEventListener('mouseenter', async function() {
+                        if (li.querySelector('ul')) return;
+                        li.appendChild(await buildAppsMenu(project, true, syncDirection, null));
+                    }, { once: true });
+                    syncDirMenu.appendChild(li);
+                }
+            }
+        }
+
+        const jobOpsRoot = document.getElementById('job-ops-root');
+        if (jobOpsRoot) {
+            jobOpsRoot.addEventListener('mouseenter', buildJobOpsMenu);
+        }
+
+        const jobActionsRoot = document.getElementById('job-actions-root');
+        if (jobActionsRoot) {
+            jobActionsRoot.addEventListener('mouseenter', buildJobActionsMenu);
+        }
+
+        updateJobActionsLabel();  // reflect a job restored from settings.json immediately on page load
 
         function invalidateJobMenus() {
             menuBuilt = false;
@@ -1312,13 +1624,13 @@ input[type="date"]:disabled::-webkit-datetime-edit {
         }
 
         function closeAllMenus() {
-            // Add class to nav container to force all menus closed
-            const navContainer = document.querySelector('.nav-menu-container');
-            navContainer.classList.add('menus-closed');
-            
+            // Add class to every nav container (old bar + new consolidated bar) to force all menus closed
+            const navContainers = document.querySelectorAll('.nav-menu-container');
+            navContainers.forEach(el => el.classList.add('menus-closed'));
+
             // Remove the class after a short delay so menus can be opened again on next hover
             setTimeout(() => {
-                navContainer.classList.remove('menus-closed');
+                navContainers.forEach(el => el.classList.remove('menus-closed'));
             }, 300);
         }
 
@@ -1694,6 +2006,9 @@ input[type="date"]:disabled::-webkit-datetime-edit {
 
                     if (createdJob.job_name && createdJob.job_path_job) {
                         sessionStorage.setItem(createdJobSessionKey, JSON.stringify(createdJob));
+                        // Update the new consolidated bar's JOB: state + settings.json to the
+                        // newly-created job. Awaited so the persist completes before navigation.
+                        await setActiveJob(createdJob.job_name, createdJob.job_path_job);
                     }
 
                     window.location.reload();

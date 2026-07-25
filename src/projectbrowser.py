@@ -22,6 +22,7 @@ import platform
 import subprocess
 import time
 import hmac
+import json
 from flask import render_template, request, jsonify
 from datetime import datetime
 from functools import lru_cache
@@ -125,11 +126,38 @@ def convert_path_for_wsl(linux_path):
         str: Windows-style path, or None if conversion fails
     """
     try:
-        result = subprocess.run(['wslpath', '-w', linux_path], 
+        result = subprocess.run(['wslpath', '-w', linux_path],
                               capture_output=True, text=True, check=True)
         return result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
+
+# Persisted "active job" for the new consolidated nav bar (JOB: <name>).
+# Deliberately a plain file, not the Flask session, so it survives across
+# page reloads/restarts without depending on session cookies.
+path_settings_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'mediabrowser')
+path_settings_file = os.path.join(path_settings_dir, 'settings.json')
+
+def _active_job_read():
+    """Read the persisted active job. Returns {'job_name':.., 'job_path_job':..} or None."""
+    if not os.path.exists(path_settings_file):
+        return None
+    try:
+        with open(path_settings_file, 'r') as f:
+            data = json.load(f)
+        job_name = data.get('active_job_name')
+        job_path_job = data.get('active_job_path')
+        if not job_name or not job_path_job:
+            return None
+        return {'job_name': job_name, 'job_path_job': job_path_job}
+    except (OSError, json.JSONDecodeError):
+        return None
+
+def _active_job_write(job_name, job_path_job):
+    """Persist the active job, creating the settings directory if needed."""
+    os.makedirs(path_settings_dir, exist_ok=True)
+    with open(path_settings_file, 'w') as f:
+        json.dump({'active_job_name': job_name, 'active_job_path': job_path_job}, f, indent=2)
 
 def event_jobactive_navigate_to_app_dir(job_path_job, app, subdir=None, storage_source=None):
     """
@@ -321,7 +349,10 @@ def register_routes(flask_app):
         
         # Only show sync menu if we have more than one storage source
         show_sync_menu = len(list_storage_src) > 1
-        
+
+        # Active job for the new consolidated nav bar, persisted across reloads
+        active_job = _active_job_read()
+
         return render_template('production.html',
                               logo_path=logo_relative,
                               db_table=db_table,
@@ -330,7 +361,8 @@ def register_routes(flask_app):
                               years=years,
                               storage_sources=list_storage_src,
                               sync_directions=dbj.list_sync_directions,
-                              show_sync_menu=show_sync_menu)
+                              show_sync_menu=show_sync_menu,
+                              active_job=active_job)
     
     # ========================================================================
     # ROUTES - API ENDPOINTS
@@ -772,6 +804,22 @@ end tell
         except Exception as e:
             return jsonify({'success': False, 'message': str(e)}), 500
     
+    @flask_app.route('/api/active_job_set', methods=['POST'])
+    def api_active_job_set():
+        """Persist the active job (new consolidated nav bar) to settings.json"""
+        data = request.get_json() or {}
+        job_name = data.get('job_name')
+        job_path_job = data.get('job_path_job')
+
+        if not job_name or not job_path_job:
+            return jsonify({'success': False, 'message': 'job_name and job_path_job required'}), 400
+
+        try:
+            _active_job_write(job_name, job_path_job)
+            return jsonify({'success': True}), 200
+        except OSError as e:
+            return jsonify({'success': False, 'message': str(e)}), 500
+
     @flask_app.route('/api/job_name_validate', methods=['POST'])
     def api_job_name_validate():
         """Validate job base and generate job_name and job_alias"""

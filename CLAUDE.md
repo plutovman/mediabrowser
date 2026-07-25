@@ -27,13 +27,13 @@ Python modules are designed to be reusable outside the GUI (e.g. from other scri
 This project was originally built out with **GitHub Copilot**, and a fair amount of that design
 history is preserved in the repo itself rather than in this file:
 
-- `CODE_REVIEW.md`, `CACHING_STRATEGY.md`, `PERFORMANCE_INDEXES.md` — targeted deep-dives (production
-  portal cleanup ideas, SQLite/connection caching design and rationale, index strategy for large
-  network-hosted DBs). Still broadly accurate; consult them for depth on those specific topics rather
-  than duplicating that detail here.
-- `xinstruct_*.txt` files at the repo root — raw prompts used to drive specific Copilot feature
-  sessions (e.g. building out `page_production`/`production.html`, the job dashboard). Useful as
-  design intent/history for those features, not as current documentation.
+- `docs/CODE_REVIEW.md`, `docs/CACHING_STRATEGY.md`, `docs/PERFORMANCE_INDEXES.md` — targeted
+  deep-dives (production portal cleanup ideas, SQLite/connection caching design and rationale, index
+  strategy for large network-hosted DBs). Still broadly accurate; consult them for depth on those
+  specific topics rather than duplicating that detail here.
+- `docs/production_redesign.md` — writeup of the legacy→consolidated nav bar redesign in
+  `production.html` (see Production nav bar redesign below), written to be portable to a similar
+  project.
 - `docs/CODE_CITATIONS.md` — Copilot's attribution log for borrowed snippets (e.g. modal CSS).
 
 Two Copilot-era docs that had drifted into actively misleading territory —
@@ -107,7 +107,7 @@ Both route modules get their thread-local persistent connection from a shared
 `mediabrowser.py`, `_jobs_db` in `projectbrowser.py` — since `threading.local()` is per-instance,
 independent instances never collide). Each instance applies its own PRAGMA tuning on connect
 (`journal_mode=DELETE`, `cache_size`, `synchronous=NORMAL`, `temp_store=MEMORY`, `busy_timeout`)
-specifically to mitigate latency on network-hosted (Samba/NFS) DB files — see `CACHING_STRATEGY.md`.
+specifically to mitigate latency on network-hosted (Samba/NFS) DB files — see `docs/CACHING_STRATEGY.md`.
 MediaBrowser is configured with a much larger `cache_size` (100MB) than ProjectBrowser (32MB), since
 its media table is far larger than the jobs table — that's now an explicit constructor argument
 (`cache_size_kb=`) rather than duplicated magic numbers. Both modules also run their own
@@ -155,6 +155,10 @@ maya, microsoft, movies, nuke, python, …), plus a parallel render tree under `
 - All client interactivity is vanilla JS `fetch()` against `/api/*` JSON endpoints — no framework.
   `production.html` is the largest single script block (~1000+ lines), implementing the cascading
   Year → Project → App → Subdir navigation, sync confirmation, and job dashboard/create forms.
+- `production.html` currently ships **two nav bars side by side**: the original
+  `JOB SET/JOB SYNC/JOB NEW` bar, and a newer consolidated `JOB OPS/JOB:` bar built on top of the
+  same underlying functions/endpoints (kept alongside the original for direct comparison, not yet a
+  replacement). See `docs/production_redesign.md` for the full design writeup.
 - Route naming: page routes are prefixed `page_*`, JSON API routes `api_*`; nearly every `/api/*`
   handler wraps its body in `try/except Exception as e: return jsonify({'success': False, 'error': str(e)})`.
 - Password-gated write endpoints (cart edit/prune, job creation) compare a client-submitted value
@@ -294,8 +298,9 @@ creation/navigation/sync). Rough edges worth addressing before adding significan
 8. ~~**Add a test suite.**~~ — done, all four tiers. `pytest` scaffolding: `pytest.ini` at the repo
    root (`pythonpath = src`, since `src/` is a flat script directory with no `__init__.py` and needs
    to be put on the import path explicitly for tests to `import vpr_jobtools` the same way
-   `mediabrowser.py` does), `requirements-dev.txt` (adds `pytest` on top of `requirements.txt`). Run
-   with `pytest` from the repo root — 62 tests, all passing, verified stable across repeated runs.
+   `mediabrowser.py` does). `pytest` is listed directly in `requirements.txt` (no separate dev
+   requirements file). Run with `pytest` from the repo root — 62 tests, all passing, verified stable
+   across repeated runs.
    - `test_vpr_jobtools.py` — `vpr_job_base_is_valid`, `vpr_job_rev_set`, the
      `vpr_env_depot_expand`/`vpr_env_depot_symbolize` round-trip (including a Windows-separator case).
    - `test_db_jobtools.py` — `db_tags_verify`, `db_jobname_clean`, `db_token_generator`,
@@ -336,8 +341,7 @@ local-testing/infrastructure entry points — see `util_*.py` below.
 
 **Setup**:
 ```bash
-pip install -r requirements.txt       # runtime deps: Flask, customtkinter, tkinterdnd2, opencv-python, python-vlc, GitPython, Pillow, PyInstaller, mutagen
-pip install -r requirements-dev.txt   # adds pytest, for running the test suite
+pip install -r requirements.txt   # Flask, customtkinter, tkinterdnd2, opencv-python, python-vlc, GitPython, Pillow, PyInstaller, mutagen, pytest
 ```
 
 **Run tests** (from the repo root):
